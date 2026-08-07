@@ -1,26 +1,74 @@
 @import "tailwindcss";
 
+/* WatchMuse retro black & white theme - minimal, high-contrast */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --wm-background: #0b0b0b;
+  --wm-foreground: #efefef;
+  --wm-accent: #d9d9d9;
+  --wm-muted: #bdbdbd;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --wm-background: #ffffff;
+    --wm-foreground: #111111;
+    --wm-accent: #222222;
+    --wm-muted: #6b6b6b;
+  }
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--wm-background);
+  --color-foreground: var(--wm-foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Global body styles for retro look */
+body.watchmuse-retro {
+  background: var(--wm-background);
+  color: var(--wm-foreground);
+  font-family: var(--font-geist-sans), Georgia, 'Times New Roman', serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Desaturate images and increase contrast for filmic look */
+img {
+  filter: grayscale(100%) contrast(1.05);
 }
+
+/* Subtle film grain using overlay gradient (non-critical visual) */
+.film-grain::before {
+  content: "";
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  background-image: linear-gradient(rgba(255,255,255,0.01), rgba(0,0,0,0.01));
+  mix-blend-mode: overlay;
+  z-index: 9999;
+  opacity: 0.6;
+}
+
+/* High-contrast UI elements */
+.watchmuse-card {
+  background: transparent;
+  border: 1px solid var(--wm-accent);
+  box-shadow: none;
+}
+
+.watchmuse-badge {
+  background: var(--wm-foreground);
+  color: var(--wm-background);
+}
+
+/* Links and accents */
+a {
+  color: var(--wm-accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Small utilities for components */
+.wm-muted { color: var(--wm-muted); }
+
