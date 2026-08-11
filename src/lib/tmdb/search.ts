@@ -2,11 +2,7 @@ import "server-only";
 
 import { createTtlCache } from "@/lib/ttl-cache";
 import { tmdbRequest } from "./client";
-import {
-  SEARCH_CACHE_MAX_ENTRIES,
-  SEARCH_CACHE_TTL_MS,
-  TMDB_LANGUAGE,
-} from "./constants";
+import { SEARCH_CACHE_MAX_ENTRIES, SEARCH_CACHE_TTL_MS } from "./constants";
 import {
   asArray,
   asFiniteNumber,
@@ -36,14 +32,31 @@ export async function searchMovies(query: string): Promise<MovieSearchResult> {
   const cached = searchCache.get(cacheKey);
   if (cached) return cached;
 
-  const raw = await tmdbRequest("/search/movie", {
+  // Basit dil tahmini: Türkçe karakter içeriyorsa öncelikle `tr-TR`, aksi halde `en-US` ile arama yap.
+  const containsTurkish = /[ığüşöçıİĞÜŞÖÇ]/.test(normalizedQuery);
+  const primaryLang = containsTurkish ? "tr-TR" : "en-US";
+  const fallbackLang = containsTurkish ? "en-US" : "tr-TR";
+
+  // Önce tercih edilen dilde dene; sonuç yoksa diğer dilde tekrar dene.
+  let raw: unknown = await tmdbRequest("/search/movie", {
     query: normalizedQuery,
-    language: TMDB_LANGUAGE,
+    language: primaryLang,
     include_adult: "false",
     page: "1",
   });
 
-  const result = normalizeSearchResponse(raw, normalizedQuery);
+  let result = normalizeSearchResponse(raw, normalizedQuery);
+
+  if (result.results.length === 0) {
+    raw = await tmdbRequest("/search/movie", {
+      query: normalizedQuery,
+      language: fallbackLang,
+      include_adult: "false",
+      page: "1",
+    });
+
+    result = normalizeSearchResponse(raw, normalizedQuery);
+  }
   searchCache.set(cacheKey, result);
 
   return result;

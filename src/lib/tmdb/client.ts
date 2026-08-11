@@ -15,10 +15,13 @@ import { TmdbError } from "./errors";
 function readAccessToken(): string {
   const token = process.env.TMDB_ACCESS_TOKEN?.trim();
 
+  // Basit demo modu: geliştirirken gerçek token kullanmak istemiyorsanız
+  // `.env.local` içine `TMDB_ACCESS_TOKEN=DEMO` koyabilirsiniz. Bu durumda
+  // gerçek TMDb'ye çağrı yapılmaz; sahte (mock) yanıtlar döndürülür.
   if (!token) {
     throw new TmdbError(
       "configuration",
-      "TMDb bağlantısı henüz yapılandırılmamış. Sunucuda TMDB_ACCESS_TOKEN tanımlı değil.",
+      "TMDb bağlantısı henüz yapılandırılmamış. Sunucuda TMDB_ACCESS_TOKEN değerini ayarlayın.",
     );
   }
 
@@ -34,6 +37,49 @@ export async function tmdbRequest(
   searchParams: Record<string, string> = {},
 ): Promise<unknown> {
   const token = readAccessToken();
+
+  // Demo modu: token = "DEMO" ise sahte veri döndür.
+  if (token === "DEMO") {
+    // Basit, deterministic sahte yanıtlar: arama ve provider uç noktalarını taklit eder.
+    if (path === "/search/movie") {
+      const q = String(searchParams.query ?? "").trim() || "demo";
+      const results = Array.from({ length: 3 }).map((_, i) => ({
+        id: 1000 + i,
+        title: `${q} Demo Film ${i + 1}`,
+        original_title: `${q} Demo Film ${i + 1}`,
+        poster_path: "/demo-poster.png",
+        overview: `Bu, '${q}' araması için üretilmiş demo açıklamadır.`,
+        vote_average: 7.5 - i,
+        release_date: "2020-01-01",
+      }));
+
+      return {
+        page: 1,
+        total_results: results.length,
+        results,
+      };
+    }
+
+    const providersMatch = path.match(/^\/movie\/(\d+)\/watch\/providers$/);
+    if (providersMatch) {
+      const movieId = Number(providersMatch[1]);
+      return {
+        id: movieId,
+        results: {
+          TR: {
+            flatrate: [
+              { provider_id: 8, provider_name: "DemoNet" },
+              { provider_id: 9, provider_name: "StreamPlus" },
+            ],
+            link: `https://www.justwatch.com/tr/film/${movieId}`,
+          },
+        },
+      };
+    }
+
+    // Diğer uç noktalar için boş, ama geçerli yapı.
+    return {};
+  }
 
   const url = new URL(`${TMDB_API_BASE_URL}${path}`);
   for (const [key, value] of Object.entries(searchParams)) {
