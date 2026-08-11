@@ -17,6 +17,7 @@ import { requireSupabaseEnv, isLocalRoomsEnabled } from "./env";
  */
 
 let cached: SupabaseClient | null = null;
+let anonymousSessionInFlight: Promise<AnonymousSessionResult> | null = null;
 
 export function getSupabaseBrowserClient(): SupabaseClient {
   if (cached) return cached;
@@ -25,6 +26,47 @@ export function getSupabaseBrowserClient(): SupabaseClient {
   cached = createBrowserClient(env.url, env.anonKey);
 
   return cached;
+}
+
+export interface AnonymousSessionResult {
+  id: string;
+  /** Bu çağrının yeni bir anonim oturum oluşturup oluşturmadığı. */
+  created: boolean;
+}
+
+/**
+ * Supabase yapılandırılmışsa tarayıcıda bir kimlik olmasını sağlar.
+ *
+ * Oda akışındaki yerel geliştirme geri dönüşünden ayrı tutulur: kişisel
+ * kütüphane verisi yalnızca gerçek Supabase `auth.uid()` kimliğiyle kalıcıdır.
+ */
+export async function ensureSupabaseAnonymousSession(): Promise<AnonymousSessionResult> {
+  // Ana sayfa kimlik önyüklemesi ile davet sayfası aynı anda çalışabilir. İki
+  // ayrı `signInAnonymously()` çağrısı iki farklı user_id yaratır ve davet
+  // akışını yarış koşuluna sokar. Aynı tarayıcı bağlamında tek isteği paylaş.
+  if (anonymousSessionInFlight) return anonymousSessionInFlight;
+
+  anonymousSessionInFlight = (async () => {
+    const supabase = getSupabaseBrowserClient();
+
+    const { data: existing } = await supabase.auth.getSession();
+    if (existing.session?.user?.id) {
+      return { id: existing.session.user.id, created: false };
+    }
+
+    const { data, error } = await supabase.auth.signInAnonymously();
+    if (error || !data.user?.id) {
+      throw new Error("Anonim oturum başlatılamadı.");
+    }
+
+    return { id: data.user.id, created: true };
+  })();
+
+  try {
+    return await anonymousSessionInFlight;
+  } finally {
+    anonymousSessionInFlight = null;
+  }
 }
 
 /**
@@ -60,17 +102,6 @@ export async function ensureAnonymousSession(): Promise<string> {
     return localId;
   }
 
-  const supabase = getSupabaseBrowserClient();
-
-  const { data: existing } = await supabase.auth.getSession();
-  if (existing.session?.user?.id) {
-    return existing.session.user.id;
-  }
-
-  const { data, error } = await supabase.auth.signInAnonymously();
-  if (error || !data.user?.id) {
-    throw new Error("Anonim oturum başlatılamadı.");
-  }
-
-  return data.user.id;
+  const session = await ensureSupabaseAnonymousSession();
+  return session.id;
 }

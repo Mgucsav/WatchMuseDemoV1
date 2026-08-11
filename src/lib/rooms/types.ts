@@ -38,3 +38,50 @@ export interface RoomState {
   /** Partner katıldı mı? (iki katılımcı varsa `true`) */
   partnerJoined: boolean;
 }
+
+/** Bir aday için gizli karar. Yalnızca karar veren kullanıcı kendi değerini görür. */
+export type RoomVoteChoice = "skip" | "maybe" | "want";
+
+export type RoomRoundStatus =
+  | "voting"
+  | "matching"
+  | "spinning"
+  | "result"
+  | "no_match";
+
+/** Aynı sırayla iki katılımcıya da gönderilen, sunucuda saklanmış aday film. */
+export interface RoomCandidate {
+  id: string;
+  position: number;
+  tmdbMovieId: number;
+  title: string;
+  originalTitle: string | null;
+  posterPath: string | null;
+  posterUrl: string | null;
+  overview: string | null;
+  releaseYear: number | null;
+  voteAverage: number | null;
+}
+
+/** Gizli seçim turunun istemciye güvenle sunulabilen özeti. */
+export interface RoomRound {
+  id: string;
+  status: RoomRoundStatus;
+  candidateCount: number;
+  candidates: RoomCandidate[];
+  /** Yalnızca çağıranın kendi seçimleri. */
+  myVotes: Record<string, RoomVoteChoice>;
+  myVoteCount: number;
+  /** Partnerin hangi filmleri seçtiğini değil, yalnızca tamamlayıp tamamlamadığını söyler. */
+  partnerCompleted: boolean;
+  /** İki taraf da seçimleri bitirince görünür. */
+  matchedCandidates: RoomCandidate[];
+  /** Çark başladıktan sonra ortak animasyon için sunucunun seçtiği aday. */
+  winnerCandidate: RoomCandidate | null;
+  spinStartedAt: string | null;
+  spinDurationMs: number;
+}
+
+export interface RoomRoundState {
+  round: RoomRound | null;
+}

@@ -58,6 +58,36 @@ function demoResponseFor(
     };
   }
 
+  // Oda turu, demo modunda da iki ekrana aynı anda gönderilebilecek on ayrı
+  // aday ister. Bunlar yalnızca anahtar olmadan paylaşım/test yapabilmek için
+  // kullanılan sabit TMDb-benzeri veridir; gerçek token ile bu dal hiç çalışmaz.
+  if (path === "/discover/movie") {
+    return {
+      page: 1,
+      results: [
+        [238, "Esaretin Bedeli", "The Shawshank Redemption", 1994, 9.0],
+        [278, "Esaretin Bedeli", "The Shawshank Redemption", 1994, 8.7],
+        [424, "Schindler'in Listesi", "Schindler's List", 1993, 8.6],
+        [155, "Kara Şövalye", "The Dark Knight", 2008, 8.5],
+        [550, "Dövüş Kulübü", "Fight Club", 1999, 8.4],
+        [680, "Ucuz Roman", "Pulp Fiction", 1994, 8.5],
+        [13, "Forrest Gump", "Forrest Gump", 1994, 8.4],
+        [27205, "Başlangıç", "Inception", 2010, 8.4],
+        [157336, "Yıldızlararası", "Interstellar", 2014, 8.4],
+        [603, "Matrix", "The Matrix", 1999, 8.2],
+        [120, "Yüzüklerin Efendisi: Yüzük Kardeşliği", "The Lord of the Rings: The Fellowship of the Ring", 2001, 8.4],
+      ].map(([id, title, originalTitle, year, voteAverage]) => ({
+        id,
+        title,
+        original_title: originalTitle,
+        poster_path: null,
+        overview: `${title} için demo oda adayı.`,
+        release_date: `${year}-01-01`,
+        vote_average: voteAverage,
+      })),
+    };
+  }
+
   const providersMatch = path.match(/^\/movie\/(\d+)\/watch\/providers$/);
   if (providersMatch) {
     const movieId = Number(providersMatch[1]);

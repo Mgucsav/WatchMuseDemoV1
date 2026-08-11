@@ -87,7 +87,7 @@ function normalizeSearchResponse(
 }
 
 /** Kimliği veya adı okunamayan kayıtlar listeden düşürülür. */
-function normalizeMovie(raw: unknown): MovieSummary | null {
+export function normalizeMovie(raw: unknown): MovieSummary | null {
   if (!isRecord(raw)) return null;
 
   const id = asPositiveInteger(raw.id);
@@ -106,9 +106,43 @@ function normalizeMovie(raw: unknown): MovieSummary | null {
     // Türkçe ad ile aynıysa tekrar göstermenin anlamı yok.
     originalTitle: originalTitle && originalTitle !== title ? originalTitle : null,
     releaseYear: toReleaseYear(raw.release_date),
+    posterPath,
     posterUrl: toPosterUrl(posterPath),
     overview: asNonEmptyString(raw.overview),
     // TMDb puanlanmamış filmler için 0 döndürüyor; bunu "puan yok" sayıyoruz.
     voteAverage: voteAverage !== null && voteAverage > 0 ? voteAverage : null,
   };
+}
+
+/**
+ * Oda için sunucuda bir kez aday film havuzu üretir.
+ *
+ * Bu fonksiyon istemciye doğrudan açık değildir: çağıran sunucu kodu sonucu
+ * veritabanına kaydeder; böylece iki kullanıcıya aynı 10 ID ve aynı sıra gider.
+ */
+export async function discoverRoomCandidates(): Promise<MovieSummary[]> {
+  // Popülerlik listesinde sayfayı rastgelelemek, her yeni odanın aynı on filmle
+  // başlamasını engeller. Çarkın sonucu burada DEĞİL, Postgres'te seçilir.
+  const page = String(1 + Math.floor(Math.random() * 20));
+  const raw = await tmdbRequest("/discover/movie", {
+    language: TMDB_LANGUAGE,
+    include_adult: "false",
+    include_video: "false",
+    sort_by: "popularity.desc",
+    "vote_count.gte": "50",
+    page,
+  });
+
+  const unique = new Map<number, MovieSummary>();
+  for (const entry of asArray(isRecord(raw) ? raw.results : undefined)) {
+    const movie = normalizeMovie(entry);
+    if (movie && !unique.has(movie.id)) unique.set(movie.id, movie);
+    if (unique.size === 10) break;
+  }
+
+  if (unique.size < 10) {
+    throw new Error("room_candidate_pool_incomplete");
+  }
+
+  return [...unique.values()];
 }

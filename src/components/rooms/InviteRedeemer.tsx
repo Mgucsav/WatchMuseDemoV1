@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { StatusMessage } from "@/components/StatusMessage";
@@ -20,18 +19,13 @@ type State =
  * `replace` ile gidilir; böylece token tarayıcı geçmişinde geriye kalmaz.
  */
 export function InviteRedeemer({ token }: { token: string }) {
-  const router = useRouter();
   const [state, setState] = useState<State>({ status: "redeeming" });
 
-  // React StrictMode geliştirmede effect'i iki kez çalıştırır; davet tek
-  // kullanımlık olduğu için ikinci çağrı "zaten kullanılmış" hatası üretirdi.
-  const startedRef = useRef(false);
+  // Aynı yanıt iki effect geçişinden gelse bile yalnızca bir kez yönlendir.
+  const redirectedRef = useRef(false);
 
   useEffect(() => {
-    if (startedRef.current) return;
-    startedRef.current = true;
-
-    let cancelled = false;
+    let active = true;
 
     async function redeem() {
       try {
@@ -43,12 +37,15 @@ export function InviteRedeemer({ token }: { token: string }) {
           { method: "POST", body: { token } },
         );
 
-        if (cancelled) return;
+        if (!active || redirectedRef.current) return;
+        redirectedRef.current = true;
 
-        // Temiz URL: token adres çubuğunda kalmaz.
-        router.replace(`/rooms/${result.spaceId}`);
+        // Temiz URL: token adres çubuğunda kalmaz. Tam sayfa yönlendirmesi
+        // burada bilinçlidir: yeni yazılmış Supabase oturum çerezinin sonraki
+        // oda isteğinde kesin olarak gönderilmesini sağlar.
+        window.location.replace(`/rooms/${encodeURIComponent(result.spaceId)}`);
       } catch (error) {
-        if (cancelled) return;
+        if (!active) return;
 
         setState({
           status: "error",
@@ -64,9 +61,9 @@ export function InviteRedeemer({ token }: { token: string }) {
     void redeem();
 
     return () => {
-      cancelled = true;
+      active = false;
     };
-  }, [router, token]);
+  }, [token]);
 
   if (state.status === "redeeming") {
     return (

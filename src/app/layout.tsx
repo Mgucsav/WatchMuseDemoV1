@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+
+import { SiteHeader } from "@/components/SiteHeader";
+import { AnonymousSessionBootstrap } from "@/components/auth/AnonymousSessionBootstrap";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -13,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "WatchMuse — Film Abonelik Kontrolü",
+  title: "WatchMuse — Kişisel film kütüphanesi",
   description:
     "WatchMuse: TMDb verisiyle bir filmin Türkiye'de Netflix veya Amazon Prime Video aboneliğine dahil olup olmadığını kontrol edin.",
 };
@@ -23,8 +26,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="tr"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
+      >
       <body className="flex min-h-full flex-col watchmuse-retro film-grain">
+        <AnonymousSessionBootstrap />
+        <SiteHeader />
         {children}
       </body>
     </html>

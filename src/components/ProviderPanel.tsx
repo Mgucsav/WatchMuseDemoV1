@@ -1,5 +1,6 @@
 "use client";
 
+import { LibraryActions } from "@/components/library/LibraryActions";
 import { MoviePoster } from "@/components/MoviePoster";
 import { StatusMessage } from "@/components/StatusMessage";
 import type { ApiError } from "@/lib/api/fetch-json";
@@ -76,6 +77,10 @@ export function ProviderPanel({
             </p>
           ) : null}
         </div>
+      </div>
+
+      <div className="mt-4 border-t border-black/10 pt-4 dark:border-white/15">
+        <LibraryActions movie={movie} />
       </div>
 
       <div className="mt-4">{renderBody(state)}</div>

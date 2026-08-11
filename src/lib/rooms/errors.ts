@@ -16,6 +16,11 @@ export type RoomErrorCode =
   | "room_full"
   | "host_cannot_join"
   | "room_closed"
+  | "round_not_ready"
+  | "round_closed_for_votes"
+  | "invalid_round_candidate"
+  | "invalid_candidates"
+  | "round_requires_supabase"
   | "not_configured"
   | "network"
   | "unexpected";
@@ -35,6 +40,11 @@ const MESSAGES: Record<RoomErrorCode, string> = {
   host_cannot_join:
     "Bu odayı siz oluşturdunuz; kendi davetinizle misafir olarak katılamazsınız.",
   room_closed: "Oda kapatılmış.",
+  round_not_ready: "Seçim turu henüz hazır değil.",
+  round_closed_for_votes: "Bu turun seçimleri artık değiştirilemez.",
+  invalid_round_candidate: "Seçilen film bu odaya ait değil.",
+  invalid_candidates: "Film adayları hazırlanamadı. Lütfen tekrar deneyin.",
+  round_requires_supabase: "Ortak seçim turu için Supabase bağlantısı gereklidir.",
   not_configured: "Oda servisi henüz yapılandırılmamış.",
   network: "Sunucuya ulaşılamadı. Bağlantınızı kontrol edin.",
   unexpected: "Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.",
@@ -52,6 +62,10 @@ const DATABASE_ERROR_CODES: readonly RoomErrorCode[] = [
   "room_full",
   "host_cannot_join",
   "room_closed",
+  "round_not_ready",
+  "round_closed_for_votes",
+  "invalid_round_candidate",
+  "invalid_candidates",
 ];
 
 /** Sözlükte karşılığı olan tüm kodlar (veritabanı sözleşmesi + yerel kodlar). */
@@ -59,6 +73,7 @@ const ALL_ERROR_CODES: readonly RoomErrorCode[] = [
   ...DATABASE_ERROR_CODES,
   "not_configured",
   "network",
+  "round_requires_supabase",
   "unexpected",
 ];
 

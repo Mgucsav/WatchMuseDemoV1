@@ -7,6 +7,7 @@ import { StatusMessage } from "@/components/StatusMessage";
 import { ApiError, fetchJson } from "@/lib/api/fetch-json";
 import type { RoomState } from "@/lib/rooms/types";
 import { ensureAnonymousSession } from "@/lib/supabase/browser";
+import { RoomRound } from "./RoomRound";
 
 const POLL_INTERVAL_MS = 5000;
 
@@ -125,12 +126,18 @@ export function RoomWaiting({ spaceId }: { spaceId: string }) {
         )}
       </div>
 
-      <Link
-        href="/"
-        className="inline-flex min-h-11 items-center text-sm underline underline-offset-4"
-      >
-        Film aramaya dön
-      </Link>
+      {room.partnerJoined && room.status === "active" ? (
+        <RoomRound spaceId={spaceId} isHost={room.myRole === "host"} />
+      ) : null}
+
+      <div className="flex flex-wrap gap-4 text-sm">
+        <Link href="/" className="underline underline-offset-4">
+          Film aramaya dön
+        </Link>
+        <Link href="/kutuphanem" className="underline underline-offset-4">
+          Kütüphanem
+        </Link>
+      </div>
     </section>
   );
 }

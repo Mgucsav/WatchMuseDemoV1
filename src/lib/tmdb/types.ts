@@ -19,6 +19,11 @@ export interface MovieSummary {
   /** Türkçe ad ile farklıysa dolu, aksi halde `null`. */
   originalTitle: string | null;
   releaseYear: number | null;
+  /**
+   * TMDb'nin ham afiş yolu (`/abc.jpg`).
+   * Kişisel kütüphane bu değeri saklar: afiş boyutundan bağımsız ve kalıcıdır.
+   */
+  posterPath: string | null;
   /** Doğrudan kullanılabilir tam afiş URL'si. */
   posterUrl: string | null;
   overview: string | null;

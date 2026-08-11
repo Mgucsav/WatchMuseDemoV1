@@ -155,7 +155,10 @@ export function MovieSearch() {
       />
 
       {selectedMovie && providerState ? (
-        <ProviderPanel movie={selectedMovie} state={providerState} />
+        <ProviderPanel
+          movie={selectedMovie}
+          state={providerState}
+        />
       ) : null}
 
       <footer className="border-t border-black/10 pt-4 text-xs leading-relaxed text-black/50 dark:border-white/15 dark:text-white/50">
