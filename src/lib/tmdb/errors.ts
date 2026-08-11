@@ -6,7 +6,10 @@
  */
 
 export type TmdbErrorCode =
-  | "configuration"
+  /** Sunucuda TMDb kimlik bilgisi hiç tanımlı değil — yerel yapılandırma eksiği. */
+  | "not_configured"
+  /** Kimlik bilgisi var ama TMDb reddetti (401/403) — geçersiz veya iptal edilmiş. */
+  | "auth_failed"
   | "network"
   | "timeout"
   | "rate_limited"
@@ -15,7 +18,10 @@ export type TmdbErrorCode =
   | "not_found";
 
 const HTTP_STATUS_BY_CODE: Record<TmdbErrorCode, number> = {
-  configuration: 503,
+  // Servis yapılandırılmadığı için kullanılamıyor.
+  not_configured: 503,
+  // Yukarı akış bizim kimlik bilgimizi reddetti; istemcinin hatası değil.
+  auth_failed: 502,
   network: 502,
   timeout: 504,
   rate_limited: 429,

@@ -6,7 +6,11 @@ import { MovieResultList } from "@/components/MovieResultList";
 import { ProviderPanel, type ProviderState } from "@/components/ProviderPanel";
 import { StatusMessage } from "@/components/StatusMessage";
 import { ApiError, fetchJson } from "@/lib/api/fetch-json";
-import { SEARCH_DEBOUNCE_MS, SEARCH_MIN_QUERY_LENGTH } from "@/lib/constants";
+import {
+  SEARCH_DEBOUNCE_MS,
+  SEARCH_MAX_QUERY_LENGTH,
+  SEARCH_MIN_QUERY_LENGTH,
+} from "@/lib/constants";
 import type {
   MovieProvidersResult,
   MovieSearchResult,
@@ -133,6 +137,7 @@ export function MovieSearch() {
           id="movie-search"
           type="search"
           autoComplete="off"
+          maxLength={SEARCH_MAX_QUERY_LENGTH}
           value={query}
           onChange={(event) => handleQueryChange(event.target.value)}
           placeholder="Örn: Yüzüklerin Efendisi"
@@ -204,23 +209,24 @@ function SearchSection({
   }
 
   if (state.status === "error") {
-    const isConfigurationError = state.error.code === "configuration";
+    // Yerel yapılandırma eksikliği ile TMDb'nin kimlik bilgisini reddetmesi
+    // ayrı durumlardır ve ayrı yönlendirme gerektirir.
+    const { code } = state.error;
 
     return (
-      <StatusMessage
-        tone="error"
-        title={
-          isConfigurationError
-            ? "TMDb bağlantısı henüz yapılandırılmamış"
-            : "Arama yapılamadı"
-        }
-      >
+      <StatusMessage tone="error" title={errorTitle(code)}>
         {state.error.message}
-        {isConfigurationError ? (
+        {code === "not_configured" ? (
           <span className="mt-1 block">
             Proje kökünde <code>.env.local</code> dosyası oluşturup{" "}
             <code>TMDB_ACCESS_TOKEN</code> değerini ekleyin ve sunucuyu yeniden
             başlatın.
+          </span>
+        ) : null}
+        {code === "auth_failed" ? (
+          <span className="mt-1 block">
+            Sunucudaki TMDb kimlik bilgisi tanımlı, ancak TMDb tarafından kabul
+            edilmedi. Sunucu yapılandırmasının güncellenmesi gerekiyor.
           </span>
         ) : null}
       </StatusMessage>
@@ -244,6 +250,14 @@ function SearchSection({
       onSelect={onSelect}
     />
   );
+}
+
+function errorTitle(code: string): string {
+  if (code === "not_configured") return "TMDb bağlantısı henüz yapılandırılmamış";
+  if (code === "auth_failed") return "TMDb erişimi reddedildi";
+  if (code === "rate_limited") return "Çok fazla istek gönderildi";
+  if (code === "query_too_long") return "Arama çok uzun";
+  return "Arama yapılamadı";
 }
 
 function toApiError(error: unknown): ApiError {

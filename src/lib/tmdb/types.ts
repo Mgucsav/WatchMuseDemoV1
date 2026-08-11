@@ -19,8 +19,6 @@ export interface MovieSummary {
   /** Türkçe ad ile farklıysa dolu, aksi halde `null`. */
   originalTitle: string | null;
   releaseYear: number | null;
-  /** TMDb'nin döndürdüğü ham yol, ör. `/abc.jpg`. */
-  posterPath: string | null;
   /** Doğrudan kullanılabilir tam afiş URL'si. */
   posterUrl: string | null;
   overview: string | null;
@@ -62,8 +60,15 @@ export interface MovieProvidersResult {
   providers: ProviderAvailability[];
   /** TR'de abonelikle sunan, hedef dışındaki diğer platformlar. */
   otherFlatrateProviders: FlatrateProvider[];
-  /** TMDb'nin verdiği JustWatch yönlendirme bağlantısı. */
-  justWatchUrl: string | null;
+  /**
+   * TMDb'nin `watch/providers` yanıtındaki bölge bağlantısı: filmin izleme
+   * seçeneklerini listeleyen TMDb sayfası.
+   *
+   * Doğrudan bir JustWatch adresi **değildir** ve öyle olduğu garanti edilmez;
+   * TMDb kendi yönlendirme sayfasını döndürür. Yalnızca güvenilen TMDb alan
+   * adlarına izin verilir (bkz. `toWatchOptionsUrl`).
+   */
+  watchOptionsUrl: string | null;
   /** Sunucu tarafında üretilen ISO 8601 zaman damgası. */
   checkedAt: string;
 }

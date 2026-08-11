@@ -3,6 +3,19 @@ import type { TargetProviderKey } from "./types";
 export const TMDB_API_BASE_URL = "https://api.themoviedb.org/3";
 export const TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p";
 
+/**
+ * `watch/providers` yanıtındaki `link` alanının işaret etmesine izin verilen
+ * alan adları.
+ *
+ * TMDb bu alanda kendi yönlendirme sayfasını döndürür (JustWatch'a doğrudan
+ * bağlantı değildir ve garanti edilmez). Beklenmedik bir yanıtın arayüze
+ * rastgele bir bağlantı yerleştirmesini engellemek için allowlist uygulanır.
+ */
+export const TMDB_TRUSTED_LINK_HOSTNAMES: readonly string[] = [
+  "www.themoviedb.org",
+  "themoviedb.org",
+];
+
 /** Afiş boyutu. `next.config.ts` içindeki remotePatterns bu alan adını kapsar. */
 export const TMDB_POSTER_SIZE = "w342";
 

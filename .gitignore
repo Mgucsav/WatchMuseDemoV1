@@ -35,6 +35,37 @@ yarn-error.log*
 # Gerçek değer içermeyen örnek dosya depoda tutulur.
 !.env.example
 
+# secrets / credentials — asla commit edilmez
+# (.env* kuralı yukarıda; buradakiler ek güvenlik ağıdır)
+*service_role*
+*.key
+*.p12
+*.pfx
+secrets.json
+
+# curl / tarayıcı cookie jar'ları — oturum çerezi taşıyabilir
+cookie*.txt
+cookiejar*.txt
+*.cookies
+
+# geçici tünel araçları ve çıktıları (cloudflared, ngrok vb.)
+cloudflared*
+*cloudflared*.log
+ngrok*
+*ngrok*.log
+tunnel*.log
+*.pid
+
+# log ve geçici dosyalar
+*.log
+!package-lock.json
+*.tmp
+nohup.out
+
+# işletim sistemi
+Thumbs.db
+Desktop.ini
+
 # vercel
 .vercel
 

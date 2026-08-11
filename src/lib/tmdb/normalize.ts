@@ -1,4 +1,8 @@
-import { TMDB_IMAGE_BASE_URL, TMDB_POSTER_SIZE } from "./constants";
+import {
+  TMDB_IMAGE_BASE_URL,
+  TMDB_POSTER_SIZE,
+  TMDB_TRUSTED_LINK_HOSTNAMES,
+} from "./constants";
 
 /**
  * TMDb yanıtlarını uygulamanın kendi modellerine çeviren savunmacı yardımcılar.
@@ -50,18 +54,31 @@ export function toPosterUrl(posterPath: string | null): string | null {
 }
 
 /**
- * Yalnızca TMDb'nin kendi alan adına işaret eden mutlak https bağlantılarını
- * kabul eder. Böylece beklenmedik bir yanıt arayüze rastgele bir bağlantı
- * yerleştiremez.
+ * "İzleme seçenekleri" bağlantısını normalize eder.
+ *
+ * Yalnızca `https:` şemasına **ve** güvenilen TMDb alan adlarından birine
+ * işaret eden mutlak bağlantılar kabul edilir. Böylece beklenmedik veya
+ * bozulmuş bir yanıt arayüze rastgele (ör. `javascript:`, `http:` veya
+ * üçüncü taraf) bir bağlantı yerleştiremez.
+ *
+ * Not: TMDb bu alanda kendi yönlendirme sayfasını döndürür; doğrudan bir
+ * JustWatch adresi olduğu garanti edilmez.
  */
-export function toExternalHttpsUrl(value: unknown): string | null {
+export function toWatchOptionsUrl(value: unknown): string | null {
   const raw = asNonEmptyString(value);
   if (!raw) return null;
 
+  let url: URL;
   try {
-    const url = new URL(raw);
-    return url.protocol === "https:" ? url.toString() : null;
+    url = new URL(raw);
   } catch {
     return null;
   }
+
+  if (url.protocol !== "https:") return null;
+  if (!TMDB_TRUSTED_LINK_HOSTNAMES.includes(url.hostname.toLowerCase())) {
+    return null;
+  }
+
+  return url.toString();
 }

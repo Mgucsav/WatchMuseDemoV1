@@ -1,0 +1,57 @@
+# Satır sonu normalizasyonu.
+#
+# Depoda saklanan metin dosyaları daima LF ile tutulur. Windows'ta çalışan
+# geliştiricilerde `core.autocrlf` ayarı ne olursa olsun sonuç aynıdır.
+#
+# NOT: Bu dosya yalnızca kuralı tanımlar. Mevcut dosyalar üzerinde toplu bir
+# satır sonu dönüşümü bilinçli olarak YAPILMAMIŞTIR; aksi halde neredeyse her
+# dosyayı değiştiren, gözden geçirilemez bir diff oluşurdu. Normalizasyon,
+# dosyalar doğal olarak değiştikçe kademeli uygulanacaktır.
+
+# Varsayılan: Git metin dosyalarını algılar ve depoda LF'e normalize eder.
+* text=auto eol=lf
+
+# Kaynak kod
+*.ts   text eol=lf
+*.tsx  text eol=lf
+*.mts  text eol=lf
+*.cts  text eol=lf
+*.js   text eol=lf
+*.jsx  text eol=lf
+*.mjs  text eol=lf
+*.cjs  text eol=lf
+
+# Veri ve yapılandırma
+*.json text eol=lf
+*.jsonc text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.ini  text eol=lf
+*.env.example text eol=lf
+
+# Stil
+*.css  text eol=lf
+*.scss text eol=lf
+
+# Dokümantasyon
+*.md   text eol=lf
+*.mdx  text eol=lf
+*.txt  text eol=lf
+
+# Nokta ile başlayan yapılandırma dosyaları
+.gitignore     text eol=lf
+.gitattributes text eol=lf
+.editorconfig  text eol=lf
+.npmrc         text eol=lf
+
+# İkili dosyalar — hiçbir koşulda dönüştürülmemeli
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.webp binary
+*.ico  binary
+*.woff  binary
+*.woff2 binary
+*.pdf  binary

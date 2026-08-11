@@ -2,7 +2,11 @@ import "server-only";
 
 import { createTtlCache } from "@/lib/ttl-cache";
 import { tmdbRequest } from "./client";
-import { SEARCH_CACHE_MAX_ENTRIES, SEARCH_CACHE_TTL_MS } from "./constants";
+import {
+  SEARCH_CACHE_MAX_ENTRIES,
+  SEARCH_CACHE_TTL_MS,
+  TMDB_LANGUAGE,
+} from "./constants";
 import {
   asArray,
   asFiniteNumber,
@@ -22,6 +26,25 @@ const searchCache = createTtlCache<MovieSearchResult>({
 /**
  * TMDb `search/movie` üzerinden film arar.
  *
+ * DİL DAVRANIŞI — Türkçe ve İngilizce arama aynı filmi vermelidir.
+ *
+ * TMDb'nin `query` eşleştirmesi, filmin TÜM başlık çevirileri ve alternatif
+ * adları üzerinde çalışır; `language` parametresi hangi filmlerin eşleştiğini
+ * DEĞİL, dönen üstverinin (başlık, özet) dilini belirler. Yani "Inception" da
+ * "Başlangıç" da aynı TMDb kaydına ulaşır.
+ *
+ * Bu yüzden dil TEK ve SABİTTİR (`tr-TR`). Daha önce sorgudaki Türkçe
+ * karakterlere bakıp iki farklı dille iki ayrı istek atan bir mantık vardı;
+ * bu üç soruna yol açıyordu:
+ *   1. Aynı film, sorgunun diline göre farklı başlıkla görünüyordu.
+ *   2. Sonuçsuz her arama TMDb'ye ikinci bir istek atıyor, kotayı ikiye
+ *      katlıyordu.
+ *   3. Sonuç kullanıcı açısından öngörülemez oluyordu.
+ *
+ * Türkçe çevirisi olmayan filmlerde TMDb zaten orijinal başlığı döndürür;
+ * ayrıca `originalTitle` alanı arayüzde gösterildiği için İngilizce ad da
+ * her zaman görünür kalır.
+ *
  * Yalnızca ilk sonuç sayfası getirilir ve arayüze gereken alanlar döndürülür.
  * Ham TMDb yanıtı hiçbir zaman dışarı verilmez.
  */
@@ -32,31 +55,14 @@ export async function searchMovies(query: string): Promise<MovieSearchResult> {
   const cached = searchCache.get(cacheKey);
   if (cached) return cached;
 
-  // Basit dil tahmini: Türkçe karakter içeriyorsa öncelikle `tr-TR`, aksi halde `en-US` ile arama yap.
-  const containsTurkish = /[ığüşöçıİĞÜŞÖÇ]/.test(normalizedQuery);
-  const primaryLang = containsTurkish ? "tr-TR" : "en-US";
-  const fallbackLang = containsTurkish ? "en-US" : "tr-TR";
-
-  // Önce tercih edilen dilde dene; sonuç yoksa diğer dilde tekrar dene.
-  let raw: unknown = await tmdbRequest("/search/movie", {
+  const raw = await tmdbRequest("/search/movie", {
     query: normalizedQuery,
-    language: primaryLang,
+    language: TMDB_LANGUAGE,
     include_adult: "false",
     page: "1",
   });
 
-  let result = normalizeSearchResponse(raw, normalizedQuery);
-
-  if (result.results.length === 0) {
-    raw = await tmdbRequest("/search/movie", {
-      query: normalizedQuery,
-      language: fallbackLang,
-      include_adult: "false",
-      page: "1",
-    });
-
-    result = normalizeSearchResponse(raw, normalizedQuery);
-  }
+  const result = normalizeSearchResponse(raw, normalizedQuery);
   searchCache.set(cacheKey, result);
 
   return result;
@@ -100,7 +106,6 @@ function normalizeMovie(raw: unknown): MovieSummary | null {
     // Türkçe ad ile aynıysa tekrar göstermenin anlamı yok.
     originalTitle: originalTitle && originalTitle !== title ? originalTitle : null,
     releaseYear: toReleaseYear(raw.release_date),
-    posterPath,
     posterUrl: toPosterUrl(posterPath),
     overview: asNonEmptyString(raw.overview),
     // TMDb puanlanmamış filmler için 0 döndürüyor; bunu "puan yok" sayıyoruz.

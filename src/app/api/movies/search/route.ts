@@ -1,7 +1,10 @@
 import type { NextRequest } from "next/server";
 
 import { errorResponse, toErrorResponse } from "@/lib/api/responses";
-import { SEARCH_MIN_QUERY_LENGTH } from "@/lib/constants";
+import {
+  SEARCH_MAX_QUERY_LENGTH,
+  SEARCH_MIN_QUERY_LENGTH,
+} from "@/lib/constants";
 import { searchMovies } from "@/lib/tmdb/search";
 
 /**
@@ -17,6 +20,15 @@ export async function GET(request: NextRequest): Promise<Response> {
     return errorResponse(
       "invalid_query",
       `Arama için en az ${SEARCH_MIN_QUERY_LENGTH} karakter girin.`,
+      400,
+    );
+  }
+
+  // İstemci tarafındaki `maxLength` atlanabilir; bağlayıcı kontrol burasıdır.
+  if (query.length > SEARCH_MAX_QUERY_LENGTH) {
+    return errorResponse(
+      "query_too_long",
+      `Arama en fazla ${SEARCH_MAX_QUERY_LENGTH} karakter olabilir.`,
       400,
     );
   }

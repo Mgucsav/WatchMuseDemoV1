@@ -13,7 +13,7 @@ import {
   asNonEmptyString,
   asPositiveInteger,
   isRecord,
-  toExternalHttpsUrl,
+  toWatchOptionsUrl,
 } from "./normalize";
 import type {
   FlatrateProvider,
@@ -49,7 +49,13 @@ export async function getMovieWatchProviders(
   return result;
 }
 
-function normalizeProvidersResponse(
+/**
+ * Ham TMDb `watch/providers` yanıtını uygulama modeline çevirir.
+ *
+ * Saf bir dönüşümdür (I/O yok, hata fırlatmaz); sınıflandırma kuralının
+ * doğrudan test edilebilmesi için dışa aktarılmıştır.
+ */
+export function normalizeProvidersResponse(
   raw: unknown,
   movieId: number,
 ): MovieProvidersResult {
@@ -87,7 +93,7 @@ function normalizeProvidersResponse(
     otherFlatrateProviders: flatrate.filter(
       (provider) => !targetIds.has(provider.id),
     ),
-    justWatchUrl: regionData ? toExternalHttpsUrl(regionData.link) : null,
+    watchOptionsUrl: regionData ? toWatchOptionsUrl(regionData.link) : null,
     // Zaman damgası her zaman sunucuda üretilir.
     checkedAt: new Date().toISOString(),
   };

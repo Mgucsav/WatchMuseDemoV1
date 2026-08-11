@@ -1,5 +1,6 @@
 import { errorResponse, toErrorResponse } from "@/lib/api/responses";
 import { getMovieWatchProviders } from "@/lib/tmdb/providers";
+import { parseMovieId } from "@/lib/validation";
 
 /**
  * GET /api/movies/<tmdbId>/providers
@@ -12,9 +13,12 @@ export async function GET(
   context: { params: Promise<{ id: string }> },
 ): Promise<Response> {
   const { id } = await context.params;
-  const movieId = Number.parseInt(id, 10);
 
-  if (!Number.isInteger(movieId) || movieId <= 0) {
+  // Yalnızca tam olarak pozitif, güvenli bir tam sayı kabul edilir; değer
+  // TMDb URL'ine yerleştirilmeden önce doğrulanır.
+  const movieId = parseMovieId(id);
+
+  if (movieId === null) {
     return errorResponse("invalid_movie_id", "Geçersiz film numarası.", 400);
   }
 

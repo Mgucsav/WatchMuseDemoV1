@@ -132,14 +132,14 @@ function renderBody(state: ProviderState) {
         Son kontrol: {formatCheckedAt(data.checkedAt)}
       </p>
 
-      {data.justWatchUrl ? (
+      {data.watchOptionsUrl ? (
         <a
-          href={data.justWatchUrl}
+          href={data.watchOptionsUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex min-h-11 items-center text-sm underline underline-offset-4"
         >
-          JustWatch üzerinde tüm izleme seçeneklerini gör
+          TMDb&apos;de tüm izleme seçeneklerini gör
         </a>
       ) : null}
     </div>
