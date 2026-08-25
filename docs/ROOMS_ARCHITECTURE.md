@@ -3,9 +3,8 @@
 Bu belge, iki kişilik özel oda temelinin (spaces / participants / invitations)
 güven sınırlarını, davet akışını ve güvenlik varsayımlarını açıklar.
 
-**Kapsam:** yalnızca kalıcı oda ve katılımcı temeli. Film havuzu, oylama,
-eşleştirme, rulet, izleme sonrası puanlama ve öneri mantığı **bu aşamada
-uygulanmamıştır**.
+**Kapsam:** kalıcı oda/katılımcı temeli ile append-only film turları, gizli
+oylama, ortak çark ve seçilen filmi kişisel izleme listesine kabul etme akışı.
 
 ---
 
@@ -349,7 +348,106 @@ select conname from pg_constraint where conname = 'participants_unique_role_per_
 
 ---
 
-## 11. Entegrasyon testi ile doğrulanması gerekenler
+## 11. Yeniden kullanılabilir oda yaşam döngüsü
+
+`spaces` aynı iki katılımcı için kalıcı bağlamdır; ayrı `pairs` tablosu yoktur.
+Her yeni seçim, aynı `space_id` altında artan `round_number` ile yeni bir
+`space_rounds` satırı açar. `result` ve `no_match` terminaldir. Eski tur, aday
+ve oy satırları silinmez.
+
+```text
+space (kalıcı)
+  ├─ round 1 → candidates + votes → result/no_match
+  ├─ round 2 → candidates + votes → result/no_match
+  └─ round N → en fazla bir aktif voting/matching/spinning
+```
+
+Oda satırı `FOR UPDATE` ile tur başlatma transaction'ını serileştirir; partial
+unique index ayrıca oda başına en fazla bir non-terminal turu garanti eder.
+İkinci eşzamanlı istek mevcut aktif tur kimliğini döndürür.
+
+## 12. Event-query aday politikası
+
+Kaynak gerçekler `space_rounds`, `room_candidates`, `room_votes`,
+`room_selections` ve `room_selection_acceptances` satırlarıdır. Trigger ile
+güncellenen aggregate/signal tablosu yoktur.
+
+- iki `skip`: ortak kararın son oy zamanından itibaren 30 gün hard suppression,
+- karışık oy: suppression yok,
+- iki `want`, çarkta seçilmedi: 14 gün içinde tek priority-return fırsatı,
+- `priority_return` olarak bir kez gösterilince fırsat tüketilir,
+- yeni görünüm yine iki `want` ve seçilmeme üretirse yeni fırsat kazanılabilir,
+- yedi gün içinde en az bir acceptance: o space için kalıcı suppression,
+- acceptance yok ve yedi gün doldu: normal uygunluk,
+- hemen önceki tur filmleri priority değilse önce ek sayfalarla kaçınılır;
+  yalnız bounded son denemede uygun repeat kullanılabilir.
+
+Priority filmleri en eski uygun fırsat önce olacak şekilde ilk dokuz slota kadar
+yerleşir; en az bir discovery slotu korunur. Final liste tam 10 benzersiz TMDb
+ID olmak zorundadır.
+
+## 13. Seed ve gelecekteki ranker sınırı
+
+Sunucu her tur için seed üretir. TMDb sayfa sırası ve TypeScript kaynak sırası
+deterministiktir; hard eligibility filtresi Postgres içinde uygulanır. Son ranker
+yalnızca filtrelenmiş eligible satırları sıralayabilir, yeni ID ekleyemez.
+
+```text
+sourcing → hard eligibility → mandatory priority → rank → unique/diversity
+         → atomik final-10 persistence
+```
+
+`selection_seed`, `selection_policy_version`, `ranker_version`, aday
+`selection_reason` ve `position` audit için saklanır. TMDb içeriği gelecekte
+değişebileceğinden seed tek başına replay garantisi değildir; kalıcı final 10
+otoritatif kayıttır. Tür/kütüphane/ML sıralaması bu fazın dışındadır ve hard
+eligibility katmanını atlayamaz.
+
+## 14. Seçilen film ve kişisel kütüphane
+
+Çarkla birlikte `room_selections` olayı ve yedi günlük deadline yazılır. Her
+katılımcı bağımsız olarak `accept_room_selection` çağırabilir. Tek transaction:
+
+1. üyelik ve deadline doğrulanır,
+2. `unique(selection_id,user_id)` acceptance olayı yazılır,
+3. yalnızca çağıranın `library_items` kaydı watchlist'e eklenir/upsert edilir,
+4. selection'ın ilk kabul zamanı kalıcılaştırılır.
+
+Kütüphane satırı daha sonra silinse bile acceptance olayı silinmez. Partnerin
+kütüphanesi hiçbir zaman değiştirilmez. Kişisel kütüphane yalnız “İzlenecek
+Filmlerim” ve “İzlediklerim” bölümlerini taşır; izlenmiş puanı/notu opsiyoneldir.
+
+## 15. Gizlilik, RLS ve polling
+
+`room_votes`, `room_selections` ve `room_selection_acceptances` doğrudan istemci
+okumasına açık değildir. `get_space_round_state` yalnız final adayları,
+çağıranın kendi oyları ve kendi `myAccepted` değerini döndürür. Partner oyları,
+partner kütüphanesi, sayaçlar, suppression listeleri ve nedenleri dönmez.
+
+Polling durum bazlıdır:
+
+- kullanıcı kartları oylarken sürekli polling yok,
+- kendi 10 oyunu tamamlayıp partneri beklerken 3 saniye,
+- matching beklerken 3 saniye,
+- spinning sırasında 1,2 saniye,
+- result/no_match sonrası durur.
+
+Her state geçişinde timer temizlenir ve in-flight fetch abort edilir. Realtime
+eklenmemiştir.
+
+## 16. Migration ve doğrulama sınırı
+
+Yeni migration:
+`supabase/migrations/20260813000100_reusable_rounds.sql`.
+
+Bu migration önce `20260812000200_room_rounds_votes_and_wheel.sql` sonrasında
+manuel uygulanır. SQL/RLS/eşzamanlılık davranışları gerçek Supabase veritabanına
+karşı test edilmedikçe yalnız kod incelemesi ve statik sözleşme testi sayılır.
+Manuel iki tarayıcı akışı için `ROOM_SELECTION_AND_WHEEL_SETUP.md` izlenir.
+
+---
+
+## 17. Entegrasyon testi ile doğrulanması gerekenler
 
 Aşağıdakiler **kod incelemesiyle tasarlanmış ancak çalıştırılarak
 doğrulanmamıştır**. Supabase CLI + Docker kurulduğunda test edilmelidir:
@@ -364,3 +462,9 @@ doğrulanmamıştır**. Supabase CLI + Docker kurulduğunda test edilmelidir:
 - [ ] Yetkisiz okuma: katılımcı olmayan `spaces`/`participants` satırı göremez
 - [ ] `invitations` hiçbir istemci rolü tarafından okunamaz
 - [ ] Doğrudan `INSERT`/`UPDATE` denemeleri reddedilir
+- [ ] Terminal turdan sonra yeni tur açılır; eski aday/oylar kalır
+- [ ] Eşzamanlı iki yeni-tur isteği tam bir aktif tur üretir
+- [ ] Priority-return aynı fırsat için yalnız bir kez tüketilir
+- [ ] Acceptance yalnız çağıranın kütüphanesini değiştirir ve idempotenttir
+- [ ] Süresi dolmuş selection kabul edilemez
+- [ ] Partner oy/kütüphane/acceptance bilgisi hiçbir API yanıtında görünmez

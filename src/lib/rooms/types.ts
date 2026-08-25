@@ -66,6 +66,7 @@ export interface RoomCandidate {
 /** Gizli seçim turunun istemciye güvenle sunulabilen özeti. */
 export interface RoomRound {
   id: string;
+  roundNumber: number;
   status: RoomRoundStatus;
   candidateCount: number;
   candidates: RoomCandidate[];
@@ -82,6 +83,21 @@ export interface RoomRound {
   spinDurationMs: number;
 }
 
+/** Çarkın seçtiği, yedi günlük kişisel izleme-listesi penceresindeki film. */
+export interface RoomSelection {
+  id: string;
+  tmdbMovieId: number;
+  title: string;
+  posterPath: string | null;
+  posterUrl: string | null;
+  selectedAt: string;
+  responseDeadline: string;
+  /** Yalnızca çağıran katılımcının kendi kabul olayı. */
+  myAccepted: boolean;
+}
+
 export interface RoomRoundState {
   round: RoomRound | null;
+  /** Partner kabul bilgisi içermez; yalnızca çağıranın kendi durumu görünür. */
+  pendingSelections: RoomSelection[];
 }

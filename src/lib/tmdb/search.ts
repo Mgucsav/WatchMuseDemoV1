@@ -120,27 +120,29 @@ export function normalizeMovie(raw: unknown): MovieSummary | null {
  * Bu fonksiyon istemciye doğrudan açık değildir: çağıran sunucu kodu sonucu
  * veritabanına kaydeder; böylece iki kullanıcıya aynı 10 ID ve aynı sıra gider.
  */
-export async function discoverRoomCandidates(): Promise<MovieSummary[]> {
-  // Popülerlik listesinde sayfayı rastgelelemek, her yeni odanın aynı on filmle
-  // başlamasını engeller. Çarkın sonucu burada DEĞİL, Postgres'te seçilir.
-  const page = String(1 + Math.floor(Math.random() * 20));
+export async function discoverRoomCandidatePage(
+  page: number,
+): Promise<MovieSummary[]> {
+  if (!Number.isInteger(page) || page < 1 || page > 500) {
+    throw new Error("invalid_discover_page");
+  }
+
   const raw = await tmdbRequest("/discover/movie", {
     language: TMDB_LANGUAGE,
     include_adult: "false",
     include_video: "false",
     sort_by: "popularity.desc",
     "vote_count.gte": "50",
-    page,
+    page: String(page),
   });
 
   const unique = new Map<number, MovieSummary>();
   for (const entry of asArray(isRecord(raw) ? raw.results : undefined)) {
     const movie = normalizeMovie(entry);
     if (movie && !unique.has(movie.id)) unique.set(movie.id, movie);
-    if (unique.size === 10) break;
   }
 
-  if (unique.size < 10) {
+  if (unique.size === 0) {
     throw new Error("room_candidate_pool_incomplete");
   }
 

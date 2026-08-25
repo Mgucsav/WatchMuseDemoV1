@@ -2,11 +2,11 @@ import { errorResponse } from "@/lib/api/responses";
 import { normalizeRoomError } from "@/lib/rooms/errors";
 import {
   getRoomRoundState,
-  initializeRoomRound,
+  startNextRoomRound,
 } from "@/lib/rooms/round-service";
+import { sourceAndPersistRoundCandidates } from "@/lib/rooms/candidate-pipeline";
 import { RoomServiceError } from "@/lib/rooms/service";
-import { isRecord, isRoomUuid } from "@/lib/rooms/validation";
-import { discoverRoomCandidates } from "@/lib/tmdb/search";
+import { isRoomUuid } from "@/lib/rooms/validation";
 
 type RouteContext = { params: Promise<{ spaceId: string }> };
 
@@ -23,17 +23,15 @@ export async function GET(_request: Request, context: RouteContext): Promise<Res
 }
 
 /**
- * POST ilk turu başlatır; `{ reset: true }` yalnızca ortak aday çıkmadığında
- * yeni onlu aday seti üretir. Aday seti RPC içinde atomik olarak kilitlenir.
+ * POST ilk ya da bir sonraki turu başlatır. Aktif tur varsa RPC onu döndürür;
+ * terminal geçmiş hiçbir zaman silinmez.
  */
 export async function POST(request: Request, context: RouteContext): Promise<Response> {
   const { spaceId } = await context.params;
   if (!isRoomUuid(spaceId)) return errorResponse("invalid_invitation", "Davet geçersiz.", 400);
 
-  let reset = false;
   try {
-    const body: unknown = await request.json();
-    reset = isRecord(body) && body.reset === true;
+    await request.json();
   } catch {
     // Gövdesiz istek ilk tur için geçerlidir.
   }
@@ -41,13 +39,18 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
   try {
     // Mevcut tur varsa gereksiz TMDb isteği atma. İlk anda iki istek gelse bile
     // RPC oda kilidi altında yalnızca birinin aday setini saklar.
-    if (!reset) {
-      const existing = await getRoomRoundState(spaceId);
-      if (existing.round) return Response.json(existing, { status: 200 });
+    const existing = await getRoomRoundState(spaceId);
+    if (
+      existing.round &&
+      existing.round.status !== "result" &&
+      existing.round.status !== "no_match"
+    ) {
+      return Response.json(existing, { status: 200 });
     }
 
-    const candidates = await discoverRoomCandidates();
-    await initializeRoomRound(spaceId, candidates, reset);
+    await sourceAndPersistRoundCandidates((plan) =>
+      startNextRoomRound(spaceId, plan),
+    );
     return Response.json(await getRoomRoundState(spaceId), { status: 201 });
   } catch (error) {
     return roomErrorResponse(error);

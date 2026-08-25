@@ -9,16 +9,24 @@ import type {
   RoomCandidate,
   RoomRound,
   RoomRoundState,
+  RoomSelection,
   RoomVoteChoice,
 } from "@/lib/rooms/types";
+import {
+  pollingIntervalFor,
+  startPollingLoop,
+  WAITING_POLL_INTERVAL_MS,
+} from "@/lib/rooms/polling-policy";
 import { ensureAnonymousSession } from "@/lib/supabase/browser";
 
-const POLL_INTERVAL_MS = 1200;
 const SWIPE_DISTANCE_PX = 60;
 
 type ViewState =
   | { kind: "loading" }
-  | { kind: "ready"; round: RoomRound }
+  | {
+      kind: "ready";
+      state: RoomRoundState & { round: RoomRound };
+    }
   | { kind: "waiting-for-host" }
   | { kind: "error"; message: string };
 
@@ -39,53 +47,52 @@ export function RoomRound({
   const [pendingChoice, setPendingChoice] = useState<RoomVoteChoice | null>(null);
   const [startingWheel, setStartingWheel] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [acceptingSelectionId, setAcceptingSelectionId] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (signal?: AbortSignal) => {
     await ensureAnonymousSession();
-    let data = await fetchJson<RoomRoundState>(`/api/rooms/${spaceId}/round`);
+    let data = await fetchJson<RoomRoundState>(`/api/rooms/${spaceId}/round`, signal);
 
     // Aday listesi yalnızca ilk kez, oda sahibi tarafından başlatılır. Sunucu
     // aynı anda gelen istekleri kilitlediği için çift başlangıç güvenlidir.
     if (!data.round && isHost) {
-      data = await fetchJson<RoomRoundState>(`/api/rooms/${spaceId}/round`, undefined, {
+      data = await fetchJson<RoomRoundState>(`/api/rooms/${spaceId}/round`, signal, {
         method: "POST",
         body: {},
       });
     }
 
-    if (data.round) setView({ kind: "ready", round: data.round });
+    if (data.round) {
+      setView({ kind: "ready", state: { ...data, round: data.round } });
+    }
     else setView({ kind: "waiting-for-host" });
     return data.round;
   }, [isHost, spaceId]);
 
+  const pollInterval =
+    view.kind === "loading" || view.kind === "waiting-for-host"
+      ? WAITING_POLL_INTERVAL_MS
+      : view.kind === "ready"
+        ? pollingIntervalFor(view.state.round)
+        : null;
+
   useEffect(() => {
-    let disposed = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-
-    const poll = async () => {
+    if (pollInterval === null) return;
+    return startPollingLoop(async (signal) => {
       try {
-        await refresh();
+        await refresh(signal);
       } catch (error) {
-        if (!disposed) {
-          setView({
-            kind: "error",
-            message:
-              error instanceof ApiError
-                ? error.message
-                : "Seçim turu güncellenemedi.",
-          });
-        }
+        if (signal.aborted) return;
+        setView({
+          kind: "error",
+          message:
+            error instanceof ApiError
+              ? error.message
+              : "Seçim turu güncellenemedi.",
+        });
       }
-
-      if (!disposed) timer = setTimeout(poll, POLL_INTERVAL_MS);
-    };
-
-    void poll();
-    return () => {
-      disposed = true;
-      if (timer) clearTimeout(timer);
-    };
-  }, [refresh]);
+    }, pollInterval, { immediate: view.kind === "loading" });
+  }, [pollInterval, refresh, view.kind]);
 
   const submitVote = async (candidateId: string, choice: RoomVoteChoice) => {
     setPendingChoice(choice);
@@ -125,12 +132,12 @@ export function RoomRound({
     }
   };
 
-  const resetRound = async () => {
+  const startNextRound = async () => {
     setResetting(true);
     try {
       await fetchJson(`/api/rooms/${spaceId}/round`, undefined, {
         method: "POST",
-        body: { reset: true },
+        body: {},
       });
       await refresh();
     } catch (error) {
@@ -141,6 +148,30 @@ export function RoomRound({
       });
     } finally {
       setResetting(false);
+    }
+  };
+
+  const acceptSelection = async (selectionId: string) => {
+    setAcceptingSelectionId(selectionId);
+    try {
+      const data = await fetchJson<RoomRoundState>(
+        `/api/rooms/${spaceId}/selection`,
+        undefined,
+        { method: "POST", body: { selectionId } },
+      );
+      if (data.round) {
+        setView({ kind: "ready", state: { ...data, round: data.round } });
+      }
+    } catch (error) {
+      setView({
+        kind: "error",
+        message:
+          error instanceof ApiError
+            ? error.message
+            : "Film izleme listene eklenemedi.",
+      });
+    } finally {
+      setAcceptingSelectionId(null);
     }
   };
 
@@ -164,11 +195,18 @@ export function RoomRound({
     );
   }
 
-  const { round } = view;
+  const { round, pendingSelections } = view.state;
+  const pendingArea = (
+    <PendingSelectionArea
+      selections={pendingSelections}
+      acceptingSelectionId={acceptingSelectionId}
+      onAccept={acceptSelection}
+    />
+  );
   if (round.status === "voting") {
     const nextCandidate = round.candidates.find((candidate) => !round.myVotes[candidate.id]);
     if (nextCandidate) {
-      return (
+      return <div className="space-y-4">{pendingArea}
         <VotingCard
           candidate={nextCandidate}
           completed={round.myVoteCount}
@@ -176,19 +214,19 @@ export function RoomRound({
           pendingChoice={pendingChoice}
           onChoose={submitVote}
         />
-      );
+      </div>;
     }
 
-    return (
+    return <div className="space-y-4">{pendingArea}
       <StatusMessage title="Seçimlerin tamamlandı">
         Partnerinin gizli seçimlerini bitirmesi bekleniyor. Onun hangi filmleri
         seçtiği, ikiniz de tamamlayana kadar görünmez.
       </StatusMessage>
-    );
+    </div>;
   }
 
   if (round.status === "no_match") {
-    return (
+    return <div className="space-y-4">{pendingArea}
       <section className="rounded-xl border border-black/10 p-4 dark:border-white/15">
         <h2 className="font-semibold">Bu turda ortak “izlemek isterim” çıkmadı</h2>
         <p className="mt-1 text-sm text-black/70 dark:text-white/70">
@@ -197,26 +235,111 @@ export function RoomRound({
         <button
           type="button"
           className="mt-4 rounded-md border border-black/30 px-3 py-2 text-sm font-medium disabled:opacity-60 dark:border-white/35"
-          onClick={() => void resetRound()}
+          onClick={() => void startNextRound()}
           disabled={resetting}
         >
           {resetting ? "Yeni tur hazırlanıyor…" : "Yeni 10 film getir"}
         </button>
       </section>
-    );
+    </div>;
   }
 
   if (round.status === "matching") {
-    return (
+    return <div className="space-y-4">{pendingArea}
       <MatchStage
         candidates={round.matchedCandidates}
         startingWheel={startingWheel}
         onStart={() => void startWheel()}
       />
+    </div>;
+  }
+
+  if (round.status === "result") {
+    return (
+      <div className="space-y-4">
+        {pendingArea}
+        <WheelStage round={round} />
+        <NewRoundButton pending={resetting} onStart={startNextRound} />
+      </div>
     );
   }
 
-  return <WheelStage round={round} />;
+  return <div className="space-y-4">{pendingArea}<WheelStage round={round} /></div>;
+}
+
+function PendingSelectionArea({
+  selections,
+  acceptingSelectionId,
+  onAccept,
+}: {
+  selections: RoomSelection[];
+  acceptingSelectionId: string | null;
+  onAccept: (selectionId: string) => Promise<void>;
+}) {
+  if (selections.length === 0) return null;
+
+  return (
+    <section className="rounded-xl border border-black/10 p-4 dark:border-white/15">
+      <p className="text-sm font-semibold">Odada seçilen filmler</p>
+      <div className="mt-3 space-y-3">
+        {selections.map((selection) => {
+          const deadline = new Intl.DateTimeFormat("tr-TR", {
+            day: "numeric",
+            month: "long",
+            hour: "2-digit",
+            minute: "2-digit",
+          }).format(new Date(selection.responseDeadline));
+
+          return (
+            <article
+              key={selection.id}
+              className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-black/10 p-3 dark:border-white/15"
+            >
+              <div>
+                <p className="font-medium">{selection.title}</p>
+                <p className="mt-1 text-xs text-black/60 dark:text-white/60">
+                  {deadline} tarihine kadar kişisel listene ekleyebilirsin.
+                </p>
+              </div>
+              {selection.myAccepted ? (
+                <p className="text-sm font-medium">İzleme listene eklendi</p>
+              ) : (
+                <button
+                  type="button"
+                  className="rounded-md border border-black/30 px-3 py-2 text-sm font-medium disabled:opacity-60 dark:border-white/35"
+                  disabled={acceptingSelectionId !== null}
+                  onClick={() => void onAccept(selection.id)}
+                >
+                  {acceptingSelectionId === selection.id
+                    ? "Ekleniyor…"
+                    : "İzleme listeme ekle"}
+                </button>
+              )}
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function NewRoundButton({
+  pending,
+  onStart,
+}: {
+  pending: boolean;
+  onStart: () => Promise<void>;
+}) {
+  return (
+    <button
+      type="button"
+      className="w-full rounded-md border border-black/30 px-3 py-3 text-sm font-semibold disabled:opacity-60 dark:border-white/35"
+      onClick={() => void onStart()}
+      disabled={pending}
+    >
+      {pending ? "Yeni tur hazırlanıyor…" : "Yeni 10 filmle devam et"}
+    </button>
+  );
 }
 
 function VotingCard({

@@ -10,6 +10,13 @@ const DATABASE_CONTRACT: readonly RoomErrorCode[] = [
   "room_full",
   "host_cannot_join",
   "room_closed",
+  "round_not_ready",
+  "round_closed_for_votes",
+  "invalid_round_candidate",
+  "invalid_candidates",
+  "candidate_pool_incomplete",
+  "invalid_selection",
+  "selection_expired",
 ];
 
 describe("normalizeRoomError — veritabanı sözleşmesi", () => {

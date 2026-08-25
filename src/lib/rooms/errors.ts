@@ -20,6 +20,9 @@ export type RoomErrorCode =
   | "round_closed_for_votes"
   | "invalid_round_candidate"
   | "invalid_candidates"
+  | "candidate_pool_incomplete"
+  | "invalid_selection"
+  | "selection_expired"
   | "round_requires_supabase"
   | "not_configured"
   | "network"
@@ -44,6 +47,10 @@ const MESSAGES: Record<RoomErrorCode, string> = {
   round_closed_for_votes: "Bu turun seçimleri artık değiştirilemez.",
   invalid_round_candidate: "Seçilen film bu odaya ait değil.",
   invalid_candidates: "Film adayları hazırlanamadı. Lütfen tekrar deneyin.",
+  candidate_pool_incomplete:
+    "Yeterli sayıda uygun film bulunamadı. Lütfen biraz sonra tekrar deneyin.",
+  invalid_selection: "Seçilen oda filmi bulunamadı.",
+  selection_expired: "Bu filmi listeye ekleme süresi dolmuş.",
   round_requires_supabase: "Ortak seçim turu için Supabase bağlantısı gereklidir.",
   not_configured: "Oda servisi henüz yapılandırılmamış.",
   network: "Sunucuya ulaşılamadı. Bağlantınızı kontrol edin.",
@@ -66,6 +73,9 @@ const DATABASE_ERROR_CODES: readonly RoomErrorCode[] = [
   "round_closed_for_votes",
   "invalid_round_candidate",
   "invalid_candidates",
+  "candidate_pool_incomplete",
+  "invalid_selection",
+  "selection_expired",
 ];
 
 /** Sözlükte karşılığı olan tüm kodlar (veritabanı sözleşmesi + yerel kodlar). */

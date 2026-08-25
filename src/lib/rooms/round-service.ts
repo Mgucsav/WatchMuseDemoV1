@@ -7,11 +7,13 @@ import {
   getAuthenticatedUserId,
 } from "@/lib/supabase/server";
 import { isLocalRoomsBackend } from "./backend";
+import type { RoundCandidatePlan } from "./candidate-pipeline";
 import { normalizeRoomError, roomError } from "./errors";
 import { RoomServiceError } from "./service";
 import { isRecord } from "./validation";
 import type {
   RoomCandidate,
+  RoomSelection,
   RoomRoundState,
   RoomRoundStatus,
   RoomVoteChoice,
@@ -45,18 +47,34 @@ function serializedCandidates(candidates: MovieSummary[]) {
   }));
 }
 
-/** İlk turu, ya da ortak aday çıkmadıysa yeni turu atomik olarak başlatır. */
-export async function initializeRoomRound(
+/** Geçmişi silmeden bir sonraki turu ve kesin aday sırasını atomik başlatır. */
+export async function startNextRoomRound(
   spaceId: string,
-  candidates: MovieSummary[],
-  reset: boolean,
+  plan: RoundCandidatePlan,
 ): Promise<void> {
-  if (candidates.length !== 10) fail("invalid_candidates");
+  if (plan.candidates.length < 10 || plan.candidates.length > 200) {
+    fail("invalid_candidates");
+  }
   const supabase = await getClientAndUser();
-  const { error } = await supabase.rpc("create_or_reset_space_round", {
+  const { error } = await supabase.rpc("start_next_space_round", {
     p_space_id: spaceId,
-    p_candidates: serializedCandidates(candidates),
-    p_reset: reset,
+    p_candidates: serializedCandidates(plan.candidates),
+    p_selection_seed: plan.seed,
+    p_policy_version: plan.selectionPolicyVersion,
+    p_ranker_version: plan.rankerVersion,
+    p_allow_eligible_repeats: plan.allowEligibleRepeats,
+  });
+  if (error) throw new RoomServiceError(normalizeRoomError(error));
+}
+
+export async function acceptRoomSelection(
+  spaceId: string,
+  selectionId: string,
+): Promise<void> {
+  const supabase = await getClientAndUser();
+  const { error } = await supabase.rpc("accept_room_selection", {
+    p_space_id: spaceId,
+    p_selection_id: selectionId,
   });
   if (error) throw new RoomServiceError(normalizeRoomError(error));
 }
@@ -106,9 +124,15 @@ const ROUND_STATUSES: readonly RoomRoundStatus[] = [
   "no_match",
 ];
 
-function parseRoomRoundState(value: unknown): RoomRoundState {
-  if (!isRecord(value) || !("round" in value)) fail("unexpected");
-  if (value.round === null) return { round: null };
+export function parseRoomRoundState(value: unknown): RoomRoundState {
+  assertNoPersonSpecificFields(value);
+  if (
+    !isRecord(value) ||
+    !("round" in value) ||
+    !("pendingSelections" in value)
+  ) fail("unexpected");
+  const pendingSelections = parseSelections(value.pendingSelections);
+  if (value.round === null) return { round: null, pendingSelections };
   if (!isRecord(value.round)) fail("unexpected");
 
   const raw = value.round;
@@ -118,6 +142,9 @@ function parseRoomRoundState(value: unknown): RoomRoundState {
   const spinDurationMs = raw.spinDurationMs;
   if (
     typeof raw.id !== "string" ||
+    typeof raw.roundNumber !== "number" ||
+    !Number.isInteger(raw.roundNumber) ||
+    raw.roundNumber < 1 ||
     typeof status !== "string" ||
     !ROUND_STATUSES.includes(status as RoomRoundStatus) ||
     typeof candidateCount !== "number" ||
@@ -144,6 +171,7 @@ function parseRoomRoundState(value: unknown): RoomRoundState {
   return {
     round: {
       id: raw.id,
+      roundNumber: raw.roundNumber,
       status: status as RoomRoundStatus,
       candidateCount,
       candidates,
@@ -155,12 +183,75 @@ function parseRoomRoundState(value: unknown): RoomRoundState {
       spinStartedAt,
       spinDurationMs,
     },
+    pendingSelections,
   };
+}
+
+const FORBIDDEN_RESPONSE_FIELDS = new Set([
+  "acceptedByUserId",
+  "partnerAccepted",
+  "partnerLibrary",
+  "partnerVotes",
+  "userId",
+  "voteCounts",
+  "signalCounts",
+]);
+
+function assertNoPersonSpecificFields(value: unknown): void {
+  if (Array.isArray(value)) {
+    for (const entry of value) assertNoPersonSpecificFields(entry);
+    return;
+  }
+  if (!isRecord(value)) return;
+  for (const [key, entry] of Object.entries(value)) {
+    if (FORBIDDEN_RESPONSE_FIELDS.has(key)) fail("unexpected");
+    assertNoPersonSpecificFields(entry);
+  }
+}
+
+function parseSelections(value: unknown): RoomSelection[] {
+  if (!Array.isArray(value)) fail("unexpected");
+  return value.map((raw): RoomSelection => {
+    if (!isRecord(raw)) fail("unexpected");
+    const posterPath = raw.posterPath;
+    if (
+      typeof raw.id !== "string" ||
+      typeof raw.tmdbMovieId !== "number" ||
+      !Number.isInteger(raw.tmdbMovieId) ||
+      raw.tmdbMovieId <= 0 ||
+      typeof raw.title !== "string" ||
+      raw.title.trim() === "" ||
+      (posterPath !== null &&
+        (typeof posterPath !== "string" || !posterPath.startsWith("/"))) ||
+      typeof raw.selectedAt !== "string" ||
+      Number.isNaN(Date.parse(raw.selectedAt)) ||
+      typeof raw.responseDeadline !== "string" ||
+      Number.isNaN(Date.parse(raw.responseDeadline)) ||
+      typeof raw.myAccepted !== "boolean"
+    ) fail("unexpected");
+
+    return {
+      id: raw.id,
+      tmdbMovieId: raw.tmdbMovieId,
+      title: raw.title,
+      posterPath,
+      posterUrl: toPosterUrl(posterPath),
+      selectedAt: raw.selectedAt,
+      responseDeadline: raw.responseDeadline,
+      myAccepted: raw.myAccepted,
+    };
+  });
 }
 
 function parseCandidates(value: unknown): RoomCandidate[] {
   if (!Array.isArray(value)) fail("unexpected");
-  return value.map(parseCandidate);
+  const candidates = value.map(parseCandidate);
+  if (
+    new Set(candidates.map((candidate) => candidate.id)).size !== candidates.length ||
+    new Set(candidates.map((candidate) => candidate.tmdbMovieId)).size !== candidates.length ||
+    new Set(candidates.map((candidate) => candidate.position)).size !== candidates.length
+  ) fail("unexpected");
+  return candidates;
 }
 
 function parseCandidate(value: unknown): RoomCandidate {

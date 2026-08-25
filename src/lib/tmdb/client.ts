@@ -62,8 +62,10 @@ function demoResponseFor(
   // aday ister. Bunlar yalnızca anahtar olmadan paylaşım/test yapabilmek için
   // kullanılan sabit TMDb-benzeri veridir; gerçek token ile bu dal hiç çalışmaz.
   if (path === "/discover/movie") {
+    const page = Math.max(1, Number.parseInt(searchParams.page ?? "1", 10) || 1);
+    const pageOffset = (page - 1) * 1_000_000;
     return {
-      page: 1,
+      page,
       results: [
         [238, "Esaretin Bedeli", "The Shawshank Redemption", 1994, 9.0],
         [278, "Esaretin Bedeli", "The Shawshank Redemption", 1994, 8.7],
@@ -77,8 +79,8 @@ function demoResponseFor(
         [603, "Matrix", "The Matrix", 1999, 8.2],
         [120, "Yüzüklerin Efendisi: Yüzük Kardeşliği", "The Lord of the Rings: The Fellowship of the Ring", 2001, 8.4],
       ].map(([id, title, originalTitle, year, voteAverage]) => ({
-        id,
-        title,
+        id: Number(id) + pageOffset,
+        title: page === 1 ? title : `${title} · Demo ${page}`,
         original_title: originalTitle,
         poster_path: null,
         overview: `${title} için demo oda adayı.`,
