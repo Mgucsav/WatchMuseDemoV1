@@ -631,7 +631,11 @@ function TelepartyBridge({
               onClick={() => openProvider(target)}
               className="rounded-md bg-black px-4 py-2 text-sm font-semibold text-white dark:bg-white dark:text-black"
             >
-              {target.label}’ta filmi bul
+              {target.key === "netflix"
+                ? "Netflix’te ara"
+                : target.key === "prime_video"
+                  ? "Prime Video’da ara"
+                  : "Disney+’ta ara"}
             </button>
           ))
         ) : (

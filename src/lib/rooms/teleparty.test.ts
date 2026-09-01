@@ -14,12 +14,26 @@ describe("parseTelepartyJoinUrl", () => {
     ).toBe("https://redirect.teleparty.com/join/390d2c023aec4fcf");
   });
 
+  it("güncel www.teleparty.com davetini kanonik redirect adresine çevirir", () => {
+    expect(
+      parseTelepartyJoinUrl(
+        "https://www.teleparty.com/join/69cb5596d0f9d9ce?utm_source=copy#party",
+      ),
+    ).toBe("https://redirect.teleparty.com/join/69cb5596d0f9d9ce");
+  });
+
+  it("sondaki eğik çizgiyi ve www'siz resmi hostu kabul eder", () => {
+    expect(
+      parseTelepartyJoinUrl(
+        "https://teleparty.com/join/69cb5596d0f9d9ce/",
+      ),
+    ).toBe("https://redirect.teleparty.com/join/69cb5596d0f9d9ce");
+  });
+
   it.each([
     "http://redirect.teleparty.com/join/390d2c023aec4fcf",
     "https://redirect.teleparty.com.evil.example/join/390d2c023aec4fcf",
     "https://redirect.teleparty.com/join/short",
-    "https://redirect.teleparty.com/join/390d2c023aec4fcf?next=evil",
-    "https://redirect.teleparty.com/join/390d2c023aec4fcf#fragment",
     "https://user@redirect.teleparty.com/join/390d2c023aec4fcf",
     "not-a-url",
   ])("resmi katılım bağlantısı olmayan değeri reddeder: %s", (value) => {

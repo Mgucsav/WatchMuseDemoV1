@@ -1,7 +1,12 @@
 /** Teleparty davet bağlantısının istemci ve sunucuda paylaşılan doğrulayıcısı. */
 
 const TELEPARTY_HOST = "redirect.teleparty.com";
-const TELEPARTY_JOIN_PATH = /^\/join\/[A-Za-z0-9_-]{16,128}$/;
+const TELEPARTY_JOIN_HOSTS = new Set([
+  TELEPARTY_HOST,
+  "www.teleparty.com",
+  "teleparty.com",
+]);
+const TELEPARTY_JOIN_PATH = /^\/join\/([A-Za-z0-9_-]{16,128})\/?$/;
 
 /**
  * Yalnızca resmi HTTPS Teleparty katılım adresini kabul edip kanonik biçimde
@@ -19,18 +24,22 @@ export function parseTelepartyJoinUrl(value: unknown): string | null {
 
   if (
     url.protocol !== "https:" ||
-    url.hostname.toLowerCase() !== TELEPARTY_HOST ||
+    !TELEPARTY_JOIN_HOSTS.has(url.hostname.toLowerCase()) ||
     url.port !== "" ||
     url.username !== "" ||
     url.password !== "" ||
-    url.search !== "" ||
-    url.hash !== "" ||
     !TELEPARTY_JOIN_PATH.test(url.pathname)
   ) {
     return null;
   }
 
-  return `https://${TELEPARTY_HOST}${url.pathname}`;
+  const token = TELEPARTY_JOIN_PATH.exec(url.pathname)?.[1];
+  if (!token) return null;
+
+  // Veritabanındaki mevcut sıkı sözleşmeyle geriye uyumluluk için yeni
+  // www.teleparty.com biçimini eski resmi redirect hostuna kanonikleştiririz.
+  // Takip sorguları/fragmentler bilinçli olarak atılır.
+  return `https://${TELEPARTY_HOST}/join/${token}`;
 }
 
 export interface TelepartyProviderLaunch {
