@@ -118,8 +118,19 @@ export interface RoomSelection {
   myAccepted: boolean;
 }
 
+/** Seçilen film için iki tarafın ortak Teleparty hazırlık durumu. */
+export interface RoomTelepartyState {
+  selectionId: string;
+  /** Yalnızca çağıran da kabul ettiğinde iki kişilik ortak hazır olma bilgisi. */
+  bothAccepted: boolean;
+  /** İki taraf da hazır değilse veya host henüz paylaşmadıysa dönmez. */
+  joinUrl: string | null;
+}
+
 export interface RoomRoundState {
   round: RoomRound | null;
   /** Partner kabul bilgisi içermez; yalnızca çağıranın kendi durumu görünür. */
   pendingSelections: RoomSelection[];
+  /** Kişi bazlı kabul verisi içermez; yalnızca ortak hazır olma kapısıdır. */
+  telepartyStates: RoomTelepartyState[];
 }

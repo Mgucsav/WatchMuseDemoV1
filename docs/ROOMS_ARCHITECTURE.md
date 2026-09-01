@@ -596,7 +596,7 @@ bu bir **entegrasyon testi değildir** ve öyle sunulmamalıdır. Gerçek verita
 harness'ı `supabase/tests/` altındadır ve depoda hazırdır, ancak **bu makinede
 çalıştırılmamıştır** (`docker`, `psql`, `supabase` CLI ve yerel PostgreSQL kurulu
 değil; sistem yazılımı kurmak açık onay gerektirir). Durum
-`supabase/tests/README.md` içinde ve `npm test` çıktısında 16 `todo` girdisi
+`supabase/tests/README.md` içinde ve `npm test` çıktısında 23 `todo` girdisi
 olarak görünür.
 
 ---
@@ -695,3 +695,29 @@ kütüphane ve kabul olayları eskisi gibi paylaşılmaz.
 `set_participant_subscriptions` yalnızca `auth.uid()` satırını günceller;
 partnerin beyanına dokunulamaz. Açık turun adayları değişmez — yeni kesişim bir
 sonraki turdan itibaren geçerlidir.
+
+---
+
+## 19. Teleparty köprüsü
+
+WatchMuse bir Teleparty oturumunu üçüncü taraf adına oluşturmaz. İki katılımcı
+aynı seçilen film için “Şimdi izlemek istiyorum” dediğinde hostun kurulum alanı
+açılır. Host filmi açar, Teleparty uzantısında `Start Party` ve `Copy URL`
+yapar; WatchMuse odasına dönünce tarayıcı panosu okunur. Otomatik pano izni
+verilmezse aynı işlem tek bir “Kopyaladığım bağlantıyı al” düğmesiyle yapılır;
+metin alanına yapıştırma gerekmez.
+
+`room_teleparty_sessions` tablosuna doğrudan istemci erişimi yoktur. Yalnızca
+`share_room_teleparty_link` RPC'si yazabilir ve şu koşulları birlikte uygular:
+
+- çağıran kullanıcı odanın hostudur,
+- oda tam iki katılımcılıdır ve ikisi de süresi dolmamış seçimi kabul etmiştir,
+- URL resmi `https://redirect.teleparty.com/join/...` biçimindedir.
+
+`get_space_teleparty_state` kişi bazlı kabul kaydı döndürmez. Çağıran da kabul
+etmeden `bothAccepted` açılmaz; ortak hazırlık tamamlanmadan davet URL'si hiçbir
+istemciye verilmez. Link yazılınca partnerin terminal tur yoklaması kısa aralığa
+geçer ve ekranda doğrudan “Teleparty’ye katıl” düğmesi belirir.
+
+İlgili migration:
+`supabase/migrations/20260901000100_teleparty_bridge.sql`.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseRoomRoundState } from "./round-service";
+import { parseRoomRoundState, parseRoomTelepartyStates } from "./round-service";
 
 function candidate(id: number, position: number) {
   return {
@@ -78,5 +78,43 @@ describe("room state privacy parser", () => {
       },
     ];
     expect(parseRoomRoundState(state).pendingSelections[0].myAccepted).toBe(false);
+  });
+});
+
+describe("Teleparty ortak durum ayrıştırıcısı", () => {
+  it("iki taraf hazır olduğunda resmi bağlantıyı kabul eder", () => {
+    expect(
+      parseRoomTelepartyStates([
+        {
+          selectionId: "0198da7e-225f-7d83-bceb-a3321b1fa1d0",
+          bothAccepted: true,
+          joinUrl: "https://redirect.teleparty.com/join/390d2c023aec4fcf",
+        },
+      ])[0].joinUrl,
+    ).toBe("https://redirect.teleparty.com/join/390d2c023aec4fcf");
+  });
+
+  it("hazır olmadan bağlantı sızdırılmasını reddeder", () => {
+    expect(() =>
+      parseRoomTelepartyStates([
+        {
+          selectionId: "0198da7e-225f-7d83-bceb-a3321b1fa1d0",
+          bothAccepted: false,
+          joinUrl: "https://redirect.teleparty.com/join/390d2c023aec4fcf",
+        },
+      ]),
+    ).toThrow();
+  });
+
+  it("resmi olmayan hedefi reddeder", () => {
+    expect(() =>
+      parseRoomTelepartyStates([
+        {
+          selectionId: "0198da7e-225f-7d83-bceb-a3321b1fa1d0",
+          bothAccepted: true,
+          joinUrl: "https://example.com/join/390d2c023aec4fcf",
+        },
+      ]),
+    ).toThrow();
   });
 });

@@ -14,12 +14,14 @@ import { isLocalRoomsBackend } from "./backend";
 import type { RoundCandidatePlan } from "./candidate-pipeline";
 import { normalizeRoomError, roomError } from "./errors";
 import { RoomServiceError } from "./service";
+import { parseTelepartyJoinUrl } from "./teleparty";
 import { isRecord } from "./validation";
 import type {
   RoomCandidate,
   RoomSelection,
   RoomRoundState,
   RoomRoundStatus,
+  RoomTelepartyState,
   RoomVoteChoice,
 } from "./types";
 
@@ -146,6 +148,24 @@ export async function acceptRoomSelection(
   if (error) throw new RoomServiceError(normalizeRoomError(error));
 }
 
+/** İki taraf hazır olduktan sonra hostun Teleparty davetini güvenle paylaşır. */
+export async function shareRoomTelepartyLink(
+  spaceId: string,
+  selectionId: string,
+  joinUrl: string,
+): Promise<void> {
+  const canonicalUrl = parseTelepartyJoinUrl(joinUrl);
+  if (!canonicalUrl) fail("invalid_teleparty_link");
+
+  const supabase = await getClientAndUser();
+  const { error } = await supabase.rpc("share_room_teleparty_link", {
+    p_space_id: spaceId,
+    p_selection_id: selectionId,
+    p_join_url: canonicalUrl,
+  });
+  if (error) throw new RoomServiceError(normalizeRoomError(error));
+}
+
 export async function voteInRoomRound(
   spaceId: string,
   candidateId: string,
@@ -176,11 +196,21 @@ export async function getRoomRoundState(
   spaceId: string,
 ): Promise<RoomRoundState> {
   const supabase = await getClientAndUser();
-  const { data, error } = await supabase.rpc("get_space_round_state", {
-    p_space_id: spaceId,
-  });
-  if (error) throw new RoomServiceError(normalizeRoomError(error));
-  return parseRoomRoundState(data);
+  const [roundResult, telepartyResult] = await Promise.all([
+    supabase.rpc("get_space_round_state", { p_space_id: spaceId }),
+    supabase.rpc("get_space_teleparty_state", { p_space_id: spaceId }),
+  ]);
+  if (roundResult.error) {
+    throw new RoomServiceError(normalizeRoomError(roundResult.error));
+  }
+  if (telepartyResult.error) {
+    throw new RoomServiceError(normalizeRoomError(telepartyResult.error));
+  }
+
+  return {
+    ...parseRoomRoundState(roundResult.data),
+    telepartyStates: parseRoomTelepartyStates(telepartyResult.data),
+  };
 }
 
 const ROUND_STATUSES: readonly RoomRoundStatus[] = [
@@ -199,7 +229,9 @@ export function parseRoomRoundState(value: unknown): RoomRoundState {
     !("pendingSelections" in value)
   ) fail("unexpected");
   const pendingSelections = parseSelections(value.pendingSelections);
-  if (value.round === null) return { round: null, pendingSelections };
+  if (value.round === null) {
+    return { round: null, pendingSelections, telepartyStates: [] };
+  }
   if (!isRecord(value.round)) fail("unexpected");
 
   const raw = value.round;
@@ -251,7 +283,39 @@ export function parseRoomRoundState(value: unknown): RoomRoundState {
       spinDurationMs,
     },
     pendingSelections,
+    telepartyStates: [],
   };
+}
+
+export function parseRoomTelepartyStates(value: unknown): RoomTelepartyState[] {
+  if (!Array.isArray(value)) fail("unexpected");
+
+  const states = value.map((raw): RoomTelepartyState => {
+    if (
+      !isRecord(raw) ||
+      typeof raw.selectionId !== "string" ||
+      typeof raw.bothAccepted !== "boolean" ||
+      (raw.joinUrl !== null && typeof raw.joinUrl !== "string")
+    ) {
+      fail("unexpected");
+    }
+
+    const joinUrl =
+      raw.joinUrl === null ? null : parseTelepartyJoinUrl(raw.joinUrl);
+    if (raw.joinUrl !== null && joinUrl === null) fail("unexpected");
+    if (!raw.bothAccepted && joinUrl !== null) fail("unexpected");
+
+    return {
+      selectionId: raw.selectionId,
+      bothAccepted: raw.bothAccepted,
+      joinUrl,
+    };
+  });
+
+  if (new Set(states.map((state) => state.selectionId)).size !== states.length) {
+    fail("unexpected");
+  }
+  return states;
 }
 
 const FORBIDDEN_RESPONSE_FIELDS = new Set([

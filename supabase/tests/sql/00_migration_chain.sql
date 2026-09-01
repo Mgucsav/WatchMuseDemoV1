@@ -58,6 +58,7 @@ grant usage on schema public to anon, authenticated, service_role;
 \i :MIGRATIONS_DIR/20260812000200_room_rounds_votes_and_wheel.sql
 \i :MIGRATIONS_DIR/20260813000100_reusable_rounds.sql
 \i :MIGRATIONS_DIR/20260814000100_room_subscriptions.sql
+\i :MIGRATIONS_DIR/20260901000100_teleparty_bridge.sql
 
 -- Doğrulama --------------------------------------------------------------------
 do $$
@@ -73,9 +74,9 @@ begin
        and tablename in (
          'spaces','participants','invitations','profiles','library_items',
          'space_rounds','room_candidates','room_votes',
-         'room_selections','room_selection_acceptances'
-       )) = 10 into v_ok;
-  if not v_ok then raise exception 'ASSERTION FAILED: on tablonun tamami olusmali'; end if;
+         'room_selections','room_selection_acceptances','room_teleparty_sessions'
+       )) = 11 into v_ok;
+  if not v_ok then raise exception 'ASSERTION FAILED: on bir tablonun tamami olusmali'; end if;
 
   -- Çok turlu oda: eski unique kısıt kaldırılmış olmalı
   select not exists (
@@ -105,7 +106,7 @@ begin
     where relname in (
       'spaces','participants','invitations','profiles','library_items',
       'space_rounds','room_candidates','room_votes',
-      'room_selections','room_selection_acceptances'
+      'room_selections','room_selection_acceptances','room_teleparty_sessions'
     )) into v_ok;
   if not v_ok then raise exception 'ASSERTION FAILED: butun tablolarda RLS acik olmali'; end if;
 

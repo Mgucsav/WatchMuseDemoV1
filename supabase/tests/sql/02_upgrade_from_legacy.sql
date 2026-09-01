@@ -83,6 +83,8 @@ $$;
 
 -- --- Yükseltme ---------------------------------------------------------------
 \i :MIGRATIONS_DIR/20260813000100_reusable_rounds.sql
+\i :MIGRATIONS_DIR/20260814000100_room_subscriptions.sql
+\i :MIGRATIONS_DIR/20260901000100_teleparty_bridge.sql
 
 do $$
 declare
@@ -190,3 +192,5 @@ truncate auth.users cascade;
 \i :MIGRATIONS_DIR/20260812000100_profiles_and_library.sql
 \i :MIGRATIONS_DIR/20260812000200_room_rounds_votes_and_wheel.sql
 \i :MIGRATIONS_DIR/20260813000100_reusable_rounds.sql
+\i :MIGRATIONS_DIR/20260814000100_room_subscriptions.sql
+\i :MIGRATIONS_DIR/20260901000100_teleparty_bridge.sql

@@ -85,7 +85,7 @@ Runner dosyaları **alfabetik** çalıştırır ve sıra anlamlıdır:
 
 | Dosya | Rolü |
 | --- | --- |
-| `00_migration_chain.sql` | `public` şemasını düşürür, rolleri/`auth` şemasını kurar, yedi migration'ı uygular |
+| `00_migration_chain.sql` | `public` şemasını düşürür, rolleri/`auth` şemasını kurar, sekiz migration'ı uygular |
 | `01_helpers.sql` | `wm_test` assertion ve fixture yardımcıları (şema düşmelerinden etkilenmez) |
 | `02_upgrade_from_legacy.sql` | Legacy şema + veri → yükseltme; sonunda zinciri yeniden kurar |
 | `03_round_lifecycle.sql` | Tur yaşam döngüsü, append-only geçmiş, kısıt savunmaları |
@@ -94,6 +94,7 @@ Runner dosyaları **alfabetik** çalıştırır ve sıra anlamlıdır:
 | `06_input_validation.sql` | Bozuk girdi → tanımlı domain hatası |
 | `07_authorization_privacy.sql` | Grant'ler, aktör doğrulaması, gizlilik |
 | `08_subscription_intersection.sql` | Abonelik beyanı, ortak platform kesişimi, tekrar için alt küme kuralı |
+| `09_teleparty_bridge.sql` | İki kabul kapısı, yalnız-host yazımı, resmi URL doğrulama ve bağlantı gizliliği |
 
 ---
 
@@ -120,6 +121,7 @@ Runner dosyaları **alfabetik** çalıştırır ve sıra anlamlıdır:
 | 17 | Ortak abonelik kümesi turla saklanır; boş/bozuk küme reddedilir | `08_subscription_intersection.sql` |
 | 18 | Daralan ortak kümede eski turun filmi tekrar edilemez | `08_subscription_intersection.sql` |
 | 19 | Katılımcı yalnızca kendi abonelik beyanını güncelleyebilir | `08_subscription_intersection.sql` |
+| 20–23 | Teleparty hazırlık kapısı, host yetkisi, ortak link ve doğrudan tablo erişimi | `09_teleparty_bridge.sql` |
 
 ### ⚠️ Gerçek eşzamanlılık hakkında
 
@@ -135,7 +137,7 @@ davranışı **doğrulanmış sayılmaz**.
 ## `npm test` ile ilişkisi
 
 `src/lib/rooms/db-integration-harness.test.ts` dosyası harness'ın **var
-olduğunu** ve tam olduğunu doğrular; harness'ı **çalıştırmaz**. Kapsanan on dokuz
+olduğunu** ve tam olduğunu doğrular; harness'ı **çalıştırmaz**. Kapsanan yirmi üç
 senaryo orada `todo` olarak listelenir, böylece `npm test` çıktısı bunların
 çalıştırılmadığını dürüstçe gösterir.
 

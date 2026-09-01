@@ -10,8 +10,10 @@ import type {
   RoomRound,
   RoomRoundState,
   RoomSelection,
+  RoomTelepartyState,
   RoomVoteChoice,
 } from "@/lib/rooms/types";
+import { parseTelepartyJoinUrl } from "@/lib/rooms/teleparty";
 import {
   classifyPollFailure,
   isSelectionExpired,
@@ -20,6 +22,7 @@ import {
   WAITING_POLL_INTERVAL_MS,
 } from "@/lib/rooms/polling-policy";
 import { ensureAnonymousSession } from "@/lib/supabase/browser";
+import type { MovieProvidersResult } from "@/lib/tmdb/types";
 
 const SWIPE_DISTANCE_PX = 60;
 
@@ -91,7 +94,11 @@ export function RoomRound({
     view.kind === "loading" || view.kind === "waiting-for-host"
       ? WAITING_POLL_INTERVAL_MS
       : view.kind === "ready"
-        ? pollingIntervalFor(view.state.round)
+        ? view.state.telepartyStates.some(
+            (state) => state.bothAccepted && state.joinUrl === null,
+          )
+          ? WAITING_POLL_INTERVAL_MS
+          : pollingIntervalFor(view.state.round)
         : null;
 
   useEffect(() => {
@@ -242,7 +249,7 @@ export function RoomRound({
     );
   }
 
-  const { round, pendingSelections } = view.state;
+  const { round, pendingSelections, telepartyStates } = view.state;
   const pendingArea = (
     <>
       {transientPollError ? (
@@ -251,9 +258,17 @@ export function RoomRound({
         </StatusMessage>
       ) : null}
       <PendingSelectionArea
+        spaceId={spaceId}
+        isHost={isHost}
         selections={pendingSelections}
+        telepartyStates={telepartyStates}
         acceptingSelectionId={acceptingSelectionId}
         onAccept={acceptSelection}
+        onState={(data) => {
+          if (data.round) {
+            setView({ kind: "ready", state: { ...data, round: data.round } });
+          }
+        }}
         actionError={actionError}
         now={selectionNow}
       />
@@ -333,15 +348,23 @@ export function RoomRound({
 }
 
 function PendingSelectionArea({
+  spaceId,
+  isHost,
   selections,
+  telepartyStates,
   acceptingSelectionId,
   onAccept,
+  onState,
   actionError,
   now,
 }: {
+  spaceId: string;
+  isHost: boolean;
   selections: RoomSelection[];
+  telepartyStates: RoomTelepartyState[];
   acceptingSelectionId: string | null;
   onAccept: (selectionId: string) => Promise<void>;
+  onState: (state: RoomRoundState) => void;
   actionError: string | null;
   /** Süre dolumunu türetmek için tik atan referans zaman. */
   now: number;
@@ -372,43 +395,235 @@ function PendingSelectionArea({
             hour: "2-digit",
             minute: "2-digit",
           }).format(new Date(selection.responseDeadline));
+          const telepartyState = telepartyStates.find(
+            (state) => state.selectionId === selection.id,
+          ) ?? {
+            selectionId: selection.id,
+            bothAccepted: false,
+            joinUrl: null,
+          };
 
           return (
             <article
               key={selection.id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-black/10 p-3 dark:border-white/15"
+              className="rounded-lg border border-black/10 p-3 dark:border-white/15"
             >
-              <div>
-                <p className="font-medium">{selection.title}</p>
-                <p className="mt-1 text-xs text-black/60 dark:text-white/60">
-                  {expired
-                    ? `Ekleme süresi ${deadline} tarihinde doldu.`
-                    : `${deadline} tarihine kadar kişisel listene ekleyebilirsin.`}
-                </p>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="font-medium">{selection.title}</p>
+                  <p className="mt-1 text-xs text-black/60 dark:text-white/60">
+                    {expired
+                      ? `Seçim süresi ${deadline} tarihinde doldu.`
+                      : `${deadline} tarihine kadar birlikte izlemeye geçebilirsiniz.`}
+                  </p>
+                </div>
+                {selection.myAccepted ? (
+                  <p className="text-sm font-medium">
+                    {telepartyState.bothAccepted
+                      ? "İkiniz de hazırsınız"
+                      : "Hazırsın · partner bekleniyor"}
+                  </p>
+                ) : expired ? (
+                  <p className="text-sm text-black/60 dark:text-white/60">
+                    Süresi doldu
+                  </p>
+                ) : (
+                  <button
+                    type="button"
+                    className="rounded-md border border-black/30 px-3 py-2 text-sm font-medium disabled:opacity-60 dark:border-white/35"
+                    disabled={acceptingSelectionId !== null}
+                    onClick={() => void onAccept(selection.id)}
+                  >
+                    {acceptingSelectionId === selection.id
+                      ? "Kaydediliyor…"
+                      : "Şimdi izlemek istiyorum"}
+                  </button>
+                )}
               </div>
-              {selection.myAccepted ? (
-                <p className="text-sm font-medium">İzleme listene eklendi</p>
-              ) : expired ? (
-                <p className="text-sm text-black/60 dark:text-white/60">
-                  Süresi doldu
-                </p>
-              ) : (
-                <button
-                  type="button"
-                  className="rounded-md border border-black/30 px-3 py-2 text-sm font-medium disabled:opacity-60 dark:border-white/35"
-                  disabled={acceptingSelectionId !== null}
-                  onClick={() => void onAccept(selection.id)}
-                >
-                  {acceptingSelectionId === selection.id
-                    ? "Ekleniyor…"
-                    : "İzleme listeme ekle"}
-                </button>
-              )}
+              {selection.myAccepted && !expired ? (
+                <TelepartyBridge
+                  spaceId={spaceId}
+                  selection={selection}
+                  telepartyState={telepartyState}
+                  isHost={isHost}
+                  onState={onState}
+                />
+              ) : null}
             </article>
           );
         })}
       </div>
     </section>
+  );
+}
+
+function TelepartyBridge({
+  spaceId,
+  selection,
+  telepartyState,
+  isHost,
+  onState,
+}: {
+  spaceId: string;
+  selection: RoomSelection;
+  telepartyState: RoomTelepartyState;
+  isHost: boolean;
+  onState: (state: RoomRoundState) => void;
+}) {
+  const [setupStarted, setSetupStarted] = useState(false);
+  const [watchOptionsUrl, setWatchOptionsUrl] = useState<string | null>(null);
+  const [providerLoaded, setProviderLoaded] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [bridgeError, setBridgeError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isHost || !telepartyState.bothAccepted || telepartyState.joinUrl) {
+      return;
+    }
+
+    const controller = new AbortController();
+    void fetchJson<MovieProvidersResult>(
+      `/api/movies/${selection.tmdbMovieId}/providers`,
+      controller.signal,
+    )
+      .then((result) => setWatchOptionsUrl(result.watchOptionsUrl))
+      .catch(() => setWatchOptionsUrl(null))
+      .finally(() => {
+        if (!controller.signal.aborted) setProviderLoaded(true);
+      });
+    return () => controller.abort();
+  }, [isHost, selection.tmdbMovieId, telepartyState.bothAccepted, telepartyState.joinUrl]);
+
+  const takeLinkFromClipboard = useCallback(
+    async (quiet = false) => {
+      if (sharing || !setupStarted) return;
+      if (!navigator.clipboard?.readText) {
+        if (!quiet) {
+          setBridgeError("Tarayıcı pano erişimini desteklemiyor. Chrome veya Edge ile tekrar deneyin.");
+        }
+        return;
+      }
+
+      setSharing(true);
+      try {
+        const clipboardValue = await navigator.clipboard.readText();
+        const joinUrl = parseTelepartyJoinUrl(clipboardValue);
+        if (!joinUrl) {
+          if (!quiet) {
+            setBridgeError("Panoda Teleparty daveti yok. Teleparty’de Copy URL’ye basıp bu düğmeyi tekrar kullanın.");
+          }
+          return;
+        }
+
+        const data = await fetchJson<RoomRoundState>(
+          `/api/rooms/${spaceId}/teleparty`,
+          undefined,
+          {
+            method: "POST",
+            body: { selectionId: selection.id, joinUrl },
+          },
+        );
+        setBridgeError(null);
+        onState(data);
+      } catch (error) {
+        if (!quiet) {
+          setBridgeError(
+            error instanceof ApiError
+              ? error.message
+              : "Pano okunamadı. Tarayıcı izin isterse izin verip tekrar deneyin.",
+          );
+        }
+      } finally {
+        setSharing(false);
+      }
+    }, [onState, selection.id, setupStarted, sharing, spaceId]);
+
+  useEffect(() => {
+    if (!setupStarted || telepartyState.joinUrl) return;
+    const onFocus = () => void takeLinkFromClipboard(true);
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [setupStarted, takeLinkFromClipboard, telepartyState.joinUrl]);
+
+  if (!telepartyState.bothAccepted) return null;
+
+  if (telepartyState.joinUrl) {
+    return (
+      <div className="mt-3 border-t border-black/10 pt-3 dark:border-white/15">
+        <a
+          href={telepartyState.joinUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex rounded-md bg-black px-4 py-2 text-sm font-semibold text-white dark:bg-white dark:text-black"
+        >
+          Teleparty’ye katıl
+        </a>
+        <p className="mt-2 text-xs text-black/60 dark:text-white/60">
+          Bağlantı yeni sekmede filmi ve ortak Teleparty odasını açar.
+        </p>
+      </div>
+    );
+  }
+
+  if (!isHost) {
+    return (
+      <p className="mt-3 border-t border-black/10 pt-3 text-sm text-black/65 dark:border-white/15 dark:text-white/65">
+        Oda sahibi Teleparty’yi hazırlıyor. Bağlantı hazır olunca katıl düğmesi burada otomatik görünecek.
+      </p>
+    );
+  }
+
+  const startSetup = () => {
+    setSetupStarted(true);
+    setBridgeError(null);
+    window.open(
+      watchOptionsUrl ?? "https://www.teleparty.com/",
+      "_blank",
+      "noopener,noreferrer",
+    );
+  };
+
+  return (
+    <div className="mt-3 border-t border-black/10 pt-3 dark:border-white/15">
+      <p className="text-sm font-semibold">Teleparty’yi hazırla</p>
+      <p className="mt-1 text-sm text-black/65 dark:text-white/65">
+        Filmi aç, Teleparty uzantısında Start Party ve ardından Copy URL’ye bas. WatchMuse’e döndüğünde bağlantıyı panodan otomatik almayı deneyeceğiz.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={!providerLoaded}
+          onClick={startSetup}
+          className="rounded-md bg-black px-4 py-2 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60 dark:bg-white dark:text-black"
+        >
+          {!providerLoaded
+            ? "İzleme seçeneği hazırlanıyor…"
+            : setupStarted
+              ? "Filmi tekrar aç"
+              : "Filmi aç ve Teleparty’yi kur"}
+        </button>
+        {setupStarted ? (
+          <button
+            type="button"
+            disabled={sharing}
+            onClick={() => void takeLinkFromClipboard(false)}
+            className="rounded-md border border-black/30 px-4 py-2 text-sm font-medium disabled:cursor-wait disabled:opacity-60 dark:border-white/35"
+          >
+            {sharing ? "Bağlantı alınıyor…" : "Kopyaladığım bağlantıyı al"}
+          </button>
+        ) : null}
+      </div>
+      {setupStarted ? (
+        <p className="mt-2 text-xs text-black/55 dark:text-white/55">
+          Otomatik okuma tarayıcı iznine takılırsa ikinci düğme aynı işlemi tek tıkla tamamlar; bağlantıyı yapıştırmanız gerekmez.
+        </p>
+      ) : null}
+      {bridgeError ? (
+        <div className="mt-3">
+          <StatusMessage tone="error">{bridgeError}</StatusMessage>
+        </div>
+      ) : null}
+    </div>
   );
 }
 

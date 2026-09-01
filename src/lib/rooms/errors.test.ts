@@ -17,6 +17,9 @@ const DATABASE_CONTRACT: readonly RoomErrorCode[] = [
   "candidate_pool_incomplete",
   "invalid_selection",
   "selection_expired",
+  "invalid_teleparty_link",
+  "teleparty_not_ready",
+  "host_required",
 ];
 
 describe("normalizeRoomError — veritabanı sözleşmesi", () => {

@@ -27,6 +27,9 @@ export type RoomErrorCode =
   | "round_creation_moved"
   | "invalid_selection"
   | "selection_expired"
+  | "invalid_teleparty_link"
+  | "teleparty_not_ready"
+  | "host_required"
   | "round_requires_supabase"
   | "not_configured"
   | "network"
@@ -63,6 +66,9 @@ const MESSAGES: Record<RoomErrorCode, string> = {
     "Yeterli sayıda uygun film bulunamadı. Lütfen biraz sonra tekrar deneyin.",
   invalid_selection: "Seçilen oda filmi bulunamadı.",
   selection_expired: "Bu filmi listeye ekleme süresi dolmuş.",
+  invalid_teleparty_link: "Panoda geçerli bir Teleparty davet bağlantısı bulunamadı.",
+  teleparty_not_ready: "Teleparty için önce iki kişinin de filmi kabul etmesi gerekiyor.",
+  host_required: "Teleparty bağlantısını yalnızca oda sahibi paylaşabilir.",
   round_requires_supabase: "Ortak seçim turu için Supabase bağlantısı gereklidir.",
   not_configured: "Oda servisi henüz yapılandırılmamış.",
   network: "Sunucuya ulaşılamadı. Bağlantınızı kontrol edin.",
@@ -92,6 +98,9 @@ const DATABASE_ERROR_CODES: readonly RoomErrorCode[] = [
   "round_creation_moved",
   "invalid_selection",
   "selection_expired",
+  "invalid_teleparty_link",
+  "teleparty_not_ready",
+  "host_required",
 ];
 
 /** Sözlükte karşılığı olan tüm kodlar (veritabanı sözleşmesi + yerel kodlar). */

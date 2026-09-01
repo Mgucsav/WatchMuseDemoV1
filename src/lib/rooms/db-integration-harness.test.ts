@@ -31,6 +31,7 @@ const SQL_FILES = [
   "06_input_validation.sql",
   "07_authorization_privacy.sql",
   "08_subscription_intersection.sql",
+  "09_teleparty_bridge.sql",
 ] as const;
 
 describe("gerçek veritabanı harness'ı — dosya bütünlüğü", () => {
@@ -109,4 +110,8 @@ describe("gerçek veritabanı entegrasyon senaryoları — NOT RUN", () => {
   it.todo("17 · ortak abonelik kümesi turla saklanır, boş küme reddedilir");
   it.todo("18 · daralan ortak kümede eski turun filmi tekrar edilemez");
   it.todo("19 · katılımcı yalnızca KENDİ abonelik beyanını güncelleyebilir");
+  it.todo("20 · Teleparty linki iki kabul olmadan paylaşılamaz");
+  it.todo("21 · yalnız host resmi Teleparty linki yazabilir");
+  it.todo("22 · iki üye aynı katılım linkini görür, yabancı okuyamaz");
+  it.todo("23 · Teleparty tablosuna doğrudan istemci erişimi kapalıdır");
 });
