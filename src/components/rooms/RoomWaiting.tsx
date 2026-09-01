@@ -145,6 +145,7 @@ export function RoomWaiting({ spaceId }: { spaceId: string }) {
           spaceId={spaceId}
           isHost={room.myRole === "host"}
           canStartRound={room.sharedSubscriptions.length > 0}
+          sharedSubscriptions={room.sharedSubscriptions}
         />
       ) : null}
 

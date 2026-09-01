@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { parseTelepartyJoinUrl, toTelepartyMovieUrl } from "./teleparty";
+import {
+  parseTelepartyJoinUrl,
+  telepartyProviderLaunches,
+} from "./teleparty";
 
 describe("parseTelepartyJoinUrl", () => {
   it("resmi Teleparty katılım bağlantısını kabul eder", () => {
@@ -24,21 +27,38 @@ describe("parseTelepartyJoinUrl", () => {
   });
 });
 
-describe("toTelepartyMovieUrl", () => {
-  it("TMDb kimliği ve özgün başlıktan resmi film sayfasını üretir", () => {
-    expect(toTelepartyMovieUrl(68734, "Argo")).toBe(
-      "https://www.teleparty.com/movie/68734/argo",
-    );
+describe("telepartyProviderLaunches", () => {
+  it("yalnız mevcut Teleparty-destekli sağlayıcıların aramasını üretir", () => {
+    expect(
+      telepartyProviderLaunches("Operasyon: Argo", [
+        "netflix",
+        "prime_video",
+        "mubi",
+      ]),
+    ).toEqual([
+      {
+        key: "netflix",
+        label: "Netflix",
+        url: "https://www.netflix.com/search?q=Operasyon%3A%20Argo",
+      },
+      {
+        key: "prime_video",
+        label: "Prime Video",
+        url: "https://www.primevideo.com/search/ref=atv_nb_sr?phrase=Operasyon%3A%20Argo",
+      },
+    ]);
   });
 
-  it("başlığı URL için güvenli hale getirir", () => {
-    expect(toTelepartyMovieUrl(42, "Amélie: L'été!")).toBe(
-      "https://www.teleparty.com/movie/42/amelie-l-ete",
-    );
+  it("Disney+ için gerçek yayın sitesinin arama ekranını açar", () => {
+    expect(telepartyProviderLaunches("Film", ["disney_plus"])[0]).toEqual({
+      key: "disney_plus",
+      label: "Disney+",
+      url: "https://www.disneyplus.com/search",
+    });
   });
 
-  it("geçersiz kimlik veya latin slug üretmeyen başlığı reddeder", () => {
-    expect(toTelepartyMovieUrl(0, "Argo")).toBeNull();
-    expect(toTelepartyMovieUrl(68734, "東京")).toBeNull();
+  it("yalnız desteklenmeyen sağlayıcılar veya boş başlık için hedef üretmez", () => {
+    expect(telepartyProviderLaunches("Film", ["mubi", "blutv"])).toEqual([]);
+    expect(telepartyProviderLaunches("   ", ["netflix"])).toEqual([]);
   });
 });

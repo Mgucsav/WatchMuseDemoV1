@@ -33,22 +33,49 @@ export function parseTelepartyJoinUrl(value: unknown): string | null {
   return `https://${TELEPARTY_HOST}${url.pathname}`;
 }
 
-/** TMDb kimliği ve özgün başlıktan resmi Teleparty film sayfasını üretir. */
-export function toTelepartyMovieUrl(
-  movieId: number,
-  originalTitle: string,
-): string | null {
-  if (!Number.isSafeInteger(movieId) || movieId <= 0) return null;
+export interface TelepartyProviderLaunch {
+  key: "netflix" | "prime_video" | "disney_plus";
+  label: string;
+  url: string;
+}
 
-  const slug = originalTitle
-    .normalize("NFKD")
-    .replace(/\p{M}/gu, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 120)
-    .replace(/-+$/g, "");
+/**
+ * Teleparty'nin desteklediği ortak sağlayıcıların gerçek yayın sitesi arama
+ * hedeflerini üretir. Teleparty tanıtım/katalog sayfası bilinçli olarak yoktur:
+ * uzantı ancak yayın sitesinde video oynarken parti başlatabilir.
+ */
+export function telepartyProviderLaunches(
+  title: string,
+  availableProviderKeys: readonly string[],
+): TelepartyProviderLaunch[] {
+  const query = encodeURIComponent(title.trim());
+  if (query === "") return [];
+  const available = new Set(availableProviderKeys);
+  const targets: TelepartyProviderLaunch[] = [];
 
-  if (slug === "") return null;
-  return `https://www.teleparty.com/movie/${movieId}/${slug}`;
+  if (available.has("netflix")) {
+    targets.push({
+      key: "netflix",
+      label: "Netflix",
+      url: `https://www.netflix.com/search?q=${query}`,
+    });
+  }
+  if (available.has("prime_video")) {
+    targets.push({
+      key: "prime_video",
+      label: "Prime Video",
+      url: `https://www.primevideo.com/search/ref=atv_nb_sr?phrase=${query}`,
+    });
+  }
+  if (available.has("disney_plus")) {
+    targets.push({
+      key: "disney_plus",
+      label: "Disney+",
+      // Disney+ web araması başlığı URL ile güvenilir biçimde önceden
+      // doldurmuyor; yine de doğru, uzantı-destekli yayın sitesini açar.
+      url: "https://www.disneyplus.com/search",
+    });
+  }
+
+  return targets;
 }

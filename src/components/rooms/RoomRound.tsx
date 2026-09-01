@@ -10,12 +10,14 @@ import type {
   RoomRound,
   RoomRoundState,
   RoomSelection,
+  RoomSubscriptions,
   RoomTelepartyState,
   RoomVoteChoice,
 } from "@/lib/rooms/types";
 import {
   parseTelepartyJoinUrl,
-  toTelepartyMovieUrl,
+  telepartyProviderLaunches,
+  type TelepartyProviderLaunch,
 } from "@/lib/rooms/teleparty";
 import {
   classifyPollFailure,
@@ -48,6 +50,7 @@ export function RoomRound({
   spaceId,
   isHost,
   canStartRound,
+  sharedSubscriptions,
 }: {
   spaceId: string;
   isHost: boolean;
@@ -56,6 +59,7 @@ export function RoomRound({
    * oynanmaya devam eder: adayları zaten toplanmıştır.
    */
   canStartRound: boolean;
+  sharedSubscriptions: RoomSubscriptions;
 }) {
   const [view, setView] = useState<ViewState>({ kind: "loading" });
   // Aksiyon hataları (kabul, yeni tur) bütün oda görünümünü DEĞİŞTİRMEZ;
@@ -263,6 +267,7 @@ export function RoomRound({
       <PendingSelectionArea
         spaceId={spaceId}
         isHost={isHost}
+        sharedSubscriptions={sharedSubscriptions}
         selections={pendingSelections}
         telepartyStates={telepartyStates}
         acceptingSelectionId={acceptingSelectionId}
@@ -353,6 +358,7 @@ export function RoomRound({
 function PendingSelectionArea({
   spaceId,
   isHost,
+  sharedSubscriptions,
   selections,
   telepartyStates,
   acceptingSelectionId,
@@ -363,6 +369,7 @@ function PendingSelectionArea({
 }: {
   spaceId: string;
   isHost: boolean;
+  sharedSubscriptions: RoomSubscriptions;
   selections: RoomSelection[];
   telepartyStates: RoomTelepartyState[];
   acceptingSelectionId: string | null;
@@ -449,6 +456,7 @@ function PendingSelectionArea({
                   selection={selection}
                   telepartyState={telepartyState}
                   isHost={isHost}
+                  sharedSubscriptions={sharedSubscriptions}
                   onState={onState}
                 />
               ) : null}
@@ -465,16 +473,18 @@ function TelepartyBridge({
   selection,
   telepartyState,
   isHost,
+  sharedSubscriptions,
   onState,
 }: {
   spaceId: string;
   selection: RoomSelection;
   telepartyState: RoomTelepartyState;
   isHost: boolean;
+  sharedSubscriptions: RoomSubscriptions;
   onState: (state: RoomRoundState) => void;
 }) {
   const [setupStarted, setSetupStarted] = useState(false);
-  const [telepartyMovieUrl, setTelepartyMovieUrl] = useState<string | null>(null);
+  const [launchTargets, setLaunchTargets] = useState<TelepartyProviderLaunch[]>([]);
   const [launchTargetLoaded, setLaunchTargetLoaded] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [bridgeError, setBridgeError] = useState<string | null>(null);
@@ -490,19 +500,28 @@ function TelepartyBridge({
       controller.signal,
     )
       .then((result) => {
-        setTelepartyMovieUrl(
-          toTelepartyMovieUrl(
-            selection.tmdbMovieId,
-            result.movie.originalTitle ?? result.movie.title,
-          ),
+        const availableSharedKeys = result.providers.providers
+          .filter(
+            (provider) =>
+              provider.available && sharedSubscriptions.includes(provider.key),
+          )
+          .map((provider) => provider.key);
+        setLaunchTargets(
+          telepartyProviderLaunches(result.movie.title, availableSharedKeys),
         );
       })
-      .catch(() => setTelepartyMovieUrl(null))
+      .catch(() => setLaunchTargets([]))
       .finally(() => {
         if (!controller.signal.aborted) setLaunchTargetLoaded(true);
       });
     return () => controller.abort();
-  }, [isHost, selection.tmdbMovieId, telepartyState.bothAccepted, telepartyState.joinUrl]);
+  }, [
+    isHost,
+    selection.tmdbMovieId,
+    sharedSubscriptions,
+    telepartyState.bothAccepted,
+    telepartyState.joinUrl,
+  ]);
 
   const takeLinkFromClipboard = useCallback(
     async (quiet = false) => {
@@ -583,35 +602,43 @@ function TelepartyBridge({
     );
   }
 
-  const startSetup = () => {
+  const openProvider = (target: TelepartyProviderLaunch) => {
     setSetupStarted(true);
     setBridgeError(null);
-    window.open(
-      telepartyMovieUrl ?? "https://www.teleparty.com/",
-      "_blank",
-      "noopener,noreferrer",
-    );
+    window.open(target.url, "_blank", "noopener,noreferrer");
   };
 
   return (
     <div className="mt-3 border-t border-black/10 pt-3 dark:border-white/15">
       <p className="text-sm font-semibold">Teleparty’yi hazırla</p>
       <p className="mt-1 text-sm text-black/65 dark:text-white/65">
-        Teleparty film sayfasından yayın platformunu açıp filmi oynat. Sonra tarayıcıdaki Tp uzantısında Start Party ve Copy URL’ye bas. WatchMuse’e döndüğünde bağlantıyı panodan otomatik almayı deneyeceğiz.
+        Ortak platformunuzda <strong>{selection.title}</strong> filmini açıp oynat. Video oynarken tarayıcıdaki Tp uzantısında Start Party ve Copy URL’ye bas. WatchMuse’e döndüğünde bağlantıyı panodan otomatik almayı deneyeceğiz.
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
-        <button
-          type="button"
-          disabled={!launchTargetLoaded}
-          onClick={startSetup}
-          className="rounded-md bg-black px-4 py-2 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60 dark:bg-white dark:text-black"
-        >
-          {!launchTargetLoaded
-            ? "Teleparty hazırlanıyor…"
-            : setupStarted
-              ? "Teleparty sayfasını tekrar aç"
-              : "Teleparty’de filmi aç"}
-        </button>
+        {!launchTargetLoaded ? (
+          <button
+            type="button"
+            disabled
+            className="rounded-md bg-black px-4 py-2 text-sm font-semibold text-white opacity-60 dark:bg-white dark:text-black"
+          >
+            Platformlar kontrol ediliyor…
+          </button>
+        ) : launchTargets.length > 0 ? (
+          launchTargets.map((target) => (
+            <button
+              key={target.key}
+              type="button"
+              onClick={() => openProvider(target)}
+              className="rounded-md bg-black px-4 py-2 text-sm font-semibold text-white dark:bg-white dark:text-black"
+            >
+              {target.label}’ta filmi bul
+            </button>
+          ))
+        ) : (
+          <p className="text-sm text-black/65 dark:text-white/65">
+            Bu film ortak aboneliklerinizden Teleparty’nin desteklediği Netflix, Prime Video veya Disney+’ta görünmüyor.
+          </p>
+        )}
         {setupStarted ? (
           <button
             type="button"
