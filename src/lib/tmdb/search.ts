@@ -6,6 +6,7 @@ import {
   SEARCH_CACHE_MAX_ENTRIES,
   SEARCH_CACHE_TTL_MS,
   TMDB_LANGUAGE,
+  TMDB_REGION,
 } from "./constants";
 import {
   asArray,
@@ -119,20 +120,65 @@ export function normalizeMovie(raw: unknown): MovieSummary | null {
  *
  * Bu fonksiyon istemciye doğrudan açık değildir: çağıran sunucu kodu sonucu
  * veritabanına kaydeder; böylece iki kullanıcıya aynı 10 ID ve aynı sıra gider.
+ *
+ * ABONELİK FİLTRESİ — `providerIds`, odadaki İKİ katılımcının da sahip olduğu
+ * platformların TMDb sağlayıcı kimlikleridir. TMDb `with_watch_providers`
+ * listesini VEYA olarak yorumlar; `watch_region` ile birlikte zorunludur ve
+ * `with_watch_monetization_types=flatrate` sayesinde kiralama/satın alma
+ * katalogları dışarıda kalır. Yani dönen her film, ortak aboneliklerden en az
+ * birine Türkiye'de dahildir.
+ *
+ * Boş liste kabul edilmez: ortak abonelik yoksa öneri üretilmemelidir,
+ * filtresiz bir keşif isteğine sessizce düşülmemelidir.
  */
 export async function discoverRoomCandidatePage(
   page: number,
+  providerIds: readonly number[],
 ): Promise<MovieSummary[]> {
   if (!Number.isInteger(page) || page < 1 || page > 500) {
     throw new Error("invalid_discover_page");
   }
 
+  if (providerIds.length === 0) {
+    throw new Error("room_requires_shared_providers");
+  }
+
+  const response = await requestRoomCandidatePage(page, providerIds);
+
+  // Dar bir ortak katalogda (ör. tek platform) toplam sayfa sayısı, seed'li
+  // sayfa sırasının üst sınırından küçük olabilir. Aralık dışındaki sayfa boş
+  // döner; havuzu boş yere daraltmamak için istek bir kez aralığa katlanır.
+  if (
+    response.movies.length === 0 &&
+    response.totalPages >= 1 &&
+    page > response.totalPages
+  ) {
+    const wrappedPage = ((page - 1) % response.totalPages) + 1;
+    if (wrappedPage !== page) {
+      return (await requestRoomCandidatePage(wrappedPage, providerIds)).movies;
+    }
+  }
+
+  if (response.movies.length === 0) {
+    throw new Error("room_candidate_pool_incomplete");
+  }
+
+  return response.movies;
+}
+
+async function requestRoomCandidatePage(
+  page: number,
+  providerIds: readonly number[],
+): Promise<{ movies: MovieSummary[]; totalPages: number }> {
   const raw = await tmdbRequest("/discover/movie", {
     language: TMDB_LANGUAGE,
     include_adult: "false",
     include_video: "false",
     sort_by: "popularity.desc",
     "vote_count.gte": "50",
+    watch_region: TMDB_REGION,
+    with_watch_providers: providerIds.join("|"),
+    with_watch_monetization_types: "flatrate",
     page: String(page),
   });
 
@@ -142,9 +188,8 @@ export async function discoverRoomCandidatePage(
     if (movie && !unique.has(movie.id)) unique.set(movie.id, movie);
   }
 
-  if (unique.size === 0) {
-    throw new Error("room_candidate_pool_incomplete");
-  }
-
-  return [...unique.values()];
+  return {
+    movies: [...unique.values()],
+    totalPages: asPositiveInteger(isRecord(raw) ? raw.total_pages : undefined) ?? 1,
+  };
 }

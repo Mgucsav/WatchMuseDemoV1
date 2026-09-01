@@ -5,7 +5,10 @@ import type { MovieSummary } from "@/lib/tmdb/types";
 
 /**
  * Arama sonuçları. Kullanıcı afiş ve yayın yılı üzerinden doğru filmi seçer.
- * Sağlayıcı sorgusu burada değil, yalnızca seçim sonrasında tetiklenir.
+ *
+ * Seçim, detay modalını açar; sağlayıcı ve künye sorgusu burada değil, yalnızca
+ * modal açıldığında tetiklenir. Satırın kendisi tek etkileşimli öğedir: içinde
+ * iç içe düğme veya bağlantı bulunmaz.
  */
 export function MovieResultList({
   movies,
@@ -13,6 +16,7 @@ export function MovieResultList({
   onSelect,
 }: {
   movies: MovieSummary[];
+  /** Detay modalı açık olan filmin TMDb kimliği. */
   selectedMovieId: number | null;
   onSelect: (movie: MovieSummary) => void;
 }) {
@@ -26,7 +30,8 @@ export function MovieResultList({
             <button
               type="button"
               onClick={() => onSelect(movie)}
-              aria-pressed={isSelected}
+              aria-haspopup="dialog"
+              aria-expanded={isSelected}
               className={`flex w-full min-h-11 items-start gap-3 rounded-lg border p-2 text-left transition-colors ${
                 isSelected
                   ? "border-black/40 bg-black/[0.04] dark:border-white/50 dark:bg-white/10"

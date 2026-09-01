@@ -1,10 +1,21 @@
 import { randomUUID } from "node:crypto";
 import { buildInvitationUrl, generateInvitationToken, hashInvitationToken, isValidInvitationTokenFormat } from "./tokens";
-import type { CreateRoomResult, JoinRoomResult, RoomState } from "./types";
+import { sharedSubscriptions } from "./subscriptions";
+import type {
+  CreateRoomResult,
+  JoinRoomResult,
+  RoomState,
+  RoomSubscriptions,
+} from "./types";
 import { roomError } from "./errors";
 
 /** Basit in-memory store — yalnızca geliştirme için. Sunucu tekrar başlatılınca silinir. */
-type Participant = { userId: string; role: "host" | "guest" };
+type Participant = {
+  userId: string;
+  role: "host" | "guest";
+  /** Katılım anında seçilen abonelikler; ortak küme buradan türetilir. */
+  subscriptions: RoomSubscriptions;
+};
 
 interface LocalInvitation {
   id: string;
@@ -30,15 +41,20 @@ function nowIso(offsetMs = 0) {
   return new Date(Date.now() + offsetMs).toISOString();
 }
 
-export async function createRoomLocal(baseUrl: string, userId: string): Promise<CreateRoomResult> {
+export async function createRoomLocal(
+  baseUrl: string,
+  subscriptions: RoomSubscriptions,
+  userId: string,
+): Promise<CreateRoomResult> {
   if (!userId) throw roomError("unauthenticated");
+  if (subscriptions.length === 0) throw roomError("subscriptions_required");
 
   const spaceId = randomUUID();
   const space: LocalSpace = {
     id: spaceId,
     status: "active",
     createdBy: userId,
-    participants: [{ userId, role: "host" }],
+    participants: [{ userId, role: "host", subscriptions: [...subscriptions] }],
     invitations: [],
   };
 
@@ -60,9 +76,14 @@ export async function createRoomLocal(baseUrl: string, userId: string): Promise<
   return { spaceId, inviteUrl, invitationExpiresAt: invitation.expiresAt };
 }
 
-export async function joinRoomLocal(token: string, userId: string): Promise<JoinRoomResult> {
+export async function joinRoomLocal(
+  token: string,
+  subscriptions: RoomSubscriptions,
+  userId: string,
+): Promise<JoinRoomResult> {
   if (!isValidInvitationTokenFormat(token)) throw roomError("invalid_invitation");
   if (!userId) throw roomError("unauthenticated");
+  if (subscriptions.length === 0) throw roomError("subscriptions_required");
 
   const tokenHash = hashInvitationToken(token);
 
@@ -89,12 +110,18 @@ export async function joinRoomLocal(token: string, userId: string): Promise<Join
   const existing = ownerSpace.participants.find((p) => p.userId === userId);
   if (existing) {
     if (existing.role === "host") throw roomError("host_cannot_join");
+    // Tekrar gelen misafir seçimini tazeleyebilir; üyelik değişmez.
+    existing.subscriptions = [...subscriptions];
     return { spaceId: ownerSpace.id, role: "guest", alreadyMember: true };
   }
 
   if (ownerSpace.participants.length >= 2) throw roomError("room_full");
 
-  ownerSpace.participants.push({ userId, role: "guest" });
+  ownerSpace.participants.push({
+    userId,
+    role: "guest",
+    subscriptions: [...subscriptions],
+  });
   foundInv.usedAt = nowIso();
   foundInv.usedBy = userId;
 
@@ -108,6 +135,7 @@ export async function getRoomStateLocal(spaceId: string, userId: string): Promis
 
   const participantCount = space.participants.length;
   const mine = space.participants.find((p) => p.userId === userId)!;
+  const partner = space.participants.find((p) => p.userId !== userId) ?? null;
 
   return {
     spaceId: space.id,
@@ -115,5 +143,27 @@ export async function getRoomStateLocal(spaceId: string, userId: string): Promis
     participantCount,
     myRole: mine.role,
     partnerJoined: participantCount >= 2,
+    mySubscriptions: [...mine.subscriptions],
+    partnerSubscriptions: partner ? [...partner.subscriptions] : [],
+    sharedSubscriptions: partner
+      ? sharedSubscriptions(mine.subscriptions, partner.subscriptions)
+      : [],
   };
+}
+
+/** Çağıranın kendi abonelik seçimini değiştirir; başka satıra dokunmaz. */
+export function setRoomSubscriptionsLocal(
+  spaceId: string,
+  subscriptions: RoomSubscriptions,
+  userId: string,
+): void {
+  if (subscriptions.length === 0) throw roomError("subscriptions_required");
+
+  const space = spaces.get(spaceId);
+  if (!space) throw roomError("invalid_invitation");
+
+  const mine = space.participants.find((p) => p.userId === userId);
+  if (!mine) throw roomError("invalid_invitation");
+
+  mine.subscriptions = [...subscriptions];
 }

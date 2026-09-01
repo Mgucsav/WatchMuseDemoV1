@@ -29,11 +29,15 @@ oylama, ortak çark ve seçilen filmi kişisel izleme listesine kabul etme akı�
 │  src/lib/rooms/tokens.ts    ← düz metin token BURADA üretilir        │
 │  src/lib/rooms/service.ts   ← SHA-256 BURADA hesaplanır              │
 │  src/lib/supabase/server.ts ← kullanıcının çereziyle Supabase        │
+│  src/lib/supabase/admin.ts  ← service_role · server-only · SADECE    │
+│                               yeni tur açan RPC için                 │
 │  src/proxy.ts               ← oturum tazeleme                        │
 │                                                                      │
 │  ★ Düz metin token bu katmanın DIŞINA yalnızca davet bağlantısı      │
 │    olarak çıkar. Veritabanına asla gönderilmez.                      │
-│  ★ service_role anahtarı HİÇBİR YERDE kullanılmaz.                   │
+│  ★ service_role anahtarı tarayıcıya ASLA gönderilmez, loglanmaz ve   │
+│    NEXT_PUBLIC_ karşılığı yoktur. Yalnızca üyelik kanıtlandıktan     │
+│    SONRA, tek bir güvenilen RPC için kullanılır (§13a).              │
 └───────────────────────────┬──────────────────────────────────────────┘
                             │ RPC · yalnızca SHA-256 hash (hex)
                             ▼
@@ -327,7 +331,11 @@ select conname from pg_constraint where conname = 'participants_unique_role_per_
    (varsayılan kapalıdır; açılmazsa oda oluşturma başarısız olur)
 2. **Project Settings → API** → `Project URL` ve `anon`/`publishable` anahtarı
    `.env.local` içine yazılır.
-3. `service_role` anahtarı **alınmaz ve hiçbir yere yazılmaz**.
+3. **Project Settings → API** → `service_role` (secret) anahtarı alınır ve
+   YALNIZCA sunucu ortamına `SUPABASE_SERVICE_ROLE_KEY` adıyla yazılır
+   (`.env.local` ya da Vercel Environment Variables → yalnız sunucu). Tarayıcıya
+   gönderilmez, `NEXT_PUBLIC_` önekiyle **asla** tanımlanmaz. Kullanım sınırı
+   için §13a.
 4. Anonim kullanıcı kötüye kullanımını sınırlamak için
    **Authentication → Rate Limits** gözden geçirilmelidir.
 
@@ -378,13 +386,37 @@ güncellenen aggregate/signal tablosu yoktur.
 - `priority_return` olarak bir kez gösterilince fırsat tüketilir,
 - yeni görünüm yine iki `want` ve seçilmeme üretirse yeni fırsat kazanılabilir,
 - yedi gün içinde en az bir acceptance: o space için kalıcı suppression,
-- acceptance yok ve yedi gün doldu: normal uygunluk,
-- hemen önceki tur filmleri priority değilse önce ek sayfalarla kaçınılır;
-  yalnız bounded son denemede uygun repeat kullanılabilir.
+- acceptance yok ve yedi gün doldu: normal uygunluk.
 
-Priority filmleri en eski uygun fırsat önce olacak şekilde ilk dokuz slota kadar
-yerleşir; en az bir discovery slotu korunur. Final liste tam 10 benzersiz TMDb
-ID olmak zorundadır.
+### Keşif / uygun tekrar sınırı
+
+Aday seçimi **üç ayrı geçiştir** ve her adayın `selection_reason` değeri **onu
+seçen geçişten** gelir; seçim sonrası çıkarımla üretilmez.
+
+| Geçiş | Kapsam |
+| --- | --- |
+| `priority_return` | 14 gün içinde both-want olup çarkta seçilmemiş, fırsatı tüketilmemiş filmler |
+| `fresh_discovery` | Bu space'in **TÜM geçmişinde** hiç aday olmamış filmler |
+| `eligible_repeat` | Yalnızca `p_allow_eligible_repeats = true` iken; geçmişte görülmüş ama bastırılmamış filmler |
+
+`fresh_discovery` yalnızca bir önceki turu değil, **space'in bütün geçmişini**
+dışlar: iki, üç ya da otuz tur önce gösterilmiş bir film gerçek keşif sayılmaz.
+
+Değişmez kurallar (`start_next_space_round` içinde uygulanır):
+
+- `priority_return` + `eligible_repeat` toplamı **en fazla 9 slot** alabilir,
+- **en az 1 slot gerçek `fresh_discovery`** olmak zorundadır,
+- hard suppression (kabul edilmiş seçim, açık yedi günlük pencere, son 30 gün
+  içinde iki taraflı skip) **son bounded denemede bile açılmaz**,
+- final liste tam 10 benzersiz TMDb ID olmak zorundadır.
+
+Bunlar sağlanamazsa RPC `candidate_pool_incomplete` ile durur ve **hiçbir tur ya
+da aday satırı yazılmaz**. Havuz asla uygun olmayan filmle doldurulmaz; uygulama
+kullanıcıya dürüstçe başarısızlık bildirir.
+
+Uygulama katmanı `allowEligibleRepeats` bayrağını yalnızca son bounded TMDb
+denemesinde açar (`src/lib/rooms/candidate-pipeline.ts`). Bu bayrak bir izin
+değil, bir **talep**tir; yukarıdaki değişmez kurallar onu ezer.
 
 ## 13. Seed ve gelecekteki ranker sınırı
 
@@ -398,10 +430,87 @@ sourcing → hard eligibility → mandatory priority → rank → unique/diversi
 ```
 
 `selection_seed`, `selection_policy_version`, `ranker_version`, aday
-`selection_reason` ve `position` audit için saklanır. TMDb içeriği gelecekte
+`selection_reason` ve `position` audit için saklanır. `selection_policy_version`
+ve `ranker_version` sunucu sabitlerinden gelir; istemciden alınmaz.
+`selection_reason` uygulama katmanında hiç üretilmez — onu yalnızca adayı seçen
+SQL geçişi yazar. TMDb içeriği gelecekte
 değişebileceğinden seed tek başına replay garantisi değildir; kalıcı final 10
 otoritatif kayıttır. Tür/kütüphane/ML sıralaması bu fazın dışındadır ve hard
 eligibility katmanını atlayamaz.
+
+## 13a. Güvenilen aday-planı sınırı
+
+Yeni tur açan RPC istemci rollerine **kapalıdır**:
+
+```sql
+revoke all on function
+  public.start_next_space_round(uuid, uuid, jsonb, text, text, text, boolean)
+  from public, anon, authenticated;
+
+grant execute on function
+  public.start_next_space_round(uuid, uuid, jsonb, text, text, text, boolean)
+  to service_role;
+```
+
+Bir oda üyesi Supabase Data API üzerinden bu fonksiyonu doğrudan çağırıp kendi
+aday listesini, seed'ini, policy sürümünü ya da `selection_reason` değerini
+dayatamaz. `is_movie_hard_suppressed` de aynı şekilde istemci rollerine kapalıdır
+(bastırma nedenleri sızmasın diye).
+
+Çağrı zinciri ve sırası (`src/lib/rooms/round-service.ts`):
+
+```text
+1. requireSpaceMember(spaceId)      ← KULLANICI OTURUMU (RLS)
+     └─ auth.getUser() + participants okuması → aktörün UUID'si kanıtlanır
+2. sourceAndPersistRoundCandidates  ← sunucu boru hattı: seed, sayfa sırası,
+                                       ranker, policy sürümü
+3. createSupabaseAdminClient()      ← service_role, YALNIZCA 1. adım geçtiyse
+4. rpc start_next_space_round(p_actor_id = 1. adımda kanıtlanan UUID)
+     └─ SQL, aktörün odaya üyeliğini BAĞIMSIZ olarak yeniden doğrular
+```
+
+Sıra anlamlıdır: yönetimsel istemci, üyelik kanıtlanmadan **oluşturulmaz bile**.
+`src/lib/supabase/admin.test.ts` bu sırayı statik olarak doğrular.
+
+Kimlik bilgisi kuralları:
+
+- değişken adı `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_` karşılığı **yoktur**
+  ve asla oluşturulmamalıdır,
+- yalnızca `src/lib/supabase/admin.ts` okur; modül `server-only` ile işaretlidir,
+  istemci paketine alınırsa derleme kırılır,
+- değer loglanmaz, hata mesajına konmaz, yanıtla döndürülmez; yapılandırma
+  hataları yalnızca **değişken adını** söyler,
+- değişken tanımsızsa uygulama `not_configured` döndürür ve sessizce daha zayıf
+  bir yola **düşmez**,
+- depoda gerçek bir anahtar yoktur; `.env.example` yalnızca adı belgeler.
+
+## 13b. Eski RPC ve devreye alma sırası
+
+`create_or_reset_space_round` kalıcı bir authenticated aday-üretim kapısı olarak
+**bırakılmamıştır**. `authenticated` rolünden EXECUTE geri alınmıştır ve gövdesi
+artık aday planı kabul etmez, kaydetmez; `round_creation_moved` domain hatası
+fırlatır. Eski istemciler sessizce yanlış davranmak yerine anlaşılır bir hata
+alır.
+
+Sonuç: **migration önce uygulanırsa, henüz güncellenmemiş istemciler yeni tur
+açamaz.** Bu kasıtlıdır ve kısa bir bakım penceresi gerektirir.
+
+Bakım penceresi sırası:
+
+1. `SUPABASE_SERVICE_ROLE_KEY` sunucu ortamına eklenir (yalnızca sunucu; önizleme
+   ve production ayrı ayrı).
+2. Bakım penceresi duyurulur. Bu pencerede **yeni tur açma kapalıdır**; devam
+   eden turlarda oylama, çark ve kabul çalışmaya devam eder.
+3. `20260813000100_reusable_rounds.sql` uygulanır.
+4. Yeni uygulama sürümü dağıtılır (`requireSpaceMember` + yönetimsel istemci
+   yolu ile birlikte).
+5. Doğrulama: bir oda ile yeni tur açılır, `selection_reason` değerleri ve
+   `round_number` artışı kontrol edilir.
+6. Pencere kapatılır.
+
+Sıra ters çevrilirse (önce uygulama, sonra migration) yeni uygulama eski imzayı
+bulamaz ve yine tur açılamaz; bu yüzden **migration önce** uygulanır ve pencere
+mümkün olduğunca kısa tutulur.
 
 ## 14. Seçilen film ve kişisel kütüphane
 
@@ -430,7 +539,26 @@ Polling durum bazlıdır:
 - kendi 10 oyunu tamamlayıp partneri beklerken 3 saniye,
 - matching beklerken 3 saniye,
 - spinning sırasında 1,2 saniye,
-- result/no_match sonrası durur.
+- `result` / `no_match` sonrası **30 saniyede bir düşük frekanslı yenileme**.
+
+Terminal durumda polling tamamen durmaz. Partner yeni bir tur açtığında ekranda
+kalan istemci bunu tam sayfa yenilemeden görür. 1,2 saniyelik yüksek frekans
+terminal durumda **geri getirilmemiştir**; 30 saniye bilinçli bir tercihtir
+(`TERMINAL_POLL_INTERVAL_MS`, `src/lib/rooms/polling-policy.ts`).
+
+Geçici hata toleransı: ağ ya da 5xx kaynaklı geçici polling hatası ekranı hemen
+kalıcı hata durumuna düşürmez. `MAX_TRANSIENT_POLL_FAILURES` (3) denemeye kadar
+sessizce yeniden denenir ve kullanıcıya yalnızca “bağlantı yeniden deneniyor”
+bilgisi gösterilir; bu sınır aşılınca kalıcı hata ekranı gelir. Yetki/oturum
+hataları geçici sayılmaz ve hemen yüzeye çıkar.
+
+Bekleyen seçim ekranı süresiz açık kalmaz: yedi günlük pencere dolduğunda kart
+kendini süresi dolmuş olarak gösterir (`isSelectionExpired`); süre bilgisi 30
+saniyelik bir tick ile tazelenir ve bu tick yalnızca bekleyen seçim varken çalışır.
+
+Aksiyon hataları (yeni tur açma, kabul) artık **RoomRound durumunu atmaz**;
+mevcut ekran korunur ve hata satır içi gösterilir, böylece kullanıcı oylarını ya
+da bekleyen seçimi kaybetmez.
 
 Her state geçişinde timer temizlenir ve in-flight fetch abort edilir. Realtime
 eklenmemiştir.
@@ -441,16 +569,44 @@ Yeni migration:
 `supabase/migrations/20260813000100_reusable_rounds.sql`.
 
 Bu migration önce `20260812000200_room_rounds_votes_and_wheel.sql` sonrasında
-manuel uygulanır. SQL/RLS/eşzamanlılık davranışları gerçek Supabase veritabanına
-karşı test edilmedikçe yalnız kod incelemesi ve statik sözleşme testi sayılır.
-Manuel iki tarayıcı akışı için `ROOM_SELECTION_AND_WHEEL_SETUP.md` izlenir.
+manuel uygulanır; devreye alma sırası için §13b. Manuel iki tarayıcı akışı için
+`ROOM_SELECTION_AND_WHEEL_SETUP.md` izlenir.
+
+### İlişkisel bütünlük (şema seviyesi)
+
+Migration üç composite kısıt ekler; bunlar uygulama mantığından bağımsız olarak
+tutarsız satır yazılmasını engeller:
+
+| Kısıt | Ne garanti eder |
+| --- | --- |
+| `space_rounds_winner_belongs_to_round` | `winner_candidate_id` **kendi turunun** adayı olmak zorunda (deferrable) |
+| `room_selections_round_space_fk` | Seçimin `space_id` değeri turun `space_id` değeriyle eşleşmek zorunda |
+| `room_selections_candidate_chain_fk` | Seçim `(candidate_id, round_id, tmdb_movie_id)` zinciri tek parça hareket eder |
+
+Cascade davranışı append-only geçmişi korur: bir tur silinmedikçe adayları,
+oyları ve seçimleri de silinmez; normal yaşam döngüsünde tur **hiç silinmez**.
+
+### Doğrulama sınırı
+
+SQL/RLS/eşzamanlılık davranışları **gerçek bir PostgreSQL üzerinde
+çalıştırılmadıkça doğrulanmış sayılmaz**.
+
+`src/lib/rooms/reusable-round-migration.test.ts` SQL *metnini* regex ile okur;
+bu bir **entegrasyon testi değildir** ve öyle sunulmamalıdır. Gerçek veritabanı
+harness'ı `supabase/tests/` altındadır ve depoda hazırdır, ancak **bu makinede
+çalıştırılmamıştır** (`docker`, `psql`, `supabase` CLI ve yerel PostgreSQL kurulu
+değil; sistem yazılımı kurmak açık onay gerektirir). Durum
+`supabase/tests/README.md` içinde ve `npm test` çıktısında 16 `todo` girdisi
+olarak görünür.
 
 ---
 
 ## 17. Entegrasyon testi ile doğrulanması gerekenler
 
 Aşağıdakiler **kod incelemesiyle tasarlanmış ancak çalıştırılarak
-doğrulanmamıştır**. Supabase CLI + Docker kurulduğunda test edilmelidir:
+doğrulanmamıştır**. Çoğu için SQL harness'ı `supabase/tests/sql/` altında
+yazılmıştır; Supabase CLI + Docker ya da yerel PostgreSQL kurulduğunda
+`supabase/tests/README.md` içindeki komutla çalıştırılmalıdır:
 
 - [ ] Host oda oluşturur; `spaces` + `participants(host)` + `invitations` oluşur
 - [ ] Misafir davetle katılır; `participants(guest)` eklenir ve davet tüketilir
@@ -468,3 +624,74 @@ doğrulanmamıştır**. Supabase CLI + Docker kurulduğunda test edilmelidir:
 - [ ] Acceptance yalnız çağıranın kütüphanesini değiştirir ve idempotenttir
 - [ ] Süresi dolmuş selection kabul edilemez
 - [ ] Partner oy/kütüphane/acceptance bilgisi hiçbir API yanıtında görünmez
+- [ ] `authenticated` rolü `start_next_space_round` çağıramaz, `service_role` çağırabilir
+- [ ] Üye olmayan `p_actor_id` ile tur açılamaz; `p_actor_id` null ise reddedilir
+- [ ] Eski `create_or_reset_space_round` çağrısı `round_creation_moved` verir
+- [ ] İki veya daha eski turda görülmüş film, repeat kapısı kapalıyken seçilmez
+- [ ] Son bounded denemede bile hard suppression açılmaz ve ≥1 gerçek keşif kalır
+- [ ] Bozuk sayısal aday alanı `invalid_candidates` verir, cast hatası vermez
+- [ ] Composite kısıtlar başka turun adayına/space'ine bağlanmayı reddeder
+- [ ] Legacy veriyle yükseltme geçmişi silmez ve backfill alanlarını doldurur
+- [ ] Abonelik beyanı olmadan oda açılamaz ve davet tüketilemez
+- [ ] Ortak abonelik kümesi boşken tur açılamaz (`no_shared_subscriptions`)
+- [ ] Daralan ortak kümede eski turun filmi tekrar aday olamaz
+- [ ] Katılımcı yalnızca kendi abonelik beyanını değiştirebilir
+
+## 18. Abonelik beyanı ve ortak platform kesişimi
+
+Her katılımcı odaya girerken hangi platformlara abone olduğunu **beyan eder**:
+oda sahibi odayı açarken, misafir daveti tüketirken. Öneriler yalnızca iki
+beyanın **kesişiminden** üretilir.
+
+```text
+host beyanı      { netflix, prime_video, mubi }
+guest beyanı     { netflix, mubi, disney_plus }
+                 ─────────────────────────────
+ortak küme       { netflix, mubi }   → TMDb discover filtresi
+```
+
+### Filtre nerede uygulanır?
+
+Veritabanında TMDb katalog verisi yoktur; "bu film gerçekten Netflix'te mi"
+sorusu orada **yanıtlanamaz**. Filtre, aday havuzunu toplayan TMDb isteğinin
+kendisindedir:
+
+```text
+/discover/movie
+  watch_region=TR
+  with_watch_providers=<ortak kümenin TMDb ID'leri, | ile>
+  with_watch_monetization_types=flatrate
+```
+
+`flatrate` sınırı bilinçlidir: kiralama ve satın alma "aboneliğe dahil"
+değildir ve listeye girmez. Havuz dönen listeden sonradan elenmez — uygun
+olmayan film havuza **hiç girmez**.
+
+### Veritabanının uyguladığı kural
+
+Bir tur, hangi ortak kümeyle toplandıysa o küme `space_rounds.provider_keys`
+içine yazılır. Geçmişten tekrar aday alınırken (`priority_return` ve
+`eligible_repeat` geçişleri) şu alt küme testi uygulanır:
+
+```sql
+prior_round.provider_keys <@ p_provider_keys
+```
+
+Yani eski turun kümesindeki **her** platform bugün de ortaksa o turun filmleri
+tekrar edilebilir. Küme daralırsa (biri aboneliğini bıraktıysa) o filmler
+sessizce geri dönemez; hangi platformdan geldikleri bilinmediği için
+dışlanırlar. Bu migration'dan önceki turlar `legacy_unknown` taşır ve aynı test
+nedeniyle hiçbir zaman tekrar havuzuna giremez.
+
+### Gizlilik sınırı
+
+Partnerin abonelik listesi oda ekranında **görünür**. Bu, gizli oylardan farklı
+bir bilgi sınıfıdır: abonelik bir karar değil, ortak zemin arayan bir beyandır
+ve kesişim boşsa kullanıcının neyi değiştireceğini bilmesi gerekir. Oylar,
+kütüphane ve kabul olayları eskisi gibi paylaşılmaz.
+
+### Beyan güncelleme
+
+`set_participant_subscriptions` yalnızca `auth.uid()` satırını günceller;
+partnerin beyanına dokunulamaz. Açık turun adayları değişmez — yeni kesişim bir
+sonraki turdan itibaren geçerlidir.

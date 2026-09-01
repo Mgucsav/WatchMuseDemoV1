@@ -2,10 +2,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { RoomRound } from "./types";
 import {
+  MAX_TRANSIENT_POLL_FAILURES,
+  TERMINAL_POLL_INTERVAL_MS,
+  WAITING_POLL_INTERVAL_MS,
+  classifyPollFailure,
+  isSelectionExpired,
   pollingIntervalFor,
   SPINNING_POLL_INTERVAL_MS,
   startPollingLoop,
-  WAITING_POLL_INTERVAL_MS,
 } from "./polling-policy";
 
 function round(patch: Partial<RoomRound> = {}): RoomRound {
@@ -45,9 +49,18 @@ describe("state-aware polling", () => {
     );
   });
 
-  it("result ve no_match sonrasında polling durur", () => {
-    expect(pollingIntervalFor(round({ status: "result" }))).toBeNull();
-    expect(pollingIntervalFor(round({ status: "no_match" }))).toBeNull();
+  it("terminal turda düşük frekansla yenilenir (agresif polling'e dönmez)", () => {
+    // E-1: partnerin başlattığı yeni tur tam sayfa yenilemesi olmadan görünür.
+    expect(pollingIntervalFor(round({ status: "result" }))).toBe(
+      TERMINAL_POLL_INTERVAL_MS,
+    );
+    expect(pollingIntervalFor(round({ status: "no_match" }))).toBe(
+      TERMINAL_POLL_INTERVAL_MS,
+    );
+    // 1,2 sn'lik agresif polling geri gelmemelidir.
+    expect(TERMINAL_POLL_INTERVAL_MS).toBeGreaterThanOrEqual(
+      WAITING_POLL_INTERVAL_MS * 5,
+    );
   });
 
   it("cleanup timer'ı temizler ve in-flight isteği abort eder", async () => {
@@ -64,5 +77,39 @@ describe("state-aware polling", () => {
     expect(seenSignal.current?.aborted).toBe(true);
     await vi.advanceTimersByTimeAsync(9000);
     expect(poll).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("classifyPollFailure — sınırlı yeniden deneme", () => {
+  it("ilk hatalar yeniden denenir, oda görünümü korunur", () => {
+    expect(classifyPollFailure(1)).toBe("retry");
+    expect(classifyPollFailure(MAX_TRANSIENT_POLL_FAILURES - 1)).toBe("retry");
+  });
+
+  it("sınıra ulaşınca kalıcı hata yüzeye çıkar", () => {
+    expect(classifyPollFailure(MAX_TRANSIENT_POLL_FAILURES)).toBe("surface");
+    expect(classifyPollFailure(MAX_TRANSIENT_POLL_FAILURES + 5)).toBe("surface");
+  });
+});
+
+describe("isSelectionExpired — kabul penceresi", () => {
+  const now = new Date("2026-08-25T12:00:00.000Z");
+
+  it("gelecekteki son tarih açıktır", () => {
+    expect(isSelectionExpired("2026-08-26T12:00:00.000Z", now)).toBe(false);
+  });
+
+  it("geçmiş son tarih dolmuştur", () => {
+    expect(isSelectionExpired("2026-08-24T12:00:00.000Z", now)).toBe(true);
+  });
+
+  it("tam sınırda dolmuş sayılır", () => {
+    expect(isSelectionExpired("2026-08-25T12:00:00.000Z", now)).toBe(true);
+  });
+
+  it("eksik veya bozuk tarih açık kabul edilir (yanlış kapatma yapmaz)", () => {
+    expect(isSelectionExpired(null, now)).toBe(false);
+    expect(isSelectionExpired(undefined, now)).toBe(false);
+    expect(isSelectionExpired("tarih degil", now)).toBe(false);
   });
 });

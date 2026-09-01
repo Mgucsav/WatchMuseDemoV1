@@ -16,11 +16,15 @@ export type RoomErrorCode =
   | "room_full"
   | "host_cannot_join"
   | "room_closed"
+  | "subscriptions_required"
+  | "invalid_subscriptions"
+  | "no_shared_subscriptions"
   | "round_not_ready"
   | "round_closed_for_votes"
   | "invalid_round_candidate"
   | "invalid_candidates"
   | "candidate_pool_incomplete"
+  | "round_creation_moved"
   | "invalid_selection"
   | "selection_expired"
   | "round_requires_supabase"
@@ -43,10 +47,18 @@ const MESSAGES: Record<RoomErrorCode, string> = {
   host_cannot_join:
     "Bu odayı siz oluşturdunuz; kendi davetinizle misafir olarak katılamazsınız.",
   room_closed: "Oda kapatılmış.",
+  subscriptions_required:
+    "Devam etmek için en az bir abonelik seçin.",
+  invalid_subscriptions:
+    "Abonelik seçimi geçersiz. Listedeki platformlardan en az birini seçin.",
+  no_shared_subscriptions:
+    "İki katılımcının ortak aboneliği yok. Öneriler yalnızca ikinizde de olan platformlardan gelir.",
   round_not_ready: "Seçim turu henüz hazır değil.",
   round_closed_for_votes: "Bu turun seçimleri artık değiştirilemez.",
   invalid_round_candidate: "Seçilen film bu odaya ait değil.",
   invalid_candidates: "Film adayları hazırlanamadı. Lütfen tekrar deneyin.",
+  round_creation_moved:
+    "Bu sürüm artık yeni tur başlatamıyor. Sayfayı yenileyin; sorun sürerse kısa bir bakım yapılıyor olabilir.",
   candidate_pool_incomplete:
     "Yeterli sayıda uygun film bulunamadı. Lütfen biraz sonra tekrar deneyin.",
   invalid_selection: "Seçilen oda filmi bulunamadı.",
@@ -69,11 +81,15 @@ const DATABASE_ERROR_CODES: readonly RoomErrorCode[] = [
   "room_full",
   "host_cannot_join",
   "room_closed",
+  "subscriptions_required",
+  "invalid_subscriptions",
+  "no_shared_subscriptions",
   "round_not_ready",
   "round_closed_for_votes",
   "invalid_round_candidate",
   "invalid_candidates",
   "candidate_pool_incomplete",
+  "round_creation_moved",
   "invalid_selection",
   "selection_expired",
 ];

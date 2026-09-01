@@ -13,6 +13,8 @@ import type {
   RoomVoteChoice,
 } from "@/lib/rooms/types";
 import {
+  classifyPollFailure,
+  isSelectionExpired,
   pollingIntervalFor,
   startPollingLoop,
   WAITING_POLL_INTERVAL_MS,
@@ -39,11 +41,25 @@ type ViewState =
 export function RoomRound({
   spaceId,
   isHost,
+  canStartRound,
 }: {
   spaceId: string;
   isHost: boolean;
+  /**
+   * Ortak abonelik var mı? Yoksa YENİ tur açılamaz — ama açık olan tur
+   * oynanmaya devam eder: adayları zaten toplanmıştır.
+   */
+  canStartRound: boolean;
 }) {
   const [view, setView] = useState<ViewState>({ kind: "loading" });
+  // Aksiyon hataları (kabul, yeni tur) bütün oda görünümünü DEĞİŞTİRMEZ;
+  // yalnızca ilgili bölümde gösterilir.
+  const [actionError, setActionError] = useState<string | null>(null);
+  // Geçici yoklama hatası: sınırlı yeniden deneme boyunca yalnızca uyarı.
+  const [transientPollError, setTransientPollError] = useState(false);
+  const pollFailuresRef = useRef(0);
+  // Kabul penceresinin dolduğunu görebilmek için düşük frekanslı zaman tiki.
+  const [selectionNow, setSelectionNow] = useState(() => Date.now());
   const [pendingChoice, setPendingChoice] = useState<RoomVoteChoice | null>(null);
   const [startingWheel, setStartingWheel] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -55,7 +71,9 @@ export function RoomRound({
 
     // Aday listesi yalnızca ilk kez, oda sahibi tarafından başlatılır. Sunucu
     // aynı anda gelen istekleri kilitlediği için çift başlangıç güvenlidir.
-    if (!data.round && isHost) {
+    // Ortak abonelik yokken hiç denenmez: sunucu zaten reddeder ve tekrarlanan
+    // istek kullanıcıya anlamsız bir hata döngüsü gösterirdi.
+    if (!data.round && isHost && canStartRound) {
       data = await fetchJson<RoomRoundState>(`/api/rooms/${spaceId}/round`, signal, {
         method: "POST",
         body: {},
@@ -67,7 +85,7 @@ export function RoomRound({
     }
     else setView({ kind: "waiting-for-host" });
     return data.round;
-  }, [isHost, spaceId]);
+  }, [canStartRound, isHost, spaceId]);
 
   const pollInterval =
     view.kind === "loading" || view.kind === "waiting-for-host"
@@ -81,8 +99,21 @@ export function RoomRound({
     return startPollingLoop(async (signal) => {
       try {
         await refresh(signal);
+        // Başarılı yoklama sayacı sıfırlar.
+        pollFailuresRef.current = 0;
+        setTransientPollError(false);
       } catch (error) {
         if (signal.aborted) return;
+
+        pollFailuresRef.current += 1;
+
+        // Tek bir başarısız yoklama bütün odayı hata ekranına çevirmez.
+        if (classifyPollFailure(pollFailuresRef.current) === "retry") {
+          setTransientPollError(true);
+          return;
+        }
+
+        setTransientPollError(false);
         setView({
           kind: "error",
           message:
@@ -93,6 +124,18 @@ export function RoomRound({
       }
     }, pollInterval, { immediate: view.kind === "loading" });
   }, [pollInterval, refresh, view.kind]);
+
+  // Bekleyen seçim varsa kabul penceresinin dolduğunu türetebilmek için düşük
+  // frekanslı bir zaman tiki çalışır. Unmount ve durum geçişinde temizlenir.
+  const hasPendingSelections =
+    view.kind === "ready" && view.state.pendingSelections.length > 0;
+
+  useEffect(() => {
+    if (!hasPendingSelections) return;
+    // setState yalnızca zamanlayıcı geri çağrısında; effect gövdesinde değil.
+    const timer = window.setInterval(() => setSelectionNow(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, [hasPendingSelections]);
 
   const submitVote = async (candidateId: string, choice: RoomVoteChoice) => {
     setPendingChoice(choice);
@@ -140,12 +183,12 @@ export function RoomRound({
         body: {},
       });
       await refresh();
+      setActionError(null);
     } catch (error) {
-      setView({
-        kind: "error",
-        message:
-          error instanceof ApiError ? error.message : "Yeni tur başlatılamadı.",
-      });
+      // Mevcut tur görünümü korunur; hata yalnızca aksiyon alanında gösterilir.
+      setActionError(
+        error instanceof ApiError ? error.message : "Yeni tur başlatılamadı.",
+      );
     } finally {
       setResetting(false);
     }
@@ -162,14 +205,14 @@ export function RoomRound({
       if (data.round) {
         setView({ kind: "ready", state: { ...data, round: data.round } });
       }
+      setActionError(null);
     } catch (error) {
-      setView({
-        kind: "error",
-        message:
-          error instanceof ApiError
-            ? error.message
-            : "Film izleme listene eklenemedi.",
-      });
+      // Kabul başarısız olsa bile tur, adaylar ve oylar ekranda kalır.
+      setActionError(
+        error instanceof ApiError
+          ? error.message
+          : "Film izleme listene eklenemedi.",
+      );
     } finally {
       setAcceptingSelectionId(null);
     }
@@ -180,6 +223,10 @@ export function RoomRound({
   }
 
   if (view.kind === "waiting-for-host") {
+    // Ortak abonelik yokken beklenecek bir tur da yok; sebep oda özetinde
+    // zaten yazıyor, burada ikinci bir mesaj tekrar olurdu.
+    if (!canStartRound) return null;
+
     return (
       <StatusMessage title="Film turu hazırlanıyor">
         Oda sahibinin ortak aday listesini başlatması bekleniyor.
@@ -197,11 +244,20 @@ export function RoomRound({
 
   const { round, pendingSelections } = view.state;
   const pendingArea = (
-    <PendingSelectionArea
-      selections={pendingSelections}
-      acceptingSelectionId={acceptingSelectionId}
-      onAccept={acceptSelection}
-    />
+    <>
+      {transientPollError ? (
+        <StatusMessage tone="warning">
+          Bağlantı geçici olarak kesildi; yeniden deneniyor…
+        </StatusMessage>
+      ) : null}
+      <PendingSelectionArea
+        selections={pendingSelections}
+        acceptingSelectionId={acceptingSelectionId}
+        onAccept={acceptSelection}
+        actionError={actionError}
+        now={selectionNow}
+      />
+    </>
   );
   if (round.status === "voting") {
     const nextCandidate = round.candidates.find((candidate) => !round.myVotes[candidate.id]);
@@ -236,10 +292,15 @@ export function RoomRound({
           type="button"
           className="mt-4 rounded-md border border-black/30 px-3 py-2 text-sm font-medium disabled:opacity-60 dark:border-white/35"
           onClick={() => void startNextRound()}
-          disabled={resetting}
+          disabled={resetting || !canStartRound}
         >
           {resetting ? "Yeni tur hazırlanıyor…" : "Yeni 10 film getir"}
         </button>
+        {!canStartRound ? (
+          <p className="mt-2 text-xs text-black/60 dark:text-white/60">
+            Yeni tur için ortak bir abonelik gerekiyor.
+          </p>
+        ) : null}
       </section>
     </div>;
   }
@@ -259,7 +320,11 @@ export function RoomRound({
       <div className="space-y-4">
         {pendingArea}
         <WheelStage round={round} />
-        <NewRoundButton pending={resetting} onStart={startNextRound} />
+        <NewRoundButton
+          pending={resetting}
+          disabled={!canStartRound}
+          onStart={startNextRound}
+        />
       </div>
     );
   }
@@ -271,18 +336,36 @@ function PendingSelectionArea({
   selections,
   acceptingSelectionId,
   onAccept,
+  actionError,
+  now,
 }: {
   selections: RoomSelection[];
   acceptingSelectionId: string | null;
   onAccept: (selectionId: string) => Promise<void>;
+  actionError: string | null;
+  /** Süre dolumunu türetmek için tik atan referans zaman. */
+  now: number;
 }) {
   if (selections.length === 0) return null;
 
   return (
     <section className="rounded-xl border border-black/10 p-4 dark:border-white/15">
       <p className="text-sm font-semibold">Odada seçilen filmler</p>
+
+      {actionError ? (
+        <div className="mt-3">
+          <StatusMessage tone="error">{actionError}</StatusMessage>
+        </div>
+      ) : null}
+
       <div className="mt-3 space-y-3">
         {selections.map((selection) => {
+          // Süre dolumu türetilir; terminal polling olmadan da ekran
+          // sonsuza kadar "açık" görünmez.
+          const expired = isSelectionExpired(
+            selection.responseDeadline,
+            new Date(now),
+          );
           const deadline = new Intl.DateTimeFormat("tr-TR", {
             day: "numeric",
             month: "long",
@@ -298,11 +381,17 @@ function PendingSelectionArea({
               <div>
                 <p className="font-medium">{selection.title}</p>
                 <p className="mt-1 text-xs text-black/60 dark:text-white/60">
-                  {deadline} tarihine kadar kişisel listene ekleyebilirsin.
+                  {expired
+                    ? `Ekleme süresi ${deadline} tarihinde doldu.`
+                    : `${deadline} tarihine kadar kişisel listene ekleyebilirsin.`}
                 </p>
               </div>
               {selection.myAccepted ? (
                 <p className="text-sm font-medium">İzleme listene eklendi</p>
+              ) : expired ? (
+                <p className="text-sm text-black/60 dark:text-white/60">
+                  Süresi doldu
+                </p>
               ) : (
                 <button
                   type="button"
@@ -325,20 +414,30 @@ function PendingSelectionArea({
 
 function NewRoundButton({
   pending,
+  disabled,
   onStart,
 }: {
   pending: boolean;
+  /** Ortak abonelik yokken yeni tur açılamaz. */
+  disabled: boolean;
   onStart: () => Promise<void>;
 }) {
   return (
-    <button
-      type="button"
-      className="w-full rounded-md border border-black/30 px-3 py-3 text-sm font-semibold disabled:opacity-60 dark:border-white/35"
-      onClick={() => void onStart()}
-      disabled={pending}
-    >
-      {pending ? "Yeni tur hazırlanıyor…" : "Yeni 10 filmle devam et"}
-    </button>
+    <div>
+      <button
+        type="button"
+        className="w-full rounded-md border border-black/30 px-3 py-3 text-sm font-semibold disabled:opacity-60 dark:border-white/35"
+        onClick={() => void onStart()}
+        disabled={pending || disabled}
+      >
+        {pending ? "Yeni tur hazırlanıyor…" : "Yeni 10 filmle devam et"}
+      </button>
+      {disabled ? (
+        <p className="mt-2 text-xs text-black/60 dark:text-white/60">
+          Yeni tur için ortak bir abonelik gerekiyor.
+        </p>
+      ) : null}
+    </div>
   );
 }
 

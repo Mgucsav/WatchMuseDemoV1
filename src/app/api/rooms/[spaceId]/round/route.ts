@@ -1,11 +1,11 @@
 import { errorResponse } from "@/lib/api/responses";
-import { normalizeRoomError } from "@/lib/rooms/errors";
+import { normalizeRoomError, roomError } from "@/lib/rooms/errors";
 import {
   getRoomRoundState,
   startNextRoomRound,
 } from "@/lib/rooms/round-service";
 import { sourceAndPersistRoundCandidates } from "@/lib/rooms/candidate-pipeline";
-import { RoomServiceError } from "@/lib/rooms/service";
+import { RoomServiceError, getRoomState } from "@/lib/rooms/service";
 import { isRoomUuid } from "@/lib/rooms/validation";
 
 type RouteContext = { params: Promise<{ spaceId: string }> };
@@ -25,6 +25,9 @@ export async function GET(_request: Request, context: RouteContext): Promise<Res
 /**
  * POST ilk ya da bir sonraki turu başlatır. Aktif tur varsa RPC onu döndürür;
  * terminal geçmiş hiçbir zaman silinmez.
+ *
+ * Aday havuzu YALNIZCA iki katılımcının ortak aboneliklerinden toplanır. Ortak
+ * küme istemciden alınmaz: burada, oda durumundan (RLS altında) türetilir.
  */
 export async function POST(request: Request, context: RouteContext): Promise<Response> {
   const { spaceId } = await context.params;
@@ -48,8 +51,16 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
       return Response.json(existing, { status: 200 });
     }
 
-    await sourceAndPersistRoundCandidates((plan) =>
-      startNextRoomRound(spaceId, plan),
+    // Ortak abonelik yoksa TMDb'ye hiç gidilmez: filtresiz bir öneri üretmek,
+    // kullanıcının izleyemeyeceği filmleri önermek olurdu.
+    const room = await getRoomState(spaceId);
+    if (room.sharedSubscriptions.length === 0) {
+      throw new RoomServiceError(roomError("no_shared_subscriptions"));
+    }
+
+    await sourceAndPersistRoundCandidates(
+      (plan) => startNextRoomRound(spaceId, plan),
+      { providerKeys: room.sharedSubscriptions },
     );
     return Response.json(await getRoomRoundState(spaceId), { status: 201 });
   } catch (error) {
@@ -67,7 +78,8 @@ function roomErrorResponse(error: unknown): Response {
         ? 503
         : normalized.code === "invalid_invitation"
           ? 404
-          : normalized.code.startsWith("round_")
+          : normalized.code === "no_shared_subscriptions" ||
+              normalized.code.startsWith("round_")
             ? 409
             : 400;
   return errorResponse(normalized.code, normalized.message, status);

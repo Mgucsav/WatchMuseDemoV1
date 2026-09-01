@@ -1,4 +1,5 @@
 import {
+  TMDB_BACKDROP_SIZE,
   TMDB_IMAGE_BASE_URL,
   TMDB_POSTER_SIZE,
   TMDB_TRUSTED_LINK_HOSTNAMES,
@@ -51,6 +52,18 @@ export function toReleaseYear(value: unknown): number | null {
 export function toPosterUrl(posterPath: string | null): string | null {
   if (!posterPath || !posterPath.startsWith("/")) return null;
   return `${TMDB_IMAGE_BASE_URL}/${TMDB_POSTER_SIZE}${posterPath}`;
+}
+
+/**
+ * TMDb arka plan görseli yolunu tam URL'ye çevirir.
+ *
+ * `toPosterUrl` ile aynı kurala uyar: yalnızca `/` ile başlayan göreli TMDb
+ * yolları kabul edilir, böylece beklenmedik bir yanıt arayüze rastgele bir
+ * uzak görsel adresi yerleştiremez.
+ */
+export function toBackdropUrl(backdropPath: string | null): string | null {
+  if (!backdropPath || !backdropPath.startsWith("/")) return null;
+  return `${TMDB_IMAGE_BASE_URL}/${TMDB_BACKDROP_SIZE}${backdropPath}`;
 }
 
 /**

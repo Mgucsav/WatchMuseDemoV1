@@ -3,10 +3,11 @@ import "server-only";
 import { randomBytes } from "node:crypto";
 
 import { discoverRoomCandidatePage } from "@/lib/tmdb/search";
-import type { MovieSummary } from "@/lib/tmdb/types";
+import type { MovieSummary, TargetProviderKey } from "@/lib/tmdb/types";
 import { roomError } from "./errors";
 import { RoomServiceError } from "./service";
 import { seededShuffle } from "./seeded-random";
+import { tmdbProviderIdsFor } from "./subscriptions";
 
 export const ROUND_CANDIDATE_COUNT = 10;
 export const MAX_DISCOVER_PAGE_ATTEMPTS = 8;
@@ -22,6 +23,12 @@ export interface RoundCandidatePlan {
   selectionPolicyVersion: string;
   rankerVersion: string;
   allowEligibleRepeats: boolean;
+  /**
+   * Bu havuzun toplandığı ORTAK abonelikler. Veritabanına turla birlikte
+   * yazılır: geçmiş turlardan tekrar aday alınırken, o turun toplandığı
+   * platform kümesinin bugünün ortak kümesinin alt kümesi olması aranır.
+   */
+  providerKeys: TargetProviderKey[];
 }
 
 export type CandidatePageFetcher = (page: number) => Promise<MovieSummary[]>;
@@ -66,16 +73,47 @@ export function assertRankerBoundary(
  * TMDb sayfalarını sınırlı ve seed'li sırada toplar. Veritabanı hard filtreler
  * nedeniyle havuz yetersiz derse bir sayfa daha ekleyip aynı seed ile tekrar
  * dener. Başarısız RPC transaction'ı hiçbir tur/aday yazmaz.
+ *
+ * Havuz, YALNIZCA iki katılımcının ortak aboneliklerinden toplanır: sağlayıcı
+ * filtresi TMDb keşif isteğinin kendisinde uygulanır (bkz.
+ * `discoverRoomCandidatePage`), dönen listeden sonradan elenmez. Böylece ortak
+ * platformda olmayan bir film havuza hiç girmez.
+ *
+ * `allowEligibleRepeats` YALNIZCA son bounded denemede açılır. Bu bayrak
+ * veritabanına bir izin değil, bir *talep*tir ve orada şu değişmez kurallara
+ * tabidir (bkz. `start_next_space_round`):
+ *
+ *   * hard suppression (kabul edilmiş seçim, açık yedi günlük pencere, son 30
+ *     gün içinde iki taraflı skip) son denemede bile AÇILMAZ;
+ *   * `priority_return` + `eligible_repeat` toplamı en fazla 9 slot alabilir;
+ *   * en az 1 slot, bu space'in TÜM geçmişinde hiç görülmemiş gerçek bir
+ *     keşif olmak zorundadır.
+ *
+ * Bu kurallar sağlanamıyorsa RPC `candidate_pool_incomplete` ile durur ve bu
+ * fonksiyon hatayı yukarı taşır. Havuz ASLA uygun olmayan filmle doldurulmaz.
+ *
+ * Aday planındaki `selectionPolicyVersion` / `rankerVersion` bu modüldeki
+ * sabitlerden gelir; istemciden alınmaz. `selection_reason` ise hiç
+ * üretilmez — onu yalnızca adayı seçen SQL geçişi yazar.
  */
 export async function sourceAndPersistRoundCandidates(
   persist: CandidatePlanPersister,
   options: {
+    /** İki katılımcının ORTAK abonelikleri. Boş olamaz. */
+    providerKeys: readonly TargetProviderKey[];
     seed?: string;
     fetchPage?: CandidatePageFetcher;
-  } = {},
+  },
 ): Promise<RoundCandidatePlan> {
+  const providerKeys = [...options.providerKeys];
+  if (providerKeys.length === 0) {
+    throw new RoomServiceError(roomError("no_shared_subscriptions"));
+  }
+
   const seed = options.seed ?? createSelectionSeed();
-  const fetchPage = options.fetchPage ?? discoverRoomCandidatePage;
+  const providerIds = tmdbProviderIdsFor(providerKeys);
+  const fetchPage =
+    options.fetchPage ?? ((page: number) => discoverRoomCandidatePage(page, providerIds));
   const unique = new Map<number, MovieSummary>();
 
   for (const [index, page] of discoverPageOrder(seed).entries()) {
@@ -97,6 +135,7 @@ export async function sourceAndPersistRoundCandidates(
       selectionPolicyVersion: SELECTION_POLICY_VERSION,
       rankerVersion: RANKER_VERSION,
       allowEligibleRepeats: index + 1 === MAX_DISCOVER_PAGE_ATTEMPTS,
+      providerKeys,
     };
 
     try {

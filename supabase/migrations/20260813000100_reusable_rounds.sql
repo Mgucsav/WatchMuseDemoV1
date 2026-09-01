@@ -129,10 +129,127 @@ alter table public.room_selection_acceptances enable row level security;
 -- sadece çağıranın `myAccepted` alanıyla okunur. Böylece partnerin kişisel
 -- watchlist davranışı fark alma yöntemiyle çıkarılamaz.
 
--- Yeni tur: oda satırı kilidi altında geçmişi silmeden tam 10 adayı seçer. ----
+-- İlişkisel bütünlük: seçim zinciri ve kazanan --------------------------------
+--
+-- Bu kısıtlar olmadan `room_selections` satırı bir space'in id'sini, başka bir
+-- turun round_id'sini ve üçüncü bir turun candidate_id'sini taşıyabilirdi.
+-- Fonksiyon içi kontroller doğru olsa bile şema bunu engellemiyordu.
 
+alter table public.space_rounds
+  drop constraint if exists space_rounds_id_space_unique,
+  add constraint space_rounds_id_space_unique unique (id, space_id);
+
+alter table public.room_candidates
+  drop constraint if exists room_candidates_id_round_unique,
+  add constraint room_candidates_id_round_unique unique (id, round_id),
+  drop constraint if exists room_candidates_id_round_movie_unique,
+  add constraint room_candidates_id_round_movie_unique
+    unique (id, round_id, tmdb_movie_id);
+
+-- Kazanan aday kendi turuna ait olmak zorundadır. DEFERRABLE: çark güncellemesi
+-- ile space silme cascade'i aynı transaction içinde tutarlı biçimde çözülür.
+alter table public.space_rounds
+  drop constraint if exists space_rounds_winner_belongs_to_round,
+  add constraint space_rounds_winner_belongs_to_round
+    foreign key (winner_candidate_id, id)
+    references public.room_candidates (id, round_id)
+    deferrable initially deferred;
+
+-- Seçim satırı tek bir tutarlı zincire bağlıdır: space → round → candidate →
+-- tmdb_movie_id. Dört kimlik artık birbirinden bağımsız olamaz.
+alter table public.room_selections
+  drop constraint if exists room_selections_round_space_fk,
+  add constraint room_selections_round_space_fk
+    foreign key (round_id, space_id)
+    references public.space_rounds (id, space_id) on delete cascade,
+  drop constraint if exists room_selections_candidate_chain_fk,
+  add constraint room_selections_candidate_chain_fk
+    foreign key (candidate_id, round_id, tmdb_movie_id)
+    references public.room_candidates (id, round_id, tmdb_movie_id)
+    on delete cascade;
+
+-- Hard suppression tek kaynak ------------------------------------------------
+--
+-- 30 günlük both-skip, kabul edilmiş seçim ve açık yedi günlük seçim penceresi
+-- kuralları TEK yerde tanımlanır. Aday seçimindeki üç geçiş de bunu çağırır;
+-- böylece kurallar geçişler arasında sessizce ayrışamaz ve son denemede bile
+-- açılamaz.
+create or replace function public.is_movie_hard_suppressed(
+  p_space_id uuid,
+  p_tmdb_movie_id integer
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select
+    -- Kabul edilmiş ya da hâlâ açık seçim penceresi
+    exists (
+      select 1 from public.room_selections s
+      where s.space_id = p_space_id
+        and s.tmdb_movie_id = p_tmdb_movie_id
+        and (
+          s.accepted_at is not null
+          or s.response_deadline > pg_catalog.clock_timestamp()
+        )
+    )
+    -- Son 30 gün içinde iki tarafın da skip dediği film
+    or exists (
+      select 1
+      from public.space_rounds sr
+      join public.room_candidates sc on sc.round_id = sr.id
+      where sr.space_id = p_space_id
+        and sc.tmdb_movie_id = p_tmdb_movie_id
+        and sr.status in (
+          'result'::public.space_round_status,
+          'no_match'::public.space_round_status
+        )
+        and (
+          select count(*) from public.room_votes sv
+          where sv.round_id = sr.id and sv.candidate_id = sc.id
+            and sv.choice = 'skip'::public.space_round_vote
+        ) = 2
+        and (
+          select max(sv.updated_at) from public.room_votes sv
+          where sv.round_id = sr.id and sv.candidate_id = sc.id
+            and sv.choice = 'skip'::public.space_round_vote
+        ) > pg_catalog.clock_timestamp() - interval '30 days'
+    );
+$$;
+
+comment on function public.is_movie_hard_suppressed(uuid, integer) is
+  'SECURITY DEFINER, STABLE. Bir filmin bu oda icin hard suppressed olup olmadigini soyler: kabul edilmis secim, acik yedi gunluk secim penceresi veya son 30 gun icinde iki tarafin da skip demesi. Aday secimindeki her gecis bunu cagirir; kural son denemede bile acilamaz.';
+
+revoke all on function public.is_movie_hard_suppressed(uuid, integer) from public, anon, authenticated;
+
+-- Yeni tur: oda satırı kilidi altında geçmişi silmeden tam 10 adayı seçer. ----
+--
+-- GÜVEN SINIRI (RR-02): bu fonksiyon YALNIZCA service_role tarafından
+-- çağrılabilir. Çağıran güvenilen sunucu kodu olduğu için `auth.uid()` burada
+-- NULL'dur; gerçek aktör `p_actor_id` ile açıkça geçilir ve bu fonksiyon onun
+-- odaya üyeliğini BAĞIMSIZ olarak doğrular. Böylece bir oda üyesi Supabase
+-- Data API üzerinden doğrudan çağırıp kendi aday listesini, seed'ini veya
+-- policy metadata'sını dayatamaz.
+--
+-- ADAY SEÇİMİ (RR-01): üç ayrı geçiş vardır ve her adayın `selection_reason`
+-- değeri ONU SEÇEN GEÇİŞTEN gelir; seçim sonrası çıkarımla üretilmez.
+--   1) priority_return  — 14 gün içinde both-want olup çark tarafından
+--                         seçilmemiş, fırsatı henüz tüketilmemiş filmler
+--   2) fresh_discovery  — bu space'in TÜM geçmişinde hiç aday olmamış filmler
+--   3) eligible_repeat  — yalnızca p_allow_eligible_repeats = true iken
+--
+-- Değişmez kurallar:
+--   * priority_return + eligible_repeat toplamı en fazla 9 slot alabilir
+--   * en az 1 slot gerçek fresh_discovery olmak zorundadır
+--   * hard suppression hiçbir geçişte, son denemede bile açılamaz
+--   * 10 benzersiz aday + en az 1 gerçek keşif üretilemezse dürüstçe
+--     `candidate_pool_incomplete` ile başarısız olunur; uygun olmayan film
+--     havuzu doldurmak için ASLA kullanılmaz
 create or replace function public.start_next_space_round(
   p_space_id uuid,
+  p_actor_id uuid,
   p_candidates jsonb,
   p_selection_seed text,
   p_policy_version text,
@@ -145,27 +262,23 @@ security definer
 set search_path = ''
 as $$
 declare
-  v_user_id uuid := (select auth.uid());
   v_space public.spaces%rowtype;
   v_active_round public.space_rounds%rowtype;
-  v_previous_round_id uuid;
   v_round_id uuid;
   v_round_number integer;
   v_final jsonb := '[]'::jsonb;
   v_seen_ids integer[] := '{}';
   v_reserved_priority_ids integer[] := '{}';
+  v_invalid_count integer;
+  v_reserved_slots integer := 0;
+  v_fresh_count integer := 0;
+  v_passes text[];
+  v_pass text;
   v_item record;
+  v_position integer;
   v_raw jsonb;
-  v_movie_id integer;
-  v_title text;
-  v_original_title text;
-  v_poster_path text;
-  v_overview text;
-  v_release_year smallint;
-  v_vote_average numeric(3,1);
-  v_reason text;
 begin
-  if v_user_id is null then
+  if p_actor_id is null then
     raise exception 'unauthenticated' using errcode = '28000';
   end if;
 
@@ -180,7 +293,7 @@ begin
 
   if not exists (
     select 1 from public.participants p
-    where p.space_id = p_space_id and p.user_id = v_user_id
+    where p.space_id = p_space_id and p.user_id = p_actor_id
   ) then
     raise exception 'invalid_invitation' using errcode = 'P0001';
   end if;
@@ -204,7 +317,8 @@ begin
     return v_active_round.id;
   end if;
 
-  if p_selection_seed is null or char_length(p_selection_seed) not between 16 and 128
+  if p_selection_seed is null
+     or pg_catalog.char_length(p_selection_seed) not between 16 and 128
      or p_policy_version is null
      or p_policy_version !~ '^[a-z0-9][a-z0-9._-]{0,63}$'
      or p_ranker_version is null
@@ -220,14 +334,37 @@ begin
     raise exception 'candidate_pool_incomplete' using errcode = '22023';
   end if;
 
-  select r.id into v_previous_round_id
-  from public.space_rounds r
-  where r.space_id = p_space_id
-  order by r.round_number desc
-  limit 1;
+  -- Girdi doğrulaması YALNIZCA regex kullanır; bu boolean ifadenin içinde
+  -- hiçbir cast yoktur. Bozuk sayısal alan, kontrolsüz cast exception'ı yerine
+  -- tanımlı `invalid_candidates` domain hatası üretir.
+  select count(*) into v_invalid_count
+  from pg_catalog.jsonb_array_elements(p_candidates) as e(value)
+  where e.value ->> 'tmdbMovieId' is null
+     or e.value ->> 'tmdbMovieId' !~ '^[1-9][0-9]{0,8}$'
+     or nullif(pg_catalog.btrim(coalesce(e.value ->> 'title', '')), '') is null
+     or pg_catalog.char_length(pg_catalog.btrim(coalesce(e.value ->> 'title', ''))) > 300
+     or pg_catalog.char_length(coalesce(e.value ->> 'originalTitle', '')) > 300
+     or pg_catalog.char_length(coalesce(e.value ->> 'overview', '')) > 5000
+     or (
+       nullif(pg_catalog.btrim(coalesce(e.value ->> 'posterPath', '')), '') is not null
+       and pg_catalog.btrim(e.value ->> 'posterPath') !~ '^/[^[:space:]]+$'
+     )
+     or (
+       nullif(e.value ->> 'releaseYear', '') is not null
+       and e.value ->> 'releaseYear' !~ '^(1[89][0-9]{2}|20[0-9]{2}|21[0-9]{2}|2200)$'
+     )
+     or (
+       nullif(e.value ->> 'voteAverage', '') is not null
+       and e.value ->> 'voteAverage' !~ '^(10([.]0+)?|[0-9]([.][0-9]+)?)$'
+     );
 
-  -- Son geçerli both-want + seçilmedi olayı, daha sonraki bir priority_return
-  -- görünümüyle tüketilmediyse tek fırsattır. En eski fırsatlar önce gelir.
+  if v_invalid_count > 0 then
+    raise exception 'invalid_candidates' using errcode = '22023';
+  end if;
+
+  ---------------------------------------------------------------------------
+  -- 1) priority_return — rezerve slot tavanı 9
+  ---------------------------------------------------------------------------
   for v_item in
     with qualifying as (
       select distinct on (c.tmdb_movie_id)
@@ -245,7 +382,8 @@ begin
       where r.space_id = p_space_id
         and r.status = 'result'::public.space_round_status
         and r.winner_candidate_id is distinct from c.id
-        and coalesce(r.spin_started_at, r.updated_at) > clock_timestamp() - interval '14 days'
+        and coalesce(r.spin_started_at, r.updated_at)
+            > pg_catalog.clock_timestamp() - interval '14 days'
         and (
           select count(*)
           from public.room_votes v
@@ -266,188 +404,128 @@ begin
         and consumed_round.space_id = p_space_id
         and consumed_round.round_number > q.round_number
     )
-    and not exists (
-      select 1 from public.room_selections s
-      where s.space_id = p_space_id
-        and s.tmdb_movie_id = q.tmdb_movie_id
-        and (
-          s.accepted_at is not null
-          or s.response_deadline > clock_timestamp()
-        )
-    )
-    and not exists (
-      select 1
-      from public.space_rounds sr
-      join public.room_candidates sc on sc.round_id = sr.id
-      where sr.space_id = p_space_id
-        and sc.tmdb_movie_id = q.tmdb_movie_id
-        and sr.status in ('result'::public.space_round_status, 'no_match'::public.space_round_status)
-        and (
-          select count(*) from public.room_votes sv
-          where sv.round_id = sr.id and sv.candidate_id = sc.id
-            and sv.choice = 'skip'::public.space_round_vote
-        ) = 2
-        and (
-          select max(sv.updated_at) from public.room_votes sv
-          where sv.round_id = sr.id and sv.candidate_id = sc.id
-            and sv.choice = 'skip'::public.space_round_vote
-        ) > clock_timestamp() - interval '30 days'
-    )
+    and not public.is_movie_hard_suppressed(p_space_id, q.tmdb_movie_id)
     order by q.eligible_at, q.tmdb_movie_id
   loop
     v_reserved_priority_ids := array_append(v_reserved_priority_ids, v_item.tmdb_movie_id);
-    if jsonb_array_length(v_final) < 9 then
+
+    exit when v_reserved_slots >= 9 or jsonb_array_length(v_final) >= 10;
+
+    v_final := v_final || jsonb_build_array(jsonb_build_object(
+      'tmdbMovieId', v_item.tmdb_movie_id,
+      'title', v_item.title,
+      'originalTitle', v_item.original_title,
+      'posterPath', v_item.poster_path,
+      'overview', v_item.overview,
+      'releaseYear', v_item.release_year,
+      'voteAverage', v_item.tmdb_vote_average,
+      'selectionReason', 'priority_return'
+    ));
+    v_seen_ids := array_append(v_seen_ids, v_item.tmdb_movie_id);
+    v_reserved_slots := v_reserved_slots + 1;
+  end loop;
+
+  ---------------------------------------------------------------------------
+  -- 2) fresh_discovery, sonra 3) eligible_repeat (yalnızca gate açıkken)
+  --
+  -- Her geçiş kendi reason'ını yazar. `fresh_discovery` bu space'in TÜM
+  -- geçmişini dışlar; yalnızca bir önceki turu değil.
+  ---------------------------------------------------------------------------
+  v_passes := case
+    when p_allow_eligible_repeats then array['fresh_discovery', 'eligible_repeat']
+    else array['fresh_discovery']
+  end;
+
+  foreach v_pass in array v_passes
+  loop
+    for v_item in
+      with parsed as (
+        select
+          candidate.value as raw,
+          candidate.ordinal_position,
+          -- Cast YALNIZCA regex'in doğrulandığı CASE dalının içinde yapılır.
+          case when candidate.value ->> 'tmdbMovieId' ~ '^[1-9][0-9]{0,8}$'
+            then (candidate.value ->> 'tmdbMovieId')::integer
+          end as movie_id,
+          case when candidate.value ->> 'releaseYear'
+                    ~ '^(1[89][0-9]{2}|20[0-9]{2}|21[0-9]{2}|2200)$'
+            then (candidate.value ->> 'releaseYear')::smallint
+          end as release_year,
+          case when candidate.value ->> 'voteAverage'
+                    ~ '^(10([.]0+)?|[0-9]([.][0-9]+)?)$'
+            then (candidate.value ->> 'voteAverage')::numeric(3,1)
+          end as vote_average
+        from pg_catalog.jsonb_array_elements(p_candidates) with ordinality
+          as candidate(value, ordinal_position)
+      ), valid as (
+        select distinct on (p.movie_id)
+          p.raw, p.movie_id, p.ordinal_position, p.release_year, p.vote_average
+        from parsed p
+        where p.movie_id is not null
+        order by p.movie_id, p.ordinal_position
+      ), seen_before as (
+        select distinct prior_candidate.tmdb_movie_id as movie_id
+        from public.space_rounds prior_round
+        join public.room_candidates prior_candidate
+          on prior_candidate.round_id = prior_round.id
+        where prior_round.space_id = p_space_id
+      )
+      select
+        v.movie_id,
+        pg_catalog.btrim(v.raw ->> 'title') as title,
+        nullif(pg_catalog.btrim(coalesce(v.raw ->> 'originalTitle', '')), '') as original_title,
+        nullif(pg_catalog.btrim(coalesce(v.raw ->> 'posterPath', '')), '') as poster_path,
+        nullif(pg_catalog.btrim(coalesce(v.raw ->> 'overview', '')), '') as overview,
+        v.release_year,
+        v.vote_average
+      from valid v
+      where not (v.movie_id = any(v_seen_ids))
+        and not (v.movie_id = any(v_reserved_priority_ids))
+        and (
+          case
+            when v_pass = 'fresh_discovery'
+              then not exists (select 1 from seen_before b where b.movie_id = v.movie_id)
+            else exists (select 1 from seen_before b where b.movie_id = v.movie_id)
+          end
+        )
+        and not public.is_movie_hard_suppressed(p_space_id, v.movie_id)
+      -- Ranker yalnızca yukarıdaki hard eligibility filtrelerinden geçmiş
+      -- satırları görür ve yeni film kimliği üretemez.
+      order by pg_catalog.md5(p_selection_seed || ':' || v.movie_id::text), v.movie_id
+    loop
+      exit when jsonb_array_length(v_final) >= 10;
+      exit when v_pass = 'eligible_repeat' and v_reserved_slots >= 9;
+
       v_final := v_final || jsonb_build_array(jsonb_build_object(
-        'tmdbMovieId', v_item.tmdb_movie_id,
+        'tmdbMovieId', v_item.movie_id,
         'title', v_item.title,
         'originalTitle', v_item.original_title,
         'posterPath', v_item.poster_path,
         'overview', v_item.overview,
         'releaseYear', v_item.release_year,
-        'voteAverage', v_item.tmdb_vote_average,
-        'selectionReason', 'priority_return'
+        'voteAverage', v_item.vote_average,
+        'selectionReason', v_pass
       ));
-      v_seen_ids := array_append(v_seen_ids, v_item.tmdb_movie_id);
-    end if;
-  end loop;
+      v_seen_ids := array_append(v_seen_ids, v_item.movie_id);
 
-  -- İki geçiş: önce hemen önceki turu hariç tut, havuz yine dolmazsa yalnızca
-  -- uygun eski filmleri eligible_repeat olarak kullan.
-  for v_reason in
-    select unnest(
-      case when p_allow_eligible_repeats
-        then array['fresh_discovery', 'eligible_repeat']
-        else array['fresh_discovery']
-      end
-    )
-  loop
-    for v_item in
-      with parsed as (
-        select value as raw, ordinal_position,
-          case
-            when value ->> 'tmdbMovieId' ~ '^[0-9]{1,10}$'
-              and (value ->> 'tmdbMovieId')::numeric between 1 and 2147483647
-            then (value ->> 'tmdbMovieId')::integer
-          end as movie_id
-        from jsonb_array_elements(p_candidates) with ordinality
-          as candidate(value, ordinal_position)
-      ), valid as (
-        select distinct on (p.movie_id) p.raw, p.movie_id, p.ordinal_position
-        from parsed p
-        where p.movie_id > 0
-          and nullif(btrim(coalesce(p.raw ->> 'title', '')), '') is not null
-          and char_length(btrim(p.raw ->> 'title')) <= 300
-          and char_length(btrim(coalesce(p.raw ->> 'originalTitle', ''))) <= 300
-          and char_length(coalesce(p.raw ->> 'overview', '')) <= 5000
-          and (
-            nullif(btrim(coalesce(p.raw ->> 'posterPath', '')), '') is null
-            or btrim(p.raw ->> 'posterPath') ~ '^/[^[:space:]]+$'
-          )
-          and (
-            nullif(p.raw ->> 'releaseYear', '') is null
-            or p.raw ->> 'releaseYear' ~ '^[0-9]{4}$'
-          )
-          and (
-            nullif(p.raw ->> 'voteAverage', '') is null
-            or (
-              p.raw ->> 'voteAverage' ~ '^[0-9]+([.][0-9]+)?$'
-              and (p.raw ->> 'voteAverage')::numeric between 0 and 10
-            )
-          )
-        order by p.movie_id, p.ordinal_position
-      )
-      select v.raw, v.movie_id, v.ordinal_position
-      from valid v
-      where not (v.movie_id = any(v_seen_ids))
-        and not (v.movie_id = any(v_reserved_priority_ids))
-        and (
-          v_reason = 'eligible_repeat'
-          or v_previous_round_id is null
-          or not exists (
-            select 1 from public.room_candidates previous
-            where previous.round_id = v_previous_round_id
-              and previous.tmdb_movie_id = v.movie_id
-          )
-        )
-        and not exists (
-          select 1 from public.room_selections s
-          where s.space_id = p_space_id
-            and s.tmdb_movie_id = v.movie_id
-            and (
-              s.accepted_at is not null
-              or s.response_deadline > clock_timestamp()
-            )
-        )
-        and not exists (
-          select 1
-          from public.space_rounds sr
-          join public.room_candidates sc on sc.round_id = sr.id
-          where sr.space_id = p_space_id
-            and sc.tmdb_movie_id = v.movie_id
-            and sr.status in ('result'::public.space_round_status, 'no_match'::public.space_round_status)
-            and (
-              select count(*) from public.room_votes sv
-              where sv.round_id = sr.id and sv.candidate_id = sc.id
-                and sv.choice = 'skip'::public.space_round_vote
-            ) = 2
-            and (
-              select max(sv.updated_at) from public.room_votes sv
-              where sv.round_id = sr.id and sv.candidate_id = sc.id
-                and sv.choice = 'skip'::public.space_round_vote
-            ) > clock_timestamp() - interval '30 days'
-        )
-      -- Ranker yalnızca yukarıdaki hard eligibility filtrelerinden geçmiş
-      -- satırları görür ve yeni film kimliği üretemez.
-      order by md5(p_selection_seed || ':' || v.movie_id::text), v.movie_id
-    loop
-      exit when jsonb_array_length(v_final) = 10;
-      v_raw := v_item.raw;
-      v_movie_id := v_item.movie_id;
-      v_title := btrim(v_raw ->> 'title');
-      v_original_title := nullif(btrim(coalesce(v_raw ->> 'originalTitle', '')), '');
-      v_poster_path := nullif(btrim(coalesce(v_raw ->> 'posterPath', '')), '');
-      v_overview := nullif(btrim(coalesce(v_raw ->> 'overview', '')), '');
-      v_release_year := case
-        when v_raw ->> 'releaseYear' ~ '^[0-9]{4}$'
-          then (v_raw ->> 'releaseYear')::smallint
-        else null
-      end;
-      v_vote_average := case
-        when v_raw ->> 'voteAverage' ~ '^[0-9]+([.][0-9]+)?$'
-          and (v_raw ->> 'voteAverage')::numeric between 0 and 10
-          then (v_raw ->> 'voteAverage')::numeric(3,1)
-        else null
-      end;
-
-      if (v_release_year is not null and (v_release_year < 1800 or v_release_year > 2200))
-         or (v_vote_average is not null and (v_vote_average < 0 or v_vote_average > 10)) then
-        continue;
+      if v_pass = 'fresh_discovery' then
+        v_fresh_count := v_fresh_count + 1;
+      else
+        v_reserved_slots := v_reserved_slots + 1;
       end if;
-
-      v_final := v_final || jsonb_build_array(jsonb_build_object(
-        'tmdbMovieId', v_movie_id,
-        'title', v_title,
-        'originalTitle', v_original_title,
-        'posterPath', v_poster_path,
-        'overview', v_overview,
-        'releaseYear', v_release_year,
-        'voteAverage', v_vote_average,
-        'selectionReason', case when exists (
-          select 1
-          from public.space_rounds historical_round
-          join public.room_candidates historical_candidate
-            on historical_candidate.round_id = historical_round.id
-          where historical_round.space_id = p_space_id
-            and historical_candidate.tmdb_movie_id = v_movie_id
-        ) then 'eligible_repeat' else 'fresh_discovery' end
-      ));
-      v_seen_ids := array_append(v_seen_ids, v_movie_id);
     end loop;
-    exit when jsonb_array_length(v_final) = 10;
+
+    exit when jsonb_array_length(v_final) >= 10;
   end loop;
 
+  ---------------------------------------------------------------------------
+  -- Değişmez kural doğrulaması: tam 10 benzersiz + en az 1 gerçek keşif.
+  -- Sağlanamıyorsa dürüstçe başarısız olunur; uygun olmayan film eklenmez.
+  ---------------------------------------------------------------------------
   if jsonb_array_length(v_final) <> 10
-     or cardinality(v_seen_ids) <> 10 then
+     or cardinality(v_seen_ids) <> 10
+     or v_fresh_count < 1
+     or v_reserved_slots > 9 then
     raise exception 'candidate_pool_incomplete' using errcode = '22023';
   end if;
 
@@ -463,14 +541,14 @@ begin
     p_policy_version, p_ranker_version
   ) returning id into v_round_id;
 
-  for v_movie_id in 0..9 loop
-    v_raw := v_final -> v_movie_id;
+  for v_position in 0..9 loop
+    v_raw := v_final -> v_position;
     insert into public.room_candidates (
       round_id, position, tmdb_movie_id, title, original_title, poster_path,
       overview, release_year, tmdb_vote_average, selection_reason
     ) values (
       v_round_id,
-      v_movie_id + 1,
+      v_position + 1,
       (v_raw ->> 'tmdbMovieId')::integer,
       v_raw ->> 'title',
       nullif(v_raw ->> 'originalTitle', ''),
@@ -486,9 +564,18 @@ begin
 end;
 $$;
 
--- Deployment sırası için güvenli compatibility wrapper. Eski production kodu
--- bu imzayı çağırsa bile geçmiş silinmez; p_reset artık yalnızca geriye dönük
--- wire compatibility içindir. Yeni kod doğrudan start_next_space_round çağırır.
+-- Legacy imza (RR-03) --------------------------------------------------------
+--
+-- Eski production kodu bu imzayı çağırıyordu. Sertleştirilmiş şemada bu yol
+-- KALICI bir authenticated aday-üretim kapısı olarak BIRAKILMAZ:
+--
+--   * `authenticated` rolünden EXECUTE geri alınmıştır (aşağıdaki grant bloğu),
+--   * gövde, çağrılsa bile keyfi bir aday planını KABUL ETMEZ ve KAYDETMEZ.
+--
+-- Sonuç: migration uygulandıktan sonra, eşleşen uygulama sürümü deploy edilene
+-- kadar YENİ TUR OLUŞTURULAMAZ. Bu bilinçli bir bakım penceresi davranışıdır;
+-- okuma, oylama, çark ve kabul yolları etkilenmez. Ayrıntı için
+-- ROOM_SELECTION_AND_WHEEL_SETUP.md içindeki bakım penceresi sırasına bakın.
 create or replace function public.create_or_reset_space_round(
   p_space_id uuid,
   p_candidates jsonb,
@@ -500,14 +587,11 @@ security definer
 set search_path = ''
 as $$
 begin
-  return public.start_next_space_round(
-    p_space_id,
-    p_candidates,
-    'compat-' || pg_catalog.gen_random_uuid()::text,
-    'reusable-room-v1',
-    'legacy-client-v1',
-    true
-  );
+  -- Parametreler bilinçli olarak kullanılmaz: bu fonksiyon artık aday planı
+  -- kabul etmez. Yalnızca eski istemciye anlaşılır bir domain hatası döner.
+  perform p_space_id, p_candidates, p_reset;
+
+  raise exception 'round_creation_moved' using errcode = 'P0001';
 end;
 $$;
 
@@ -889,29 +973,46 @@ begin
 end;
 $$;
 
-revoke all on function public.start_next_space_round(uuid, jsonb, text, text, text, boolean)
-  from public, anon;
+-- Yetkiler --------------------------------------------------------------------
+--
+-- GÜVEN SINIRI (RR-02): aday planını kalıcılaştıran fonksiyon HİÇBİR istemci
+-- rolüne açık değildir. Yalnızca `service_role` çalıştırabilir; o kimlik de
+-- yalnızca sunucu tarafındaki yönetimsel istemcide bulunur.
+--
+-- Eski imza (RR-03) `authenticated` rolünden geri alınmıştır; kalıcı bir
+-- authenticated aday-üretim kapısı bırakılmaz.
+
+revoke all on function
+  public.start_next_space_round(uuid, uuid, jsonb, text, text, text, boolean)
+  from public, anon, authenticated;
+revoke all on function public.create_or_reset_space_round(uuid, jsonb, boolean)
+  from public, anon, authenticated;
+revoke all on function public.is_movie_hard_suppressed(uuid, integer)
+  from public, anon, authenticated;
+
 revoke all on function public.cast_space_round_vote(uuid, uuid, public.space_round_vote)
   from public, anon;
 revoke all on function public.start_space_round_wheel(uuid) from public, anon;
 revoke all on function public.get_space_round_state(uuid) from public, anon;
 revoke all on function public.accept_room_selection(uuid, uuid) from public, anon;
-revoke all on function public.create_or_reset_space_round(uuid, jsonb, boolean)
-  from public, anon;
 
-grant execute on function public.start_next_space_round(uuid, jsonb, text, text, text, boolean)
-  to authenticated;
+-- Yalnızca güvenilen sunucu kimliği aday planı kalıcılaştırabilir.
+grant execute on function
+  public.start_next_space_round(uuid, uuid, jsonb, text, text, text, boolean)
+  to service_role;
+
+-- Kullanıcı oturumuyla çalışan yollar: oy, çark, okuma ve kişisel kabul.
 grant execute on function public.cast_space_round_vote(uuid, uuid, public.space_round_vote)
   to authenticated;
 grant execute on function public.start_space_round_wheel(uuid) to authenticated;
 grant execute on function public.get_space_round_state(uuid) to authenticated;
 grant execute on function public.accept_room_selection(uuid, uuid) to authenticated;
-grant execute on function public.create_or_reset_space_round(uuid, jsonb, boolean)
-  to authenticated;
 
-comment on function public.start_next_space_round(uuid, jsonb, text, text, text, boolean) is
-  'SECURITY DEFINER. Oda geçmişinden hard suppression ve tek seferlik priority return hesaplar; oda kilidi altında geçmişi silmeden tam 10 benzersiz aday ekler. İstemciye elenen film veya partner oyu döndürmez.';
+comment on function public.start_next_space_round(uuid, uuid, jsonb, text, text, text, boolean) is
+  'SECURITY DEFINER, yalnizca service_role. Gecmisi silmeden yeni tur acar. Aktor kimligi p_actor_id ile acikca gecilir ve uyeligi burada BAGIMSIZ dogrulanir. Aday secimi uc gecistir (priority_return / fresh_discovery / eligible_repeat); her adayin selection_reason degeri onu secen gecisten gelir. fresh_discovery space in TUM gecmisini dislar. priority_return + eligible_repeat en fazla 9 slot alir ve en az 1 slot gercek kesif olmak zorundadir. Hard suppression son denemede bile acilamaz; saglanamazsa candidate_pool_incomplete ile durur.';
+
 comment on function public.accept_room_selection(uuid, uuid) is
-  'SECURITY DEFINER. Yedi günlük pencere içinde yalnızca çağıranın kabul olayını ve kişisel watchlist kaydını atomik/idempotent yazar; partner kütüphanesini değiştirmez.';
+  'SECURITY DEFINER. Cagiranin kisisel kabulunu ve kutuphane satirini tek transaction icinde yazar. Partnerin kabul durumu dondurulmez.';
+
 comment on function public.create_or_reset_space_round(uuid, jsonb, boolean) is
-  'Geriye dönük deployment wrapper. Eski imzayı append-only start_next_space_round fonksiyonuna yönlendirir; hiçbir tur, aday veya oy silmez.';
+  'KULLANIM DISI (RR-03). Eski istemci imzasi. Aday plani KABUL ETMEZ ve KAYDETMEZ; round_creation_moved domain hatasi firlatir. authenticated rolunden EXECUTE geri alinmistir.';

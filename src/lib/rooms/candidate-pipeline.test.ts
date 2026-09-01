@@ -7,7 +7,10 @@ import {
   assertRankerBoundary,
   discoverPageOrder,
   MAX_DISCOVER_PAGE_ATTEMPTS,
+  RANKER_VERSION,
   rankCandidateSource,
+  type RoundCandidatePlan,
+  SELECTION_POLICY_VERSION,
   sourceAndPersistRoundCandidates,
 } from "./candidate-pipeline";
 
@@ -59,6 +62,7 @@ describe("candidate pipeline", () => {
         }
       },
       {
+        providerKeys: ["netflix", "prime_video"],
         seed: "multi-page-seed-1234567890",
         fetchPage: async (page) => {
           fetchedPages.push(page);
@@ -81,6 +85,7 @@ describe("candidate pipeline", () => {
           throw new RoomServiceError(roomError("candidate_pool_incomplete"));
         },
         {
+          providerKeys: ["netflix", "prime_video"],
           seed: "bounded-failure-1234567890",
           fetchPage: async () => {
             pageCalls += 1;
@@ -104,12 +109,98 @@ describe("candidate pipeline", () => {
         }
       },
       {
-        seed: "repeat-last-resort-1234567890",
+        providerKeys: ["netflix", "prime_video"],
+          seed: "repeat-last-resort-1234567890",
         fetchPage: async (page) =>
           Array.from({ length: 10 }, (_, index) => movie(page * 100 + index)),
       },
     );
     expect(attempts.at(-1)).toBe(true);
     expect(attempts.slice(0, -1).every((value) => value === false)).toBe(true);
+  });
+
+  it("son denemede bile havuz kurulamazsa DÜRÜSTÇE başarısız olur", async () => {
+    // Veritabanı hard eligibility kurallarını son denemede de açmaz. Boru hattı
+    // bu reddi yutup uydurma bir plan döndüremez.
+    const attempts: boolean[] = [];
+
+    await expect(
+      sourceAndPersistRoundCandidates(
+        async (plan) => {
+          attempts.push(plan.allowEligibleRepeats);
+          throw new RoomServiceError(roomError("candidate_pool_incomplete"));
+        },
+        {
+          providerKeys: ["netflix", "prime_video"],
+          seed: "honest-failure-1234567890abcd",
+          fetchPage: async (page) =>
+            Array.from({ length: 10 }, (_, index) => movie(page * 100 + index)),
+        },
+      ),
+    ).rejects.toMatchObject({
+      roomError: { code: "candidate_pool_incomplete" },
+    });
+
+    expect(attempts.at(-1)).toBe(true);
+  });
+
+  it("policy ve ranker sürümü sunucu sabitlerinden gelir", async () => {
+    const plans: RoundCandidatePlan[] = [];
+    await sourceAndPersistRoundCandidates(
+      async (plan) => {
+        plans.push(plan);
+      },
+      {
+        providerKeys: ["netflix", "prime_video"],
+          seed: "server-owned-metadata-123456",
+        fetchPage: async (page) =>
+          Array.from({ length: 10 }, (_, index) => movie(page * 100 + index)),
+      },
+    );
+
+    const plan = plans.at(-1);
+    expect(plan?.selectionPolicyVersion).toBe(SELECTION_POLICY_VERSION);
+    expect(plan?.rankerVersion).toBe(RANKER_VERSION);
+    // `selection_reason` boru hattında hiç üretilmez; onu SQL geçişi yazar.
+    expect(JSON.stringify(plan)).not.toContain("selectionReason");
+    expect(JSON.stringify(plan)).not.toContain("selection_reason");
+  });
+
+  it("ortak abonelik yoksa hiç TMDb isteği atmadan reddeder", async () => {
+    let fetched = 0;
+    await expect(
+      sourceAndPersistRoundCandidates(
+        async () => {
+          throw new Error("kalıcılaştırma çağrılmamalıydı");
+        },
+        {
+          providerKeys: [],
+          seed: "no-shared-subscription-1234",
+          fetchPage: async () => {
+            fetched += 1;
+            return [];
+          },
+        },
+      ),
+    ).rejects.toMatchObject({ roomError: { code: "no_shared_subscriptions" } });
+
+    expect(fetched).toBe(0);
+  });
+
+  it("ortak abonelik kümesini plana yazar", async () => {
+    const plans: RoundCandidatePlan[] = [];
+    await sourceAndPersistRoundCandidates(
+      async (plan) => {
+        plans.push(plan);
+      },
+      {
+        providerKeys: ["mubi", "netflix"],
+        seed: "provider-keys-in-plan-12345",
+        fetchPage: async (page) =>
+          Array.from({ length: 10 }, (_, index) => movie(page * 100 + index)),
+      },
+    );
+
+    expect(plans.at(-1)?.providerKeys).toEqual(["mubi", "netflix"]);
   });
 });

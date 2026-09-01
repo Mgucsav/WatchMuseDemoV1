@@ -3,6 +3,10 @@ import "server-only";
 import { toPosterUrl } from "@/lib/tmdb/normalize";
 import type { MovieSummary } from "@/lib/tmdb/types";
 import {
+  SupabaseAdminNotConfiguredError,
+  createSupabaseAdminClient,
+} from "@/lib/supabase/admin";
+import {
   createSupabaseServerClient,
   getAuthenticatedUserId,
 } from "@/lib/supabase/server";
@@ -48,6 +52,52 @@ function serializedCandidates(candidates: MovieSummary[]) {
 }
 
 /** Geçmişi silmeden bir sonraki turu ve kesin aday sırasını atomik başlatır. */
+/**
+ * Doğrulanmış çağıranın bu odanın katılımcısı olduğunu kanıtlar.
+ *
+ * Kullanıcının KENDİ oturumuyla ve RLS altında çalışır: `participants` üzerinde
+ * yalnızca aynı odanın üyeleri okunabilir. Güvenilen kalıcılaştırma yolu ancak
+ * bu kontrol geçtikten sonra çağrılır ve doğrulanmış aktör kimliği RPC'ye
+ * açıkça geçilir; veritabanı fonksiyonu üyeliği ayrıca kendi içinde de
+ * doğrular (savunma derinliği).
+ */
+async function requireSpaceMember(spaceId: string): Promise<string> {
+  const supabase = await getClientAndUser();
+
+  const userId = await getAuthenticatedUserId(supabase);
+  if (!userId) fail("unauthenticated");
+
+  const { data, error } = await supabase
+    .from("participants")
+    .select("user_id")
+    .eq("space_id", spaceId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) throw new RoomServiceError(normalizeRoomError(error));
+  // Üyelik yoksa odanın varlığı bile sızdırılmaz.
+  if (!data) fail("invalid_invitation");
+
+  return userId;
+}
+
+/**
+ * Aday planını GÜVENİLEN sunucu yolundan kalıcılaştırır (RR-02).
+ *
+ * Sıra önemlidir:
+ *   1. Çağıran kullanıcının kendi oturumuyla doğrulanır ve üyeliği kanıtlanır.
+ *   2. Ancak ondan sonra service-role istemcisiyle RPC çağrılır.
+ *   3. Aktör kimliği RPC'ye açıkça geçilir; SQL fonksiyonu onu bağımsız doğrular.
+ *
+ * Aday listesi, seed, policy/ranker sürümü ve ortak abonelik kümesi tarayıcıdan
+ * DEĞİL, bu süreçteki `candidate-pipeline` ve oda durumundan üretilir.
+ *
+ * `p_provider_keys` turla birlikte saklanır. Veritabanı bir filmin gerçekten o
+ * platformlarda olduğunu doğrulayamaz (TMDb katalog bilgisi orada yoktur);
+ * filtre keşif isteğinde uygulanır. Saklanan küme, sonraki turlarda GEÇMİŞTEN
+ * tekrar aday alınırken kullanılır: yalnızca bugünün ortak kümesinin alt
+ * kümesiyle toplanmış turlar tekrar edilebilir.
+ */
 export async function startNextRoomRound(
   spaceId: string,
   plan: RoundCandidatePlan,
@@ -55,15 +105,32 @@ export async function startNextRoomRound(
   if (plan.candidates.length < 10 || plan.candidates.length > 200) {
     fail("invalid_candidates");
   }
-  const supabase = await getClientAndUser();
-  const { error } = await supabase.rpc("start_next_space_round", {
+
+  // Ortak abonelik olmadan aday havuzu toplanamaz; buraya boş liste gelmesi
+  // sağlayıcı filtresinin atlandığı anlamına gelirdi.
+  if (plan.providerKeys.length === 0) fail("no_shared_subscriptions");
+
+  const actorId = await requireSpaceMember(spaceId);
+
+  let admin;
+  try {
+    admin = createSupabaseAdminClient();
+  } catch (error) {
+    if (error instanceof SupabaseAdminNotConfiguredError) fail("not_configured");
+    throw error;
+  }
+
+  const { error } = await admin.rpc("start_next_space_round", {
     p_space_id: spaceId,
+    p_actor_id: actorId,
     p_candidates: serializedCandidates(plan.candidates),
     p_selection_seed: plan.seed,
     p_policy_version: plan.selectionPolicyVersion,
     p_ranker_version: plan.rankerVersion,
     p_allow_eligible_repeats: plan.allowEligibleRepeats,
+    p_provider_keys: plan.providerKeys,
   });
+
   if (error) throw new RoomServiceError(normalizeRoomError(error));
 }
 

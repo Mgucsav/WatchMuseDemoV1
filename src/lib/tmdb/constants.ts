@@ -19,6 +19,14 @@ export const TMDB_TRUSTED_LINK_HOSTNAMES: readonly string[] = [
 /** Afiş boyutu. `next.config.ts` içindeki remotePatterns bu alan adını kapsar. */
 export const TMDB_POSTER_SIZE = "w342";
 
+/**
+ * Detay görünümündeki arka plan görseli boyutu.
+ *
+ * Aynı `image.tmdb.org/t/p/**` deseni altında kaldığı için `next.config.ts`
+ * içinde ek bir remote pattern gerekmez.
+ */
+export const TMDB_BACKDROP_SIZE = "w780";
+
 export const TMDB_LANGUAGE = "tr-TR";
 export const TMDB_REGION = "TR";
 
@@ -32,8 +40,15 @@ export const TMDB_REQUEST_TIMEOUT_MS = 8_000;
 export const PROVIDER_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 export const SEARCH_CACHE_TTL_MS = 30 * 60 * 1000;
 
+/**
+ * Film künyesi (süre, tür, yönetmen) pratikte hiç değişmez; yayın sonrası
+ * düzeltmeleri yakalayabilmek için yine de sınırlı tutuldu.
+ */
+export const DETAILS_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
+
 export const PROVIDER_CACHE_MAX_ENTRIES = 500;
 export const SEARCH_CACHE_MAX_ENTRIES = 200;
+export const DETAILS_CACHE_MAX_ENTRIES = 300;
 
 interface TargetProviderDefinition {
   key: TargetProviderKey;
@@ -66,5 +81,27 @@ export const TARGET_PROVIDERS: readonly TargetProviderDefinition[] = [
       119, // Amazon Prime Video
       2100, // Amazon Prime Video with Ads
     ],
+  },
+  {
+    key: "apple_tv_plus",
+    label: "Apple TV+",
+    // Yalnızca abonelik servisi (Apple TV+). Apple TV üzerinden kiralama/satın
+    // alma (provider 2) bilinçli olarak listede yoktur: aboneliğe dahil değildir.
+    tmdbProviderIds: [350],
+  },
+  {
+    key: "disney_plus",
+    label: "Disney+",
+    tmdbProviderIds: [337],
+  },
+  {
+    key: "blutv",
+    label: "BluTV",
+    tmdbProviderIds: [341],
+  },
+  {
+    key: "mubi",
+    label: "MUBI",
+    tmdbProviderIds: [11],
   },
 ] as const;

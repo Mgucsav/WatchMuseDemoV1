@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { TARGET_PROVIDERS } from "./constants";
 import { normalizeProvidersResponse } from "./providers";
 import type { MovieProvidersResult, TargetProviderKey } from "./types";
 
@@ -193,7 +194,9 @@ describe("normalizeProvidersResponse — bozuk girdi", () => {
       expect(() => normalizeProvidersResponse(input, 550)).not.toThrow();
 
       const result = normalizeProvidersResponse(input, 550);
-      expect(result.providers).toHaveLength(2);
+      // Katalogdaki her platform için bir satır döner; katalog büyüdüğünde bu
+      // sayı da büyür, o yüzden sabit değil kaynağından okunur.
+      expect(result.providers).toHaveLength(TARGET_PROVIDERS.length);
       expect(result.movieId).toBe(550);
       expect(result.region).toBe("TR");
     }
@@ -237,15 +240,14 @@ describe("normalizeProvidersResponse — çıktı sözleşmesi", () => {
       response({
         flatrate: [
           providerEntry(NETFLIX, "Netflix"),
-          providerEntry(337, "Disney Plus"),
+          // Katalog dışında bir platform: hedef listede yer almaz.
+          providerEntry(1899, "Max"),
         ],
       }),
       550,
     );
 
-    expect(result.otherFlatrateProviders).toEqual([
-      { id: 337, name: "Disney Plus" },
-    ]);
+    expect(result.otherFlatrateProviders).toEqual([{ id: 1899, name: "Max" }]);
   });
 
   it("izleme seçenekleri bağlantısını yalnızca güvenilen alan adından alır", () => {

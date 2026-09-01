@@ -16,6 +16,10 @@ export const metadata = {
  *     derleme sırasında indirilip kendi alan adımızdan sunulur; çalışma
  *     zamanında Google Fonts'a istek gitmez),
  *   * token tüketildikten sonra token içermeyen adrese `replace` ile geçilir.
+ *
+ * Davet, sayfa açılır açılmaz TÜKETİLMEZ: kullanıcı önce aboneliklerini
+ * bildirir (bkz. `InviteRedeemer`). Tek kullanımlık bir davetin beyansız
+ * harcanması, ortak kümesi boş bir odaya yol açardı.
  */
 export default async function InvitePage({
   params,
@@ -30,7 +34,8 @@ export default async function InvitePage({
         <header>
           <h1 className="text-xl font-bold">Odaya katıl</h1>
           <p className="mt-1 text-sm text-black/70 dark:text-white/70">
-            Davet doğrulanıyor. İşlem tamamlandığında odaya yönlendirileceksiniz.
+            Önce hangi aboneliklere sahip olduğunuzu seçin. Film önerileri,
+            sizin ve odayı kuran kişinin ortak platformlarından gelecek.
           </p>
         </header>
 

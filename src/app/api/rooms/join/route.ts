@@ -1,33 +1,42 @@
 import { errorResponse } from "@/lib/api/responses";
 import { getLocalRoomUserIdFromServerCookie } from "@/lib/supabase/server";
-import { normalizeRoomError } from "@/lib/rooms/errors";
+import { normalizeRoomError, roomError } from "@/lib/rooms/errors";
 import { RoomServiceError, joinRoom } from "@/lib/rooms/service";
+import { normalizeSubscriptionSelection } from "@/lib/rooms/subscriptions";
+import { isRecord } from "@/lib/rooms/validation";
 
 /**
  * POST /api/rooms/join — davet token'ını tüketir.
  *
  * Token, URL'de değil istek gövdesinde taşınır: böylece sunucu erişim
- * kayıtlarına ve `Referer` başlığına düşmez.
+ * kayıtlarına ve `Referer` başlığına düşmez. Gövde ayrıca misafirin abonelik
+ * seçimini taşır; ortak küme bu iki seçimin kesişiminden doğar.
  *
  * Yanıt yalnızca oda kimliğini ve rolü içerir; hata mesajları sabit
  * sözlükten gelir ve token'ı asla yankılamaz.
  */
 export async function POST(request: Request): Promise<Response> {
-  let token: unknown;
+  let body: unknown;
 
   try {
-    const body: unknown = await request.json();
-    token =
-      typeof body === "object" && body !== null && "token" in body
-        ? (body as { token: unknown }).token
-        : undefined;
+    body = await request.json();
   } catch {
     return errorResponse("invalid_invitation", "Davet geçersiz.", 400);
   }
 
+  const token = isRecord(body) ? body.token : undefined;
+  const subscriptions = normalizeSubscriptionSelection(
+    isRecord(body) ? body.subscriptions : undefined,
+  );
+
+  if (subscriptions === null) {
+    const { code, message } = roomError("invalid_subscriptions");
+    return errorResponse(code, message, 400);
+  }
+
   try {
     const localUserId = await getLocalRoomUserIdFromServerCookie();
-    const result = await joinRoom(token, localUserId ?? undefined);
+    const result = await joinRoom(token, subscriptions, localUserId ?? undefined);
     return Response.json(result, { status: 200 });
   } catch (error) {
     const normalized =

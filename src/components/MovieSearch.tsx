@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
+import { MovieDetailModal } from "@/components/MovieDetailModal";
 import { MovieResultList } from "@/components/MovieResultList";
-import { ProviderPanel, type ProviderState } from "@/components/ProviderPanel";
 import { StatusMessage } from "@/components/StatusMessage";
 import { ApiError, fetchJson } from "@/lib/api/fetch-json";
 import {
@@ -11,11 +11,7 @@ import {
   SEARCH_MAX_QUERY_LENGTH,
   SEARCH_MIN_QUERY_LENGTH,
 } from "@/lib/constants";
-import type {
-  MovieProvidersResult,
-  MovieSearchResult,
-  MovieSummary,
-} from "@/lib/tmdb/types";
+import type { MovieSearchResult, MovieSummary } from "@/lib/tmdb/types";
 
 type SearchState =
   | { status: "idle" }
@@ -29,14 +25,12 @@ type SearchState =
  * eski sonuç kendiliğinden geçersiz olur ve ekranda kalamaz.
  */
 type SearchOutcome = { query: string; state: SearchState };
-type ProviderOutcome = { movieId: number; state: ProviderState };
 
 export function MovieSearch() {
   const [query, setQuery] = useState("");
   const [searchOutcome, setSearchOutcome] = useState<SearchOutcome | null>(null);
+  // Detay modalı açık olan film. Kimlik her zaman TMDb ID'sidir.
   const [selectedMovie, setSelectedMovie] = useState<MovieSummary | null>(null);
-  const [providerOutcome, setProviderOutcome] =
-    useState<ProviderOutcome | null>(null);
 
   const trimmedQuery = query.trim();
   const isQueryTooShort = trimmedQuery.length < SEARCH_MIN_QUERY_LENGTH;
@@ -75,30 +69,7 @@ export function MovieSearch() {
     };
   }, [trimmedQuery, isQueryTooShort]);
 
-  // Sağlayıcı sorgusu yalnızca bir film seçildiğinde çalışır.
-  useEffect(() => {
-    if (!selectedMovie) return;
-
-    const { id: movieId } = selectedMovie;
-    const controller = new AbortController();
-
-    fetchJson<MovieProvidersResult>(
-      `/api/movies/${movieId}/providers`,
-      controller.signal,
-    )
-      .then((data) =>
-        setProviderOutcome({ movieId, state: { status: "success", data } }),
-      )
-      .catch((error: unknown) => {
-        if (controller.signal.aborted) return;
-        setProviderOutcome({
-          movieId,
-          state: { status: "error", error: toApiError(error) },
-        });
-      });
-
-    return () => controller.abort();
-  }, [selectedMovie]);
+  // Künye ve sağlayıcı sorgusu artık modalın içinde, tek uçtan yapılır.
 
   const searchState: SearchState = isQueryTooShort
     ? { status: "idle" }
@@ -106,17 +77,14 @@ export function MovieSearch() {
       ? searchOutcome.state
       : { status: "loading" };
 
-  const providerState: ProviderState | null = !selectedMovie
-    ? null
-    : providerOutcome?.movieId === selectedMovie.id
-      ? providerOutcome.state
-      : { status: "loading" };
-
   function handleQueryChange(value: string) {
     setQuery(value);
     // Arama değiştiğinde önceki seçimin sonucu artık geçerli değil.
     setSelectedMovie(null);
   }
+
+  // Klavye dinleyicisi bu referansa bağlı olduğu için kararlı tutulur.
+  const closeDetail = useCallback(() => setSelectedMovie(null), []);
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 px-4 py-6">
@@ -154,11 +122,11 @@ export function MovieSearch() {
         onSelect={setSelectedMovie}
       />
 
-      {selectedMovie && providerState ? (
-        <ProviderPanel
-          movie={selectedMovie}
-          state={providerState}
-        />
+      {selectedMovie ? (
+        // Bilinçli olarak `key` verilmez: modal, film değişimini kendi içinde
+        // güvenle karşılar (yeni AbortController + kimlikten türetilen durum).
+        // Yeniden kurmak, kaydırma kilidini ve odağı gereksiz yere sıfırlardı.
+        <MovieDetailModal movie={selectedMovie} onClose={closeDetail} />
       ) : null}
 
       <footer className="border-t border-black/10 pt-4 text-xs leading-relaxed text-black/50 dark:border-white/15 dark:text-white/50">

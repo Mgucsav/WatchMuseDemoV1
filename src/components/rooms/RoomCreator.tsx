@@ -4,9 +4,11 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { StatusMessage } from "@/components/StatusMessage";
+import { SubscriptionPicker } from "@/components/rooms/SubscriptionPicker";
 import { ApiError, fetchJson } from "@/lib/api/fetch-json";
 import { ensureAnonymousSession } from "@/lib/supabase/browser";
 import type { CreateRoomResult } from "@/lib/rooms/types";
+import type { TargetProviderKey } from "@/lib/tmdb/types";
 
 type State =
   | { status: "idle" }
@@ -14,12 +16,21 @@ type State =
   | { status: "created"; room: CreateRoomResult }
   | { status: "error"; message: string };
 
-/** Oda oluşturma ve davet bağlantısını kopyalama arayüzü. */
+/**
+ * Oda oluşturma, abonelik beyanı ve davet bağlantısını kopyalama arayüzü.
+ *
+ * Abonelikler oda AÇILIRKEN sorulur: öneriler iki katılımcının ortak
+ * platformlarından geleceği için, oda sahibinin beyanı odanın ilk yarısıdır.
+ */
 export function RoomCreator() {
   const [state, setState] = useState<State>({ status: "idle" });
   const [copied, setCopied] = useState(false);
+  const [subscriptions, setSubscriptions] = useState<TargetProviderKey[]>([]);
 
   async function handleCreate() {
+    // Boş beyanla oda açılamaz; buton da bu durumda devre dışıdır.
+    if (subscriptions.length === 0) return;
+
     setState({ status: "creating" });
     setCopied(false);
 
@@ -29,6 +40,7 @@ export function RoomCreator() {
 
       const room = await fetchJson<CreateRoomResult>("/api/rooms", undefined, {
         method: "POST",
+        body: { subscriptions },
       });
 
       setState({ status: "created", room });
@@ -56,14 +68,31 @@ export function RoomCreator() {
   return (
     <div className="flex flex-col gap-4">
       {state.status !== "created" ? (
-        <button
-          type="button"
-          onClick={handleCreate}
-          disabled={state.status === "creating"}
-          className="min-h-11 rounded-lg border border-black/20 px-4 py-2 text-sm font-medium transition-colors hover:bg-black/[0.04] disabled:opacity-60 dark:border-white/25 dark:hover:bg-white/10"
-        >
-          {state.status === "creating" ? "Oda oluşturuluyor…" : "Yeni oda oluştur"}
-        </button>
+        <>
+          <SubscriptionPicker
+            idPrefix="create-room"
+            legend="Hangi aboneliklere sahipsiniz?"
+            description="Film önerileri, sizin ve partnerinizin ORTAK platformlarından gelir. En az bir platform seçin."
+            value={subscriptions}
+            onChange={setSubscriptions}
+            disabled={state.status === "creating"}
+          />
+
+          <button
+            type="button"
+            onClick={handleCreate}
+            disabled={state.status === "creating" || subscriptions.length === 0}
+            className="min-h-11 rounded-lg border border-black/20 px-4 py-2 text-sm font-medium transition-colors hover:bg-black/[0.04] disabled:opacity-60 dark:border-white/25 dark:hover:bg-white/10"
+          >
+            {state.status === "creating" ? "Oda oluşturuluyor…" : "Yeni oda oluştur"}
+          </button>
+
+          {subscriptions.length === 0 ? (
+            <p className="text-xs text-black/60 dark:text-white/60">
+              Devam etmek için en az bir abonelik seçin.
+            </p>
+          ) : null}
+        </>
       ) : null}
 
       {state.status === "error" ? (
@@ -105,6 +134,8 @@ export function RoomCreator() {
           <p className="text-xs text-black/60 dark:text-white/60">
             Bu bağlantı tek kullanımlıktır ve 24 saat içinde geçerliliğini
             yitirir. Yalnızca birlikte film seçeceğiniz kişiyle paylaşın.
+            Partneriniz katılırken kendi aboneliklerini seçecek; öneriler
+            ikinizde de olan platformlardan gelecek.
           </p>
 
           <Link

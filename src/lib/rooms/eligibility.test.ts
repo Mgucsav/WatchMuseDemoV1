@@ -21,7 +21,7 @@ function facts(patch: Partial<EligibilityFacts> = {}): EligibilityFacts {
     pendingSelectionDeadline: null,
     priorityEarnedAt: null,
     priorityConsumedAt: null,
-    shownInPreviousRound: false,
+    shownInSpaceHistory: false,
     ...patch,
   };
 }
@@ -140,15 +140,53 @@ describe("reusable-room eligibility", () => {
     ).toBe(true);
   });
 
-  it("priority return hemen önceki tur tekrarından kaçınma kuralını aşar", () => {
-    expect(
-      decideEligibility(
-        facts({
-          shownInPreviousRound: true,
-          priorityEarnedAt: ago(1_000),
-        }),
-        NOW,
-      ).avoidImmediateRepeat,
-    ).toBe(false);
+  it("priority return, eligible-repeat kapısına tabi değildir", () => {
+    const decision = decideEligibility(
+      facts({ shownInSpaceHistory: true, priorityEarnedAt: ago(1_000) }),
+      NOW,
+    );
+
+    expect(decision.priorityReturn).toBe(true);
+    expect(decision.requiresEligibleRepeatGate).toBe(false);
+  });
+});
+
+describe("decideEligibility — RR-01 tam geçmiş sınırı", () => {
+  it("hiç görülmemiş film gerçek keşiftir", () => {
+    const decision = decideEligibility(facts({ shownInSpaceHistory: false }), NOW);
+
+    expect(decision.isTrueDiscovery).toBe(true);
+    expect(decision.requiresEligibleRepeatGate).toBe(false);
+  });
+
+  it("İKİ VEYA DAHA ESKİ turda görülmüş film gerçek keşif SAYILMAZ", () => {
+    // RR-01'in çekirdeği: eski davranış yalnızca bir önceki tura bakıyordu,
+    // bu yüzden iki tur önce gösterilen film "fresh" olarak geçebiliyordu.
+    const decision = decideEligibility(facts({ shownInSpaceHistory: true }), NOW);
+
+    expect(decision.isTrueDiscovery).toBe(false);
+    expect(decision.requiresEligibleRepeatGate).toBe(true);
+  });
+
+  it("hard suppression, tekrar kapısını ve keşif etiketini ezer", () => {
+    const suppressed = decideEligibility(
+      facts({ shownInSpaceHistory: false, acceptedSelectionAt: ago(1_000) }),
+      NOW,
+    );
+
+    expect(suppressed.hardSuppressed).toBe(true);
+    // Bastırılmış film son denemede bile keşif slotunu dolduramaz.
+    expect(suppressed.isTrueDiscovery).toBe(false);
+    expect(suppressed.requiresEligibleRepeatGate).toBe(false);
+  });
+
+  it("30 günlük both-skip penceresindeki film keşif sayılmaz", () => {
+    const decision = decideEligibility(
+      facts({ shownInSpaceHistory: true, bothSkipDecidedAt: ago(29 * 24 * 3_600_000) }),
+      NOW,
+    );
+
+    expect(decision.hardSuppressed).toBe(true);
+    expect(decision.isTrueDiscovery).toBe(false);
   });
 });

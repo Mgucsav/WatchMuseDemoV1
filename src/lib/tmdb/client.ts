@@ -61,11 +61,16 @@ function demoResponseFor(
   // Oda turu, demo modunda da iki ekrana aynı anda gönderilebilecek on ayrı
   // aday ister. Bunlar yalnızca anahtar olmadan paylaşım/test yapabilmek için
   // kullanılan sabit TMDb-benzeri veridir; gerçek token ile bu dal hiç çalışmaz.
+  //
+  // `with_watch_providers` burada yok sayılır: demo kataloğunun gerçek bir
+  // Türkiye abonelik karşılığı yoktur. Ortak abonelik filtresinin gerçek
+  // davranışı yalnızca gerçek TMDb token'ı ile gözlenir.
   if (path === "/discover/movie") {
     const page = Math.max(1, Number.parseInt(searchParams.page ?? "1", 10) || 1);
     const pageOffset = (page - 1) * 1_000_000;
     return {
       page,
+      total_pages: 20,
       results: [
         [238, "Esaretin Bedeli", "The Shawshank Redemption", 1994, 9.0],
         [278, "Esaretin Bedeli", "The Shawshank Redemption", 1994, 8.7],
@@ -87,6 +92,35 @@ function demoResponseFor(
         release_date: `${year}-01-01`,
         vote_average: voteAverage,
       })),
+    };
+  }
+
+  // Detay modalı, anahtarsız önizlemede de gerçekçi bir künye ister.
+  const detailsMatch = path.match(/^\/movie\/(\d+)$/);
+  if (detailsMatch) {
+    const movieId = Number(detailsMatch[1]);
+
+    return {
+      id: movieId,
+      title: `Demo Film #${movieId}`,
+      original_title: `Demo Movie #${movieId}`,
+      overview:
+        "Bu, anahtarsız önizleme modunda üretilen örnek bir künyedir. Gerçek TMDb verisi değildir.",
+      poster_path: null,
+      backdrop_path: null,
+      release_date: "2024-01-01",
+      vote_average: 7.5,
+      runtime: 118,
+      genres: [
+        { id: 18, name: "Dram" },
+        { id: 878, name: "Bilim Kurgu" },
+      ],
+      credits: {
+        crew: [
+          { job: "Producer", name: "Demo Yapımcı" },
+          { job: "Director", name: "Demo Yönetmen" },
+        ],
+      },
     };
   }
 

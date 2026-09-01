@@ -7,13 +7,23 @@ export interface EligibilityFacts {
   pendingSelectionDeadline: string | null;
   priorityEarnedAt: string | null;
   priorityConsumedAt: string | null;
-  shownInPreviousRound: boolean;
+  /**
+   * RR-01: bu space'in TÜM geçmişinde aday olmuş mu?
+   * Yalnızca bir önceki tur değil — tam geçmiş.
+   */
+  shownInSpaceHistory: boolean;
 }
 
 export interface EligibilityDecision {
   hardSuppressed: boolean;
   priorityReturn: boolean;
-  avoidImmediateRepeat: boolean;
+  /**
+   * Film bu odada daha önce görülmüştür; yalnızca `eligible_repeat` geçişinde
+   * ve yalnızca son sınırlı denemede havuza girebilir.
+   */
+  requiresEligibleRepeatGate: boolean;
+  /** Hiç görülmemiş: gerçek keşif slotunu doldurabilir. */
+  isTrueDiscovery: boolean;
 }
 
 function elapsedSince(value: string | null, nowMs: number): number | null {
@@ -57,10 +67,16 @@ export function decideEligibility(
     priorityAge >= 0 &&
     priorityAge < PRIORITY_RETURN_WINDOW_MS;
 
+  // Hard suppression her şeyi ezer: son denemede bile açılamaz.
+  // priority_return kendi geçişinden gelir ve repeat kapısına tabi değildir.
+  const requiresEligibleRepeatGate =
+    !hardSuppressed && !priorityReturn && facts.shownInSpaceHistory;
+
   return {
     hardSuppressed,
     priorityReturn,
-    avoidImmediateRepeat: facts.shownInPreviousRound && !priorityReturn,
+    requiresEligibleRepeatGate,
+    isTrueDiscovery: !hardSuppressed && !facts.shownInSpaceHistory,
   };
 }
 

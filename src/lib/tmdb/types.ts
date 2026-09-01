@@ -8,8 +8,21 @@
  * istemci bileşenlerinden de güvenle import edilebilir.
  */
 
-/** Bu aşamada kontrol edilen abonelik platformları. */
-export type TargetProviderKey = "netflix" | "prime_video";
+/**
+ * Kontrol edilen ve odalarda seçilebilen abonelik platformları.
+ *
+ * Bu birleşim TEK kataloğu tanımlar: hem film künyesindeki "aboneliğe dahil mi"
+ * satırları hem de odadaki "hangi aboneliklerin var" seçimi aynı anahtarları
+ * kullanır. Yeni platform eklemek için `constants.ts` içindeki
+ * `TARGET_PROVIDERS` listesine bir giriş eklemek yeterlidir.
+ */
+export type TargetProviderKey =
+  | "netflix"
+  | "prime_video"
+  | "apple_tv_plus"
+  | "disney_plus"
+  | "blutv"
+  | "mubi";
 
 /** Arama sonucunda arayüze gönderilen tek bir film. */
 export interface MovieSummary {
@@ -29,6 +42,33 @@ export interface MovieSummary {
   overview: string | null;
   /** TMDb puanı (0-10). Puanlanmamış filmlerde `null`. */
   voteAverage: number | null;
+}
+
+/**
+ * Detay görünümüne (MovieDetailModal) gönderilen genişletilmiş film künyesi.
+ *
+ * `MovieSummary` ile aynı kimlik alanlarını taşır; üzerine yalnızca detay
+ * ekranında gösterilen alanlar eklenir. Ham TMDb yanıtı buraya hiçbir zaman
+ * doğrudan geçirilmez.
+ */
+export interface MovieDetails extends MovieSummary {
+  /** Tam genişlikte arka plan görseli. Yoksa `null`. */
+  backdropUrl: string | null;
+  /** Dakika cinsinden süre. TMDb 0 veya eksik döndürürse `null`. */
+  runtimeMinutes: number | null;
+  /** TMDb tür adları, geldiği sırayla. */
+  genres: string[];
+  /**
+   * `credits.crew` içinden çıkarılan yönetmen(ler).
+   * Birden fazla yönetmen varsa hepsi sırayla, tekilleştirilmiş olarak döner.
+   */
+  director: string | null;
+}
+
+/** `GET /api/movies/<tmdbId>` yanıtı. */
+export interface MovieDetailsResult {
+  movie: MovieDetails;
+  providers: MovieProvidersResult;
 }
 
 export interface MovieSearchResult {

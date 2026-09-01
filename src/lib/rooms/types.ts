@@ -8,7 +8,17 @@
  * bu, sızıntıyı tip seviyesinde engeller.
  */
 
+import type { TargetProviderKey } from "@/lib/tmdb/types";
+
 export type ParticipantRole = "host" | "guest";
+
+/**
+ * Bir katılımcının sahip olduğu abonelik platformları.
+ *
+ * Oda oluştururken ve davete katılırken seçilir; tur adayları yalnızca iki
+ * listenin KESİŞİMİNDEN toplanır (bkz. `subscriptions.ts`).
+ */
+export type RoomSubscriptions = TargetProviderKey[];
 export type SpaceStatus = "active" | "closed";
 
 /** Oda oluşturma sonucu. Düz metin token yalnızca `inviteUrl` içinde döner. */
@@ -37,6 +47,18 @@ export interface RoomState {
   myRole: ParticipantRole;
   /** Partner katıldı mı? (iki katılımcı varsa `true`) */
   partnerJoined: boolean;
+  /** Çağıranın kendi abonelik seçimi. */
+  mySubscriptions: RoomSubscriptions;
+  /**
+   * Partnerin abonelik seçimi; partner katılmadıysa boş.
+   *
+   * Gizli oyların aksine bu bilgi bilinçli olarak paylaşılır: kesişim boşsa
+   * kullanıcının neyi değiştireceğini bilmesi gerekir. Abonelik seçimi bir
+   * karar değil, ortak zemin arayan bir beyandır.
+   */
+  partnerSubscriptions: RoomSubscriptions;
+  /** İki listenin kesişimi. Tur adayları yalnızca buradan toplanır. */
+  sharedSubscriptions: RoomSubscriptions;
 }
 
 /** Bir aday için gizli karar. Yalnızca karar veren kullanıcı kendi değerini görür. */
