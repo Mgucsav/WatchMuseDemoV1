@@ -29,11 +29,17 @@ function fail(code: Parameters<typeof roomError>[0]): never {
   throw new RoomServiceError(roomError(code));
 }
 
-async function getClientAndUser() {
+async function getRpcClient() {
   if (isLocalRoomsBackend()) fail("round_requires_supabase");
 
   const supabase = await createSupabaseServerClient().catch(() => null);
   if (!supabase) fail("not_configured");
+
+  return supabase;
+}
+
+async function getClientAndUser() {
+  const supabase = await getRpcClient();
 
   const userId = await getAuthenticatedUserId(supabase);
   if (!userId) fail("unauthenticated");
@@ -211,6 +217,21 @@ export async function getRoomRoundState(
     ...parseRoomRoundState(roundResult.data),
     telepartyStates: parseRoomTelepartyStates(telepartyResult.data),
   };
+}
+
+/** Tur ve aday gövdesini taşımadan yalnız ortak Teleparty durumunu okur. */
+export async function getRoomTelepartyStates(
+  spaceId: string,
+): Promise<RoomTelepartyState[]> {
+  // Bu sık çağrılan hafif yol ek bir auth.getUser ağ turu yapmaz. Supabase JWT'yi
+  // doğrular; SECURITY DEFINER RPC de auth.uid() ve oda üyeliğini kendi içinde
+  // yeniden denetler.
+  const supabase = await getRpcClient();
+  const { data, error } = await supabase.rpc("get_space_teleparty_state", {
+    p_space_id: spaceId,
+  });
+  if (error) throw new RoomServiceError(normalizeRoomError(error));
+  return parseRoomTelepartyStates(data);
 }
 
 const ROUND_STATUSES: readonly RoomRoundStatus[] = [

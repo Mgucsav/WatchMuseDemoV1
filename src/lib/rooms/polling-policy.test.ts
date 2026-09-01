@@ -4,6 +4,7 @@ import type { RoomRound } from "./types";
 import {
   MAX_TRANSIENT_POLL_FAILURES,
   TERMINAL_POLL_INTERVAL_MS,
+  TELEPARTY_POLL_INTERVAL_MS,
   WAITING_POLL_INTERVAL_MS,
   classifyPollFailure,
   isSelectionExpired,
@@ -33,6 +34,10 @@ function round(patch: Partial<RoomRound> = {}): RoomRound {
 afterEach(() => vi.useRealTimers());
 
 describe("state-aware polling", () => {
+  it("Teleparty bağlantı aktarımı için bir saniyelik hafif yoklama kullanır", () => {
+    expect(TELEPARTY_POLL_INTERVAL_MS).toBe(1000);
+  });
+
   it("aktif kişisel oy sırasında polling yapmaz", () => {
     expect(pollingIntervalFor(round({ myVoteCount: 3 }))).toBeNull();
   });

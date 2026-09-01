@@ -127,6 +127,11 @@ export interface RoomTelepartyState {
   joinUrl: string | null;
 }
 
+/** Hafif Teleparty yoklama ucunun yanıtı; tur/aday verisini tekrar taşımaz. */
+export interface RoomTelepartyResponse {
+  telepartyStates: RoomTelepartyState[];
+}
+
 export interface RoomRoundState {
   round: RoomRound | null;
   /** Partner kabul bilgisi içermez; yalnızca çağıranın kendi durumu görünür. */

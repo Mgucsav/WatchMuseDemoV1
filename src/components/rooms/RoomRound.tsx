@@ -11,6 +11,7 @@ import type {
   RoomRoundState,
   RoomSelection,
   RoomSubscriptions,
+  RoomTelepartyResponse,
   RoomTelepartyState,
   RoomVoteChoice,
 } from "@/lib/rooms/types";
@@ -24,6 +25,7 @@ import {
   isSelectionExpired,
   pollingIntervalFor,
   startPollingLoop,
+  TELEPARTY_POLL_INTERVAL_MS,
   WAITING_POLL_INTERVAL_MS,
 } from "@/lib/rooms/polling-policy";
 import { ensureAnonymousSession } from "@/lib/supabase/browser";
@@ -75,6 +77,20 @@ export function RoomRound({
   const [resetting, setResetting] = useState(false);
   const [acceptingSelectionId, setAcceptingSelectionId] = useState<string | null>(null);
 
+  const applyTelepartyStates = useCallback(
+    (telepartyStates: RoomTelepartyState[]) => {
+      setView((current) =>
+        current.kind === "ready"
+          ? {
+              kind: "ready",
+              state: { ...current.state, telepartyStates },
+            }
+          : current,
+      );
+    },
+    [],
+  );
+
   const refresh = useCallback(async (signal?: AbortSignal) => {
     await ensureAnonymousSession();
     let data = await fetchJson<RoomRoundState>(`/api/rooms/${spaceId}/round`, signal);
@@ -101,12 +117,18 @@ export function RoomRound({
     view.kind === "loading" || view.kind === "waiting-for-host"
       ? WAITING_POLL_INTERVAL_MS
       : view.kind === "ready"
-        ? view.state.telepartyStates.some(
-            (state) => state.bothAccepted && state.joinUrl === null,
-          )
-          ? WAITING_POLL_INTERVAL_MS
-          : pollingIntervalFor(view.state.round)
+        ? pollingIntervalFor(view.state.round)
         : null;
+
+  const shouldPollTeleparty =
+    view.kind === "ready" &&
+    view.state.pendingSelections.some((selection) => {
+      if (!selection.myAccepted) return false;
+      const teleparty = view.state.telepartyStates.find(
+        (state) => state.selectionId === selection.id,
+      );
+      return !teleparty?.joinUrl;
+    });
 
   useEffect(() => {
     if (pollInterval === null) return;
@@ -138,6 +160,29 @@ export function RoomRound({
       }
     }, pollInterval, { immediate: view.kind === "loading" });
   }, [pollInterval, refresh, view.kind]);
+
+  // Kabul ve link aktarımı yalnız küçük Teleparty JSON'unu taşır. Böylece
+  // terminal turun 10 adaylık gövdesi her saniye yeniden indirilmez.
+  useEffect(() => {
+    if (!shouldPollTeleparty) return;
+    return startPollingLoop(
+      async (signal) => {
+        if (document.visibilityState === "hidden") return;
+        try {
+          const data = await fetchJson<RoomTelepartyResponse>(
+            `/api/rooms/${spaceId}/teleparty`,
+            signal,
+          );
+          applyTelepartyStates(data.telepartyStates);
+        } catch {
+          // Ana oda yoklaması ve mevcut görünüm korunur; geçici hafif-yoklama
+          // hatası kullanıcıyı sonuç ekranından çıkarmaz.
+        }
+      },
+      TELEPARTY_POLL_INTERVAL_MS,
+      { immediate: true },
+    );
+  }, [applyTelepartyStates, shouldPollTeleparty, spaceId]);
 
   // Bekleyen seçim varsa kabul penceresinin dolduğunu türetebilmek için düşük
   // frekanslı bir zaman tiki çalışır. Unmount ve durum geçişinde temizlenir.
@@ -272,11 +317,7 @@ export function RoomRound({
         telepartyStates={telepartyStates}
         acceptingSelectionId={acceptingSelectionId}
         onAccept={acceptSelection}
-        onState={(data) => {
-          if (data.round) {
-            setView({ kind: "ready", state: { ...data, round: data.round } });
-          }
-        }}
+        onTelepartyStates={applyTelepartyStates}
         actionError={actionError}
         now={selectionNow}
       />
@@ -363,7 +404,7 @@ function PendingSelectionArea({
   telepartyStates,
   acceptingSelectionId,
   onAccept,
-  onState,
+  onTelepartyStates,
   actionError,
   now,
 }: {
@@ -374,7 +415,7 @@ function PendingSelectionArea({
   telepartyStates: RoomTelepartyState[];
   acceptingSelectionId: string | null;
   onAccept: (selectionId: string) => Promise<void>;
-  onState: (state: RoomRoundState) => void;
+  onTelepartyStates: (states: RoomTelepartyState[]) => void;
   actionError: string | null;
   /** Süre dolumunu türetmek için tik atan referans zaman. */
   now: number;
@@ -457,7 +498,7 @@ function PendingSelectionArea({
                   telepartyState={telepartyState}
                   isHost={isHost}
                   sharedSubscriptions={sharedSubscriptions}
-                  onState={onState}
+                  onTelepartyStates={onTelepartyStates}
                 />
               ) : null}
             </article>
@@ -474,14 +515,14 @@ function TelepartyBridge({
   telepartyState,
   isHost,
   sharedSubscriptions,
-  onState,
+  onTelepartyStates,
 }: {
   spaceId: string;
   selection: RoomSelection;
   telepartyState: RoomTelepartyState;
   isHost: boolean;
   sharedSubscriptions: RoomSubscriptions;
-  onState: (state: RoomRoundState) => void;
+  onTelepartyStates: (states: RoomTelepartyState[]) => void;
 }) {
   const [setupStarted, setSetupStarted] = useState(false);
   const [launchTargets, setLaunchTargets] = useState<TelepartyProviderLaunch[]>([]);
@@ -544,7 +585,7 @@ function TelepartyBridge({
           return;
         }
 
-        const data = await fetchJson<RoomRoundState>(
+        const data = await fetchJson<RoomTelepartyResponse>(
           `/api/rooms/${spaceId}/teleparty`,
           undefined,
           {
@@ -553,7 +594,7 @@ function TelepartyBridge({
           },
         );
         setBridgeError(null);
-        onState(data);
+        onTelepartyStates(data.telepartyStates);
       } catch (error) {
         if (!quiet) {
           setBridgeError(
@@ -565,7 +606,7 @@ function TelepartyBridge({
       } finally {
         setSharing(false);
       }
-    }, [onState, selection.id, setupStarted, sharing, spaceId]);
+    }, [onTelepartyStates, selection.id, setupStarted, sharing, spaceId]);
 
   useEffect(() => {
     if (!setupStarted || telepartyState.joinUrl) return;

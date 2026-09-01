@@ -2,6 +2,8 @@ import type { RoomRound } from "./types";
 
 export const WAITING_POLL_INTERVAL_MS = 3000;
 export const SPINNING_POLL_INTERVAL_MS = 1200;
+/** Yalnız küçük Teleparty durum yanıtını kullanan hızlı aktarım aralığı. */
+export const TELEPARTY_POLL_INTERVAL_MS = 1000;
 
 /**
  * Terminal turda (result / no_match) DÜŞÜK FREKANSLI yenileme.

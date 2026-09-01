@@ -721,5 +721,11 @@ etmeden `bothAccepted` açılmaz; ortak hazırlık tamamlanmadan davet URL'si hi
 istemciye verilmez. Link yazılınca partnerin terminal tur yoklaması kısa aralığa
 geçer ve ekranda doğrudan “Teleparty’ye katıl” düğmesi belirir.
 
+Bağlantı aktarımı tam `get_space_round_state` gövdesini tekrar indirmez. Ayrı
+`GET /api/rooms/<id>/teleparty` ucu yalnız `telepartyStates` alanını taşır;
+kendi kabulünden link görünene kadar görünür sekmede 1 saniyelik hafif yoklama
+yapılır. Böylece 10 adaylık tur JSON'u ve ek kimlik doğrulama ağ turu bu sıcak
+yoldan çıkarılmıştır.
+
 İlgili migration:
 `supabase/migrations/20260901000100_teleparty_bridge.sql`.
