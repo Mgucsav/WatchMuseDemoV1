@@ -702,7 +702,9 @@ sonraki turdan itibaren geçerlidir.
 
 WatchMuse bir Teleparty oturumunu üçüncü taraf adına oluşturmaz. İki katılımcı
 aynı seçilen film için “Şimdi izlemek istiyorum” dediğinde hostun kurulum alanı
-açılır. Host filmi açar, Teleparty uzantısında `Start Party` ve `Copy URL`
+açılır. Host TMDb kimliği ve filmin özgün başlığıyla oluşturulan resmi
+`teleparty.com/movie/<id>/<slug>` sayfasını açar, oradan yayın platformuna
+geçip filmi oynatır ve Teleparty uzantısında `Start Party` ile `Copy URL`
 yapar; WatchMuse odasına dönünce tarayıcı panosu okunur. Otomatik pano izni
 verilmezse aynı işlem tek bir “Kopyaladığım bağlantıyı al” düğmesiyle yapılır;
 metin alanına yapıştırma gerekmez.

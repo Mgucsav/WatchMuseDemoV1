@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseTelepartyJoinUrl } from "./teleparty";
+import { parseTelepartyJoinUrl, toTelepartyMovieUrl } from "./teleparty";
 
 describe("parseTelepartyJoinUrl", () => {
   it("resmi Teleparty katılım bağlantısını kabul eder", () => {
@@ -21,5 +21,24 @@ describe("parseTelepartyJoinUrl", () => {
     "not-a-url",
   ])("resmi katılım bağlantısı olmayan değeri reddeder: %s", (value) => {
     expect(parseTelepartyJoinUrl(value)).toBeNull();
+  });
+});
+
+describe("toTelepartyMovieUrl", () => {
+  it("TMDb kimliği ve özgün başlıktan resmi film sayfasını üretir", () => {
+    expect(toTelepartyMovieUrl(68734, "Argo")).toBe(
+      "https://www.teleparty.com/movie/68734/argo",
+    );
+  });
+
+  it("başlığı URL için güvenli hale getirir", () => {
+    expect(toTelepartyMovieUrl(42, "Amélie: L'été!")).toBe(
+      "https://www.teleparty.com/movie/42/amelie-l-ete",
+    );
+  });
+
+  it("geçersiz kimlik veya latin slug üretmeyen başlığı reddeder", () => {
+    expect(toTelepartyMovieUrl(0, "Argo")).toBeNull();
+    expect(toTelepartyMovieUrl(68734, "東京")).toBeNull();
   });
 });

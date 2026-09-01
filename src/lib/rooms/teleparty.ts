@@ -32,3 +32,23 @@ export function parseTelepartyJoinUrl(value: unknown): string | null {
 
   return `https://${TELEPARTY_HOST}${url.pathname}`;
 }
+
+/** TMDb kimliği ve özgün başlıktan resmi Teleparty film sayfasını üretir. */
+export function toTelepartyMovieUrl(
+  movieId: number,
+  originalTitle: string,
+): string | null {
+  if (!Number.isSafeInteger(movieId) || movieId <= 0) return null;
+
+  const slug = originalTitle
+    .normalize("NFKD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 120)
+    .replace(/-+$/g, "");
+
+  if (slug === "") return null;
+  return `https://www.teleparty.com/movie/${movieId}/${slug}`;
+}

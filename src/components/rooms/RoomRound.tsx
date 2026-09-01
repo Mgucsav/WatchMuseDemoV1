@@ -13,7 +13,10 @@ import type {
   RoomTelepartyState,
   RoomVoteChoice,
 } from "@/lib/rooms/types";
-import { parseTelepartyJoinUrl } from "@/lib/rooms/teleparty";
+import {
+  parseTelepartyJoinUrl,
+  toTelepartyMovieUrl,
+} from "@/lib/rooms/teleparty";
 import {
   classifyPollFailure,
   isSelectionExpired,
@@ -22,7 +25,7 @@ import {
   WAITING_POLL_INTERVAL_MS,
 } from "@/lib/rooms/polling-policy";
 import { ensureAnonymousSession } from "@/lib/supabase/browser";
-import type { MovieProvidersResult } from "@/lib/tmdb/types";
+import type { MovieDetailsResult } from "@/lib/tmdb/types";
 
 const SWIPE_DISTANCE_PX = 60;
 
@@ -471,8 +474,8 @@ function TelepartyBridge({
   onState: (state: RoomRoundState) => void;
 }) {
   const [setupStarted, setSetupStarted] = useState(false);
-  const [watchOptionsUrl, setWatchOptionsUrl] = useState<string | null>(null);
-  const [providerLoaded, setProviderLoaded] = useState(false);
+  const [telepartyMovieUrl, setTelepartyMovieUrl] = useState<string | null>(null);
+  const [launchTargetLoaded, setLaunchTargetLoaded] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [bridgeError, setBridgeError] = useState<string | null>(null);
 
@@ -482,14 +485,21 @@ function TelepartyBridge({
     }
 
     const controller = new AbortController();
-    void fetchJson<MovieProvidersResult>(
-      `/api/movies/${selection.tmdbMovieId}/providers`,
+    void fetchJson<MovieDetailsResult>(
+      `/api/movies/${selection.tmdbMovieId}`,
       controller.signal,
     )
-      .then((result) => setWatchOptionsUrl(result.watchOptionsUrl))
-      .catch(() => setWatchOptionsUrl(null))
+      .then((result) => {
+        setTelepartyMovieUrl(
+          toTelepartyMovieUrl(
+            selection.tmdbMovieId,
+            result.movie.originalTitle ?? result.movie.title,
+          ),
+        );
+      })
+      .catch(() => setTelepartyMovieUrl(null))
       .finally(() => {
-        if (!controller.signal.aborted) setProviderLoaded(true);
+        if (!controller.signal.aborted) setLaunchTargetLoaded(true);
       });
     return () => controller.abort();
   }, [isHost, selection.tmdbMovieId, telepartyState.bothAccepted, telepartyState.joinUrl]);
@@ -577,7 +587,7 @@ function TelepartyBridge({
     setSetupStarted(true);
     setBridgeError(null);
     window.open(
-      watchOptionsUrl ?? "https://www.teleparty.com/",
+      telepartyMovieUrl ?? "https://www.teleparty.com/",
       "_blank",
       "noopener,noreferrer",
     );
@@ -587,20 +597,20 @@ function TelepartyBridge({
     <div className="mt-3 border-t border-black/10 pt-3 dark:border-white/15">
       <p className="text-sm font-semibold">Teleparty’yi hazırla</p>
       <p className="mt-1 text-sm text-black/65 dark:text-white/65">
-        Filmi aç, Teleparty uzantısında Start Party ve ardından Copy URL’ye bas. WatchMuse’e döndüğünde bağlantıyı panodan otomatik almayı deneyeceğiz.
+        Teleparty film sayfasından yayın platformunu açıp filmi oynat. Sonra tarayıcıdaki Tp uzantısında Start Party ve Copy URL’ye bas. WatchMuse’e döndüğünde bağlantıyı panodan otomatik almayı deneyeceğiz.
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
         <button
           type="button"
-          disabled={!providerLoaded}
+          disabled={!launchTargetLoaded}
           onClick={startSetup}
           className="rounded-md bg-black px-4 py-2 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60 dark:bg-white dark:text-black"
         >
-          {!providerLoaded
-            ? "İzleme seçeneği hazırlanıyor…"
+          {!launchTargetLoaded
+            ? "Teleparty hazırlanıyor…"
             : setupStarted
-              ? "Filmi tekrar aç"
-              : "Filmi aç ve Teleparty’yi kur"}
+              ? "Teleparty sayfasını tekrar aç"
+              : "Teleparty’de filmi aç"}
         </button>
         {setupStarted ? (
           <button
