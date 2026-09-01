@@ -33,11 +33,6 @@ body.watchmuse-retro {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Desaturate images and increase contrast for filmic look */
-img {
-  filter: grayscale(100%) contrast(1.05);
-}
-
 /* Subtle film grain using overlay gradient (non-critical visual) */
 .film-grain::before {
   content: "";
@@ -71,4 +66,3 @@ a {
 
 /* Small utilities for components */
 .wm-muted { color: var(--wm-muted); }
-
