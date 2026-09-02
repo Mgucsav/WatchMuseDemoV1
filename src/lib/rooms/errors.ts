@@ -30,6 +30,11 @@ export type RoomErrorCode =
   | "invalid_teleparty_link"
   | "teleparty_not_ready"
   | "host_required"
+  | "registration_required"
+  | "public_room_required"
+  | "participant_not_found"
+  | "participant_banned"
+  | "room_locked"
   | "round_requires_supabase"
   | "not_configured"
   | "network"
@@ -55,7 +60,7 @@ const MESSAGES: Record<RoomErrorCode, string> = {
   invalid_subscriptions:
     "Abonelik seçimi geçersiz. Listedeki platformlardan en az birini seçin.",
   no_shared_subscriptions:
-    "İki katılımcının ortak aboneliği yok. Öneriler yalnızca ikinizde de olan platformlardan gelir.",
+    "Katılımcıların ortak aboneliği yok. Öneriler yalnızca herkeste olan platformlardan gelir.",
   round_not_ready: "Seçim turu henüz hazır değil.",
   round_closed_for_votes: "Bu turun seçimleri artık değiştirilemez.",
   invalid_round_candidate: "Seçilen film bu odaya ait değil.",
@@ -67,8 +72,14 @@ const MESSAGES: Record<RoomErrorCode, string> = {
   invalid_selection: "Seçilen oda filmi bulunamadı.",
   selection_expired: "Bu filmi listeye ekleme süresi dolmuş.",
   invalid_teleparty_link: "Panoda geçerli bir Teleparty davet bağlantısı bulunamadı.",
-  teleparty_not_ready: "Teleparty için önce iki kişinin de filmi kabul etmesi gerekiyor.",
+  teleparty_not_ready: "Teleparty için önce bütün katılımcıların filmi kabul etmesi gerekiyor.",
   host_required: "Teleparty bağlantısını yalnızca oda sahibi paylaşabilir.",
+  registration_required:
+    "Public odalar için hesabınızı kaydetmeniz veya giriş yapmanız gerekiyor.",
+  public_room_required: "Bu oda public katılıma açık değil.",
+  participant_not_found: "Katılımcı bu odada bulunamadı.",
+  participant_banned: "Bu odaya yeniden katılmanıza izin verilmiyor.",
+  room_locked: "Aktif seçim turu sırasında katılımcı listesi değiştirilemez.",
   round_requires_supabase: "Ortak seçim turu için Supabase bağlantısı gereklidir.",
   not_configured: "Oda servisi henüz yapılandırılmamış.",
   network: "Sunucuya ulaşılamadı. Bağlantınızı kontrol edin.",
@@ -101,6 +112,11 @@ const DATABASE_ERROR_CODES: readonly RoomErrorCode[] = [
   "invalid_teleparty_link",
   "teleparty_not_ready",
   "host_required",
+  "registration_required",
+  "public_room_required",
+  "participant_not_found",
+  "participant_banned",
+  "room_locked",
 ];
 
 /** Sözlükte karşılığı olan tüm kodlar (veritabanı sözleşmesi + yerel kodlar). */

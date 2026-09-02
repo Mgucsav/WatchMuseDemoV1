@@ -2,10 +2,31 @@ import type { NextRequest } from "next/server";
 
 import { errorResponse } from "@/lib/api/responses";
 import { getLocalRoomUserIdFromServerCookie } from "@/lib/supabase/server";
-import { RoomServiceError, createRoom } from "@/lib/rooms/service";
+import {
+  RoomServiceError,
+  createRoom,
+  listPublicRooms,
+} from "@/lib/rooms/service";
 import { normalizeRoomError, roomError } from "@/lib/rooms/errors";
 import { normalizeSubscriptionSelection } from "@/lib/rooms/subscriptions";
-import { isRecord } from "@/lib/rooms/validation";
+import {
+  isRecord,
+  isRoomVisibility,
+  normalizeRoomCapacity,
+  normalizeRoomName,
+} from "@/lib/rooms/validation";
+
+export async function GET(): Promise<Response> {
+  try {
+    return Response.json({ rooms: await listPublicRooms() });
+  } catch (error) {
+    const normalized =
+      error instanceof RoomServiceError
+        ? error.roomError
+        : normalizeRoomError(error);
+    return errorResponse(normalized.code, normalized.message, statusFor(normalized.code));
+  }
+}
 
 /**
  * POST /api/rooms — yeni oda oluşturur.
@@ -31,6 +52,18 @@ export async function POST(request: NextRequest): Promise<Response> {
   );
   if (subscriptions === null) return subscriptionsError();
 
+  const record = isRecord(body) ? body : {};
+  const visibility = record.visibility ?? "private";
+  const capacity = normalizeRoomCapacity(record.capacity ?? 2);
+  const name = normalizeRoomName(
+    record.name ??
+      (visibility === "public" ? "Public karar odası" : "Özel karar odası"),
+  );
+  if (!isRoomVisibility(visibility) || capacity === null || name === null) {
+    const { code, message } = roomError("unexpected");
+    return errorResponse(code, message, 400);
+  }
+
   try {
     // Taban adres istekten türetilir; ters vekil arkasında NEXT_PUBLIC_SITE_URL
     // ile geçersiz kılınabilir.
@@ -40,6 +73,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     const result = await createRoom(
       baseUrl,
       subscriptions,
+      { name, visibility, capacity },
       localUserId ?? undefined,
     );
     return Response.json(result, { status: 201 });
@@ -60,6 +94,7 @@ function subscriptionsError(): Response {
 
 function statusFor(code: string): number {
   if (code === "unauthenticated") return 401;
+  if (code === "registration_required") return 403;
   if (code === "not_configured") return 503;
   return 400;
 }

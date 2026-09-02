@@ -85,6 +85,7 @@ $$;
 \i :MIGRATIONS_DIR/20260813000100_reusable_rounds.sql
 \i :MIGRATIONS_DIR/20260814000100_room_subscriptions.sql
 \i :MIGRATIONS_DIR/20260901000100_teleparty_bridge.sql
+\i :MIGRATIONS_DIR/20260902000100_public_multi_rooms.sql
 
 do $$
 declare
@@ -194,3 +195,4 @@ truncate auth.users cascade;
 \i :MIGRATIONS_DIR/20260813000100_reusable_rounds.sql
 \i :MIGRATIONS_DIR/20260814000100_room_subscriptions.sql
 \i :MIGRATIONS_DIR/20260901000100_teleparty_bridge.sql
+\i :MIGRATIONS_DIR/20260902000100_public_multi_rooms.sql

@@ -11,6 +11,7 @@
 import type { TargetProviderKey } from "@/lib/tmdb/types";
 
 export type ParticipantRole = "host" | "guest";
+export type RoomVisibility = "private" | "public";
 
 /**
  * Bir katılımcının sahip olduğu abonelik platformları.
@@ -24,10 +25,31 @@ export type SpaceStatus = "active" | "closed";
 /** Oda oluşturma sonucu. Düz metin token yalnızca `inviteUrl` içinde döner. */
 export interface CreateRoomResult {
   spaceId: string;
+  name: string;
+  visibility: RoomVisibility;
+  capacity: number;
   /** Tam davet bağlantısı. Kullanıcıya bir kez gösterilir; saklanmaz. */
   inviteUrl: string;
   /** Davetin son kullanma anı (ISO 8601, sunucuda üretilir). */
   invitationExpiresAt: string;
+}
+
+export interface RoomParticipant {
+  userId: string;
+  displayName: string;
+  role: ParticipantRole;
+  subscriptions: RoomSubscriptions;
+  isMe: boolean;
+}
+
+/** Keşfet ekranında gösterilebilen, hassas alan içermeyen public oda özeti. */
+export interface PublicRoomSummary {
+  spaceId: string;
+  name: string;
+  capacity: number;
+  participantCount: number;
+  hostDisplayName: string;
+  createdAt: string;
 }
 
 /** Davet tüketme sonucu. */
@@ -41,23 +63,19 @@ export interface JoinRoomResult {
 /** Bekleme odasının gösterdiği durum. */
 export interface RoomState {
   spaceId: string;
+  name: string;
+  visibility: RoomVisibility;
+  capacity: number;
   status: SpaceStatus;
   participantCount: number;
   /** Çağıran kullanıcının bu odadaki rolü. */
   myRole: ParticipantRole;
-  /** Partner katıldı mı? (iki katılımcı varsa `true`) */
-  partnerJoined: boolean;
+  /** Film karar turu için gereken en az iki katılımcı var mı? */
+  enoughParticipants: boolean;
+  participants: RoomParticipant[];
   /** Çağıranın kendi abonelik seçimi. */
   mySubscriptions: RoomSubscriptions;
-  /**
-   * Partnerin abonelik seçimi; partner katılmadıysa boş.
-   *
-   * Gizli oyların aksine bu bilgi bilinçli olarak paylaşılır: kesişim boşsa
-   * kullanıcının neyi değiştireceğini bilmesi gerekir. Abonelik seçimi bir
-   * karar değil, ortak zemin arayan bir beyandır.
-   */
-  partnerSubscriptions: RoomSubscriptions;
-  /** İki listenin kesişimi. Tur adayları yalnızca buradan toplanır. */
+  /** Bütün katılımcı listelerinin kesişimi. */
   sharedSubscriptions: RoomSubscriptions;
 }
 

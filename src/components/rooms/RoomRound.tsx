@@ -339,8 +339,8 @@ export function RoomRound({
 
     return <div className="space-y-4">{pendingArea}
       <StatusMessage title="Seçimlerin tamamlandı">
-        Partnerinin gizli seçimlerini bitirmesi bekleniyor. Onun hangi filmleri
-        seçtiği, ikiniz de tamamlayana kadar görünmez.
+        Diğer katılımcıların gizli seçimlerini bitirmesi bekleniyor. Hangi
+        filmleri seçtikleri herkes tamamlayana kadar görünmez.
       </StatusMessage>
     </div>;
   }
@@ -471,8 +471,8 @@ function PendingSelectionArea({
                 {selection.myAccepted ? (
                   <p className="text-sm font-medium">
                     {telepartyState.bothAccepted
-                      ? "İkiniz de hazırsınız"
-                      : "Hazırsın · partner bekleniyor"}
+                      ? "Herkes hazır"
+                      : "Hazırsın · diğer katılımcılar bekleniyor"}
                   </p>
                 ) : expired ? (
                   <p className="text-sm text-black/60 dark:text-white/60">
@@ -865,7 +865,7 @@ function MatchStage({
         {startingWheel ? "Çark başlatılıyor…" : "Ortak çarkı çevir"}
       </button>
       <p className="mt-2 text-center text-xs text-black/55 dark:text-white/55">
-        Sonuç sunucuda bir kez seçilir; ikiniz de aynı çarkı görürsünüz.
+        Sonuç sunucuda bir kez seçilir; herkes aynı çarkı görür.
       </p>
     </section>
   );
@@ -913,10 +913,10 @@ function WheelStage({ round }: { round: RoomRound }) {
         <div className="mt-5">
           <h2 className="text-2xl font-bold">{result.title}</h2>
           {result.originalTitle ? <p className="mt-1 text-sm text-black/60 dark:text-white/60">{result.originalTitle}</p> : null}
-          <p className="mt-3 text-sm text-black/70 dark:text-white/70">İkinizin de “izlemek isterim” dediği filmler arasından seçildi.</p>
+          <p className="mt-3 text-sm text-black/70 dark:text-white/70">Bütün katılımcıların “izlemek isterim” dediği filmler arasından seçildi.</p>
         </div>
       ) : (
-        <p className="mt-4 text-sm text-black/70 dark:text-white/70">İkinizin ekranı aynı sunucu zaman damgasına göre dönüyor…</p>
+        <p className="mt-4 text-sm text-black/70 dark:text-white/70">Bütün ekranlar aynı sunucu zaman damgasına göre dönüyor…</p>
       )}
     </section>
   );

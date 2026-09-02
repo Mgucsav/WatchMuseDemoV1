@@ -83,6 +83,18 @@ export function sharedSubscriptions(
   return sortByCatalog(first.filter((key) => other.has(key)));
 }
 
+/** Bütün katılımcıların ortak platformları; boş/tek kişilik odada sonuç yoktur. */
+export function sharedSubscriptionsForAll(
+  selections: readonly (readonly TargetProviderKey[])[],
+): TargetProviderKey[] {
+  if (selections.length < 2) return [];
+
+  return selections.slice(1).reduce<TargetProviderKey[]>(
+    (shared, current) => sharedSubscriptions(shared, current),
+    [...selections[0]],
+  );
+}
+
 /**
  * Ortak platformların TMDb (JustWatch) sağlayıcı ID'leri.
  *

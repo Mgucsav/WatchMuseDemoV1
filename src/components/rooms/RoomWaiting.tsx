@@ -47,11 +47,9 @@ export function RoomWaiting({ spaceId }: { spaceId: string }) {
         if (cancelled) return;
         setState({ status: "ready", room });
 
-        // Yoklama, oda seçim yapılabilir duruma gelene kadar sürer: partner
-        // katılmamışsa ya da ortak abonelik yoksa (partner beyanını
-        // değiştirebilir) sayfanın kendiliğinden güncellenmesi gerekir.
-        const settled = room.partnerJoined && room.sharedSubscriptions.length > 0;
-        if (!settled && room.status === "active") {
+        // Katılımcı katılması, abonelik güncellemesi veya admin kick işlemi
+        // bütün açık odalarda kendiliğinden görünmelidir.
+        if (room.status === "active") {
           timer = setTimeout(poll, POLL_INTERVAL_MS);
         }
       } catch (error) {
@@ -95,13 +93,20 @@ export function RoomWaiting({ spaceId }: { spaceId: string }) {
   const { room } = state;
   // Açık bir tur, ortak abonelik sonradan kaybolsa bile oynanmaya devam eder:
   // adayları zaten toplanmıştır. Kısıtlanan şey YENİ tur açmaktır.
-  const inRoom = room.partnerJoined && room.status === "active";
+  const inRoom = room.enoughParticipants && room.status === "active";
 
   return (
     <section
       aria-live="polite"
       className="flex flex-col gap-3 rounded-xl border border-black/10 p-3 dark:border-white/15"
     >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-lg font-bold">{room.name}</h1>
+        <span className="rounded-full border border-black/20 px-3 py-1 text-xs font-semibold uppercase dark:border-white/25">
+          {room.visibility}
+        </span>
+      </div>
+
       <dl className="flex flex-col gap-2 text-sm">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <dt className="text-black/60 dark:text-white/60">Oda durumu</dt>
@@ -112,7 +117,9 @@ export function RoomWaiting({ spaceId }: { spaceId: string }) {
 
         <div className="flex flex-wrap items-center justify-between gap-2">
           <dt className="text-black/60 dark:text-white/60">Katılımcı</dt>
-          <dd className="font-medium">{room.participantCount} / 2</dd>
+          <dd className="font-medium">
+            {room.participantCount} / {room.capacity}
+          </dd>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -124,15 +131,23 @@ export function RoomWaiting({ spaceId }: { spaceId: string }) {
       </dl>
 
       <div className="border-t border-black/10 pt-3 dark:border-white/15">
-        {room.partnerJoined ? (
-          <p className="text-sm font-semibold">Partneriniz odaya katıldı.</p>
+        {room.enoughParticipants ? (
+          <p className="text-sm font-semibold">
+            Oda film seçimine hazır. Yeni katılımcılar tur başlamadan katılabilir.
+          </p>
         ) : (
           <p className="text-sm text-black/70 dark:text-white/70">
-            Partneriniz henüz katılmadı. Davet bağlantısını paylaştıysanız bu
-            sayfa katıldığında kendiliğinden güncellenecek.
+            Film seçimine başlamak için en az bir katılımcı daha gerekiyor.
+            Bu sayfa biri katıldığında kendiliğinden güncellenecek.
           </p>
         )}
       </div>
+
+      <ParticipantsPanel
+        spaceId={spaceId}
+        room={room}
+        onUpdated={(updated) => setState({ status: "ready", room: updated })}
+      />
 
       <SubscriptionSummary
         spaceId={spaceId}
@@ -158,6 +173,74 @@ export function RoomWaiting({ spaceId }: { spaceId: string }) {
         </Link>
       </div>
     </section>
+  );
+}
+
+function ParticipantsPanel({
+  spaceId,
+  room,
+  onUpdated,
+}: {
+  spaceId: string;
+  room: RoomState;
+  onUpdated: (room: RoomState) => void;
+}) {
+  const [kickingId, setKickingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function kick(participantId: string) {
+    if (kickingId) return;
+    setKickingId(participantId);
+    setError(null);
+    try {
+      await fetchJson<{ ok: true }>(
+        `/api/rooms/${spaceId}/participants/${participantId}`,
+        undefined,
+        { method: "DELETE" },
+      );
+      const updated = await fetchJson<RoomState>(`/api/rooms/${spaceId}`);
+      onUpdated(updated);
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : "Katılımcı çıkarılamadı.");
+    } finally {
+      setKickingId(null);
+    }
+  }
+
+  return (
+    <div className="border-t border-black/10 pt-3 dark:border-white/15">
+      <h2 className="text-sm font-semibold">Katılımcılar</h2>
+      <ul className="mt-2 grid gap-2">
+        {room.participants.map((participant) => (
+          <li
+            key={participant.userId}
+            className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/15"
+          >
+            <span>
+              <span className="font-medium">{participant.displayName}</span>{" "}
+              <span className="text-black/50 dark:text-white/50">
+                {participant.isMe
+                  ? "(siz)"
+                  : participant.role === "host"
+                    ? "(admin)"
+                    : ""}
+              </span>
+            </span>
+            {room.myRole === "host" && participant.role !== "host" ? (
+              <button
+                type="button"
+                onClick={() => void kick(participant.userId)}
+                disabled={kickingId !== null}
+                className="rounded-md border border-red-700/50 px-3 py-1.5 text-xs font-semibold text-red-700 disabled:opacity-50 dark:text-red-300"
+              >
+                {kickingId === participant.userId ? "Çıkarılıyor…" : "Odadan çıkar"}
+              </button>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+      {error ? <p className="mt-2 text-sm text-red-700 dark:text-red-300">{error}</p> : null}
+    </div>
   );
 }
 
@@ -216,16 +299,21 @@ function SubscriptionSummary({
           <dd className="font-medium">{formatList(room.mySubscriptions)}</dd>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <dt className="text-black/60 dark:text-white/60">
-            Partnerin abonelikleri
-          </dt>
-          <dd className="font-medium">
-            {room.partnerJoined
-              ? formatList(room.partnerSubscriptions)
-              : "Henüz katılmadı"}
-          </dd>
-        </div>
+        {room.participants
+          .filter((participant) => !participant.isMe)
+          .map((participant) => (
+            <div
+              key={participant.userId}
+              className="flex flex-wrap items-center justify-between gap-2"
+            >
+              <dt className="text-black/60 dark:text-white/60">
+                {participant.displayName}
+              </dt>
+              <dd className="font-medium">
+                {formatList(participant.subscriptions)}
+              </dd>
+            </div>
+          ))}
 
         <div className="flex flex-wrap items-center justify-between gap-2">
           <dt className="text-black/60 dark:text-white/60">
@@ -244,10 +332,10 @@ function SubscriptionSummary({
         </StatusMessage>
       ) : null}
 
-      {room.partnerJoined && room.sharedSubscriptions.length === 0 ? (
+      {room.enoughParticipants && room.sharedSubscriptions.length === 0 ? (
         <StatusMessage tone="warning" title="Ortak abonelik yok">
-          Film önerileri yalnızca ikinizde de olan platformlardan gelir. Şu anda
-          ortak bir platform yok; birinizin listesini güncellemesi gerekiyor.
+          Film önerileri yalnızca bütün katılımcılarda olan platformlardan gelir.
+          Şu anda ortak bir platform yok; listelerin güncellenmesi gerekiyor.
         </StatusMessage>
       ) : null}
 

@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { isRoomUuid, isRoomVoteChoice } from "./validation";
+import {
+  isRoomUuid,
+  isRoomVisibility,
+  isRoomVoteChoice,
+  normalizeRoomCapacity,
+  normalizeRoomName,
+} from "./validation";
 
 describe("room route input validation", () => {
   it("yalnızca geçerli UUID v4/v7 biçimlerini kabul eder", () => {
@@ -8,6 +14,18 @@ describe("room route input validation", () => {
     expect(isRoomUuid("0198da7e-225f-7d83-bceb-a3321b1fa1d0")).toBe(true);
     expect(isRoomUuid("not-a-uuid")).toBe(false);
     expect(isRoomUuid("f4bde699-e65a-48fc-ae7c-1ba94f06d82c/evil")).toBe(false);
+  });
+
+  it("oda görünürlüğü, kapasitesi ve adını sınırlar", () => {
+    expect(isRoomVisibility("private")).toBe(true);
+    expect(isRoomVisibility("public")).toBe(true);
+    expect(isRoomVisibility("unlisted")).toBe(false);
+    expect(normalizeRoomCapacity(2)).toBe(2);
+    expect(normalizeRoomCapacity(20)).toBe(20);
+    expect(normalizeRoomCapacity(1)).toBeNull();
+    expect(normalizeRoomCapacity(21)).toBeNull();
+    expect(normalizeRoomName("  Cuma   gecesi ")).toBe("Cuma gecesi");
+    expect(normalizeRoomName(" ")).toBeNull();
   });
 
   it("oy API'sinde yalnızca üç izinli tercihi kabul eder", () => {

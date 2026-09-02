@@ -6,6 +6,7 @@ import {
   normalizeSubscriptionSelection,
   parseStoredSubscriptions,
   sharedSubscriptions,
+  sharedSubscriptionsForAll,
   subscriptionLabel,
   tmdbProviderIdsFor,
 } from "./subscriptions";
@@ -47,6 +48,17 @@ describe("oda abonelikleri", () => {
     ).toEqual(["netflix", "mubi"]);
 
     expect(sharedSubscriptions(["netflix"], ["mubi"])).toEqual([]);
+  });
+
+  it("üç veya daha fazla katılımcının ortak aboneliğini hesaplar", () => {
+    expect(
+      sharedSubscriptionsForAll([
+        ["netflix", "prime_video", "mubi"],
+        ["netflix", "mubi"],
+        ["disney_plus", "netflix"],
+      ]),
+    ).toEqual(["netflix"]);
+    expect(sharedSubscriptionsForAll([["netflix"]])).toEqual([]);
   });
 
   it("ortak platformların TMDb ID'lerini reklamlı varyantlarıyla verir", () => {

@@ -9,6 +9,9 @@ import {
   createRoomLocal,
   joinRoomLocal,
   getRoomStateLocal,
+  joinPublicRoomLocal,
+  kickRoomParticipantLocal,
+  listPublicRoomsLocal,
   setRoomSubscriptionsLocal,
 } from "./localStore";
 import { normalizeRoomError, roomError, type RoomError } from "./errors";
@@ -18,12 +21,17 @@ import {
   hashInvitationToken,
   isValidInvitationTokenFormat,
 } from "./tokens";
-import { parseStoredSubscriptions, sharedSubscriptions } from "./subscriptions";
+import {
+  parseStoredSubscriptions,
+  sharedSubscriptionsForAll,
+} from "./subscriptions";
 import type {
   CreateRoomResult,
   JoinRoomResult,
+  PublicRoomSummary,
   RoomState,
   RoomSubscriptions,
+  RoomVisibility,
 } from "./types";
 
 /**
@@ -58,6 +66,7 @@ function fail(error: RoomError): never {
 export async function createRoom(
   baseUrl: string,
   subscriptions: RoomSubscriptions,
+  options: { name: string; visibility: RoomVisibility; capacity: number },
   localUserId?: string,
 ): Promise<CreateRoomResult> {
   // Sunucu sınırındaki son kontrol: aboneliksiz oda, ortak küme üretemez ve
@@ -67,7 +76,10 @@ export async function createRoom(
   // Arka uç seçimi tek yerden gelir (bkz. `backend.ts`).
   if (isLocalRoomsBackend()) {
     if (!localUserId) fail(roomError("unauthenticated"));
-    return createRoomLocal(baseUrl, subscriptions, localUserId);
+    return createRoomLocal(baseUrl, subscriptions, localUserId, {
+      ...options,
+      isRegistered: false,
+    });
   }
 
   const supabase = await createSupabaseServerClient().catch(() => null);
@@ -82,6 +94,9 @@ export async function createRoom(
   const { data, error } = await supabase.rpc("create_space", {
     p_token_hash: tokenHash,
     p_subscriptions: subscriptions,
+    p_visibility: options.visibility,
+    p_name: options.name,
+    p_capacity: options.capacity,
   });
 
   if (error) fail(normalizeRoomError(error));
@@ -96,7 +111,112 @@ export async function createRoom(
     Date.now() + 24 * 60 * 60 * 1000,
   ).toISOString();
 
-  return { spaceId: data, inviteUrl, invitationExpiresAt };
+  return {
+    spaceId: data,
+    name: options.name,
+    visibility: options.visibility,
+    capacity: options.capacity,
+    inviteUrl,
+    invitationExpiresAt,
+  };
+}
+
+/** Hassas davet veya kullanıcı kimliği taşımayan public oda vitrini. */
+export async function listPublicRooms(): Promise<PublicRoomSummary[]> {
+  if (isLocalRoomsBackend()) return listPublicRoomsLocal();
+
+  const supabase = await createSupabaseServerClient().catch(() => null);
+  if (!supabase) fail(roomError("not_configured"));
+
+  const userId = await getAuthenticatedUserId(supabase);
+  if (!userId) fail(roomError("unauthenticated"));
+
+  const { data, error } = await supabase.rpc("list_public_spaces");
+  if (error) fail(normalizeRoomError(error));
+  if (!Array.isArray(data)) fail(roomError("unexpected"));
+
+  return data.map((row) => {
+    if (!row || typeof row !== "object") fail(roomError("unexpected"));
+    const record = row as Record<string, unknown>;
+    if (
+      typeof record.space_id !== "string" ||
+      typeof record.name !== "string" ||
+      typeof record.capacity !== "number" ||
+      typeof record.participant_count !== "number" ||
+      typeof record.host_display_name !== "string" ||
+      typeof record.created_at !== "string"
+    ) {
+      fail(roomError("unexpected"));
+    }
+    return {
+      spaceId: record.space_id,
+      name: record.name,
+      capacity: record.capacity,
+      participantCount: record.participant_count,
+      hostDisplayName: record.host_display_name,
+      createdAt: record.created_at,
+    };
+  });
+}
+
+/** Kayıtlı kullanıcıyı davet tokenı olmadan public odaya ekler. */
+export async function joinPublicRoom(
+  spaceId: string,
+  subscriptions: RoomSubscriptions,
+  localUserId?: string,
+): Promise<JoinRoomResult> {
+  if (subscriptions.length === 0) fail(roomError("subscriptions_required"));
+
+  if (isLocalRoomsBackend()) {
+    if (!localUserId) fail(roomError("unauthenticated"));
+    return joinPublicRoomLocal(spaceId, subscriptions, localUserId, false);
+  }
+
+  const supabase = await createSupabaseServerClient().catch(() => null);
+  if (!supabase) fail(roomError("not_configured"));
+  const userId = await getAuthenticatedUserId(supabase);
+  if (!userId) fail(roomError("unauthenticated"));
+
+  const { data, error } = await supabase.rpc("join_public_space", {
+    p_space_id: spaceId,
+    p_subscriptions: subscriptions,
+  });
+  if (error) fail(normalizeRoomError(error));
+
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row || typeof row !== "object") fail(roomError("unexpected"));
+  const record = row as Record<string, unknown>;
+  const role = record.role;
+  if (role !== "host" && role !== "guest") fail(roomError("unexpected"));
+  return {
+    spaceId,
+    role,
+    alreadyMember: record.already_member === true,
+  };
+}
+
+/** Oda sahibinin bir katılımcıyı çıkarıp aynı odaya dönüşünü engellemesi. */
+export async function kickRoomParticipant(
+  spaceId: string,
+  participantUserId: string,
+  localUserId?: string,
+): Promise<void> {
+  if (isLocalRoomsBackend()) {
+    if (!localUserId) fail(roomError("unauthenticated"));
+    kickRoomParticipantLocal(spaceId, participantUserId, localUserId);
+    return;
+  }
+
+  const supabase = await createSupabaseServerClient().catch(() => null);
+  if (!supabase) fail(roomError("not_configured"));
+  const userId = await getAuthenticatedUserId(supabase);
+  if (!userId) fail(roomError("unauthenticated"));
+
+  const { error } = await supabase.rpc("kick_space_participant", {
+    p_space_id: spaceId,
+    p_target_user_id: participantUserId,
+  });
+  if (error) fail(normalizeRoomError(error));
 }
 
 /**
@@ -176,7 +296,7 @@ export async function getRoomState(
 
   const { data: space, error: spaceError } = await supabase
     .from("spaces")
-    .select("id, status")
+    .select("id, name, visibility, capacity, status")
     .eq("id", spaceId)
     .maybeSingle();
 
@@ -187,7 +307,7 @@ export async function getRoomState(
 
   const { data: participants, error: participantsError } = await supabase
     .from("participants")
-    .select("user_id, role, subscriptions")
+    .select("user_id, role, display_name, subscriptions")
     .eq("space_id", spaceId);
 
   if (participantsError) fail(normalizeRoomError(participantsError));
@@ -197,24 +317,40 @@ export async function getRoomState(
   if (!mine) fail(roomError("invalid_invitation"));
 
   const status = space.status === "closed" ? "closed" : "active";
+  const visibility = space.visibility === "public" ? "public" : "private";
   const myRole = mine.role === "host" ? "host" : "guest";
-
-  const partner = rows.find((p) => p.user_id !== userId) ?? null;
   const mySubscriptions = parseStoredSubscriptions(mine.subscriptions);
-  const partnerSubscriptions = parseStoredSubscriptions(partner?.subscriptions);
+  const participantSubscriptions = rows.map((participant) =>
+    parseStoredSubscriptions(participant.subscriptions),
+  );
 
   return {
     spaceId,
+    name: typeof space.name === "string" ? space.name : "Karar odası",
+    visibility,
+    capacity:
+      typeof space.capacity === "number" && Number.isInteger(space.capacity)
+        ? space.capacity
+        : 2,
     status,
     participantCount: rows.length,
     myRole,
-    partnerJoined: rows.length >= 2,
+    enoughParticipants: rows.length >= 2,
+    participants: rows.map((participant, index) => ({
+      userId: participant.user_id,
+      displayName:
+        typeof participant.display_name === "string" &&
+        participant.display_name.trim() !== ""
+          ? participant.display_name.trim()
+          : participant.role === "host"
+            ? "Oda sahibi"
+            : `Katılımcı ${index + 1}`,
+      role: participant.role === "host" ? "host" : "guest",
+      subscriptions: parseStoredSubscriptions(participant.subscriptions),
+      isMe: participant.user_id === userId,
+    })),
     mySubscriptions,
-    partnerSubscriptions,
-    // Partner henüz yoksa kesişim boştur; tur bu yüzden de başlatılamaz.
-    sharedSubscriptions: partner
-      ? sharedSubscriptions(mySubscriptions, partnerSubscriptions)
-      : [],
+    sharedSubscriptions: sharedSubscriptionsForAll(participantSubscriptions),
   };
 }
 

@@ -20,6 +20,11 @@ const DATABASE_CONTRACT: readonly RoomErrorCode[] = [
   "invalid_teleparty_link",
   "teleparty_not_ready",
   "host_required",
+  "registration_required",
+  "public_room_required",
+  "participant_not_found",
+  "participant_banned",
+  "room_locked",
 ];
 
 describe("normalizeRoomError — veritabanı sözleşmesi", () => {
