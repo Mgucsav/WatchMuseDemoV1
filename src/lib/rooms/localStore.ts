@@ -5,6 +5,7 @@ import type {
   CreateRoomResult,
   JoinRoomResult,
   PublicRoomSummary,
+  RoomChatMessage,
   RoomState,
   RoomSubscriptions,
   RoomVisibility,
@@ -41,6 +42,13 @@ interface LocalSpace {
   participants: Participant[];
   invitations: LocalInvitation[];
   bannedUserIds: Set<string>;
+  messages: Array<{
+    id: string;
+    userId: string;
+    senderDisplayName: string;
+    body: string;
+    createdAt: string;
+  }>;
 }
 
 const spaces = new Map<string, LocalSpace>();
@@ -83,6 +91,7 @@ export async function createRoomLocal(
     }],
     invitations: [],
     bannedUserIds: new Set(),
+    messages: [],
   };
 
   const token = generateInvitationToken();
@@ -250,6 +259,51 @@ export function kickRoomParticipantLocal(
   if (targetIndex < 0) throw roomError("participant_not_found");
   space.participants.splice(targetIndex, 1);
   space.bannedUserIds.add(participantUserId);
+}
+
+export function getRoomMessagesLocal(
+  spaceId: string,
+  userId: string,
+): RoomChatMessage[] {
+  const space = spaces.get(spaceId);
+  if (!space || !space.participants.some((participant) => participant.userId === userId)) {
+    throw roomError("invalid_invitation");
+  }
+  return space.messages.slice(-50).map((message) => ({
+    id: message.id,
+    senderDisplayName: message.senderDisplayName,
+    body: message.body,
+    createdAt: message.createdAt,
+    isMine: message.userId === userId,
+  }));
+}
+
+export function sendRoomMessageLocal(
+  spaceId: string,
+  body: string,
+  userId: string,
+): RoomChatMessage {
+  const space = spaces.get(spaceId);
+  const participant = space?.participants.find((entry) => entry.userId === userId);
+  if (!space || !participant) throw roomError("invalid_invitation");
+
+  const previous = space.messages.at(-1);
+  if (
+    previous?.userId === userId &&
+    Date.now() - Date.parse(previous.createdAt) < 750
+  ) {
+    throw roomError("room_message_rate_limited");
+  }
+
+  const message = {
+    id: randomUUID(),
+    userId,
+    senderDisplayName: participant.displayName,
+    body,
+    createdAt: nowIso(),
+  };
+  space.messages.push(message);
+  return { ...message, isMine: true };
 }
 
 /** Çağıranın kendi abonelik seçimini değiştirir; başka satıra dokunmaz. */

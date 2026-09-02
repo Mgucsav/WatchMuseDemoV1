@@ -52,6 +52,18 @@ export interface PublicRoomSummary {
   createdAt: string;
 }
 
+export interface RoomChatMessage {
+  id: string;
+  senderDisplayName: string;
+  body: string;
+  createdAt: string;
+  isMine: boolean;
+}
+
+export interface RoomChatResponse {
+  messages: RoomChatMessage[];
+}
+
 /** Davet tüketme sonucu. */
 export interface JoinRoomResult {
   spaceId: string;

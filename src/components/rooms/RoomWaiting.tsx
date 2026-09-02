@@ -11,6 +11,7 @@ import type { RoomState } from "@/lib/rooms/types";
 import { ensureAnonymousSession } from "@/lib/supabase/browser";
 import type { TargetProviderKey } from "@/lib/tmdb/types";
 import { RoomRound } from "./RoomRound";
+import { RoomChat } from "./RoomChat";
 
 const POLL_INTERVAL_MS = 5000;
 
@@ -148,6 +149,8 @@ export function RoomWaiting({ spaceId }: { spaceId: string }) {
         room={room}
         onUpdated={(updated) => setState({ status: "ready", room: updated })}
       />
+
+      <RoomChat spaceId={spaceId} />
 
       <SubscriptionSummary
         spaceId={spaceId}

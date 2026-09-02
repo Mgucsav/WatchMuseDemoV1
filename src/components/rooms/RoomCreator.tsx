@@ -20,8 +20,8 @@ type State =
 /**
  * Oda oluşturma, abonelik beyanı ve davet bağlantısını kopyalama arayüzü.
  *
- * Abonelikler oda AÇILIRKEN sorulur: öneriler iki katılımcının ortak
- * platformlarından geleceği için, oda sahibinin beyanı odanın ilk yarısıdır.
+ * Abonelikler oda AÇILIRKEN sorulur: öneriler bütün katılımcıların ortak
+ * platformlarından geleceği için oda sahibinin beyanı ilk girdidir.
  */
 export function RoomCreator({ canCreatePublic }: { canCreatePublic: boolean }) {
   const [state, setState] = useState<State>({ status: "idle" });
@@ -51,6 +51,10 @@ export function RoomCreator({ canCreatePublic }: { canCreatePublic: boolean }) {
         body: { subscriptions, name, visibility, capacity },
       });
 
+      window.localStorage.setItem(
+        "watchmuse_room_subscriptions",
+        JSON.stringify(subscriptions),
+      );
       setState({ status: "created", room });
     } catch (error) {
       setState({

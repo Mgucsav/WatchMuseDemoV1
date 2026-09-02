@@ -35,6 +35,8 @@ export type RoomErrorCode =
   | "participant_not_found"
   | "participant_banned"
   | "room_locked"
+  | "invalid_room_message"
+  | "room_message_rate_limited"
   | "round_requires_supabase"
   | "not_configured"
   | "network"
@@ -80,6 +82,8 @@ const MESSAGES: Record<RoomErrorCode, string> = {
   participant_not_found: "Katılımcı bu odada bulunamadı.",
   participant_banned: "Bu odaya yeniden katılmanıza izin verilmiyor.",
   room_locked: "Aktif seçim turu sırasında katılımcı listesi değiştirilemez.",
+  invalid_room_message: "Mesaj boş olamaz ve en fazla 1000 karakter olabilir.",
+  room_message_rate_limited: "Çok hızlı mesaj gönderiyorsunuz. Lütfen kısa bir süre bekleyin.",
   round_requires_supabase: "Ortak seçim turu için Supabase bağlantısı gereklidir.",
   not_configured: "Oda servisi henüz yapılandırılmamış.",
   network: "Sunucuya ulaşılamadı. Bağlantınızı kontrol edin.",
@@ -117,6 +121,8 @@ const DATABASE_ERROR_CODES: readonly RoomErrorCode[] = [
   "participant_not_found",
   "participant_banned",
   "room_locked",
+  "invalid_room_message",
+  "room_message_rate_limited",
 ];
 
 /** Sözlükte karşılığı olan tüm kodlar (veritabanı sözleşmesi + yerel kodlar). */

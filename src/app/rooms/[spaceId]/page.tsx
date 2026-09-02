@@ -17,7 +17,7 @@ export default async function RoomPage({
         <header>
           <h1 className="text-xl font-bold">Oda</h1>
           <p className="mt-1 text-sm text-black/70 dark:text-white/70">
-            Bu oda yalnızca iki katılımcıya açıktır.
+            Birlikte film arayın, gizli oy verin ve ortak çarkı çevirin.
           </p>
         </header>
 

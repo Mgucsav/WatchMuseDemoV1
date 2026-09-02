@@ -61,6 +61,7 @@ grant usage on schema public to anon, authenticated, service_role;
 \i :MIGRATIONS_DIR/20260814000100_room_subscriptions.sql
 \i :MIGRATIONS_DIR/20260901000100_teleparty_bridge.sql
 \i :MIGRATIONS_DIR/20260902000100_public_multi_rooms.sql
+\i :MIGRATIONS_DIR/20260902000200_room_chat.sql
 
 -- Doğrulama --------------------------------------------------------------------
 do $$
@@ -77,9 +78,9 @@ begin
          'spaces','participants','invitations','profiles','library_items',
          'space_rounds','room_candidates','room_votes',
          'room_selections','room_selection_acceptances','room_teleparty_sessions',
-         'space_bans'
-       )) = 12 into v_ok;
-  if not v_ok then raise exception 'ASSERTION FAILED: on iki tablonun tamami olusmali'; end if;
+         'space_bans','room_messages'
+       )) = 13 into v_ok;
+  if not v_ok then raise exception 'ASSERTION FAILED: on uc tablonun tamami olusmali'; end if;
 
   -- Çok turlu oda: eski unique kısıt kaldırılmış olmalı
   select not exists (
@@ -110,7 +111,7 @@ begin
       'spaces','participants','invitations','profiles','library_items',
       'space_rounds','room_candidates','room_votes',
       'room_selections','room_selection_acceptances','room_teleparty_sessions',
-      'space_bans'
+      'space_bans','room_messages'
     )) into v_ok;
   if not v_ok then raise exception 'ASSERTION FAILED: butun tablolarda RLS acik olmali'; end if;
 

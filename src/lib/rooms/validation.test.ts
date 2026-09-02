@@ -5,6 +5,7 @@ import {
   isRoomVisibility,
   isRoomVoteChoice,
   normalizeRoomCapacity,
+  normalizeRoomMessage,
   normalizeRoomName,
 } from "./validation";
 
@@ -14,6 +15,13 @@ describe("room route input validation", () => {
     expect(isRoomUuid("0198da7e-225f-7d83-bceb-a3321b1fa1d0")).toBe(true);
     expect(isRoomUuid("not-a-uuid")).toBe(false);
     expect(isRoomUuid("f4bde699-e65a-48fc-ae7c-1ba94f06d82c/evil")).toBe(false);
+  });
+
+  it("oda mesajını kırpar ve uzun/boş girdiyi reddeder", () => {
+    expect(normalizeRoomMessage("  Merhaba oda  ")).toBe("Merhaba oda");
+    expect(normalizeRoomMessage("   ")).toBeNull();
+    expect(normalizeRoomMessage("x".repeat(1001))).toBeNull();
+    expect(normalizeRoomMessage(null)).toBeNull();
   });
 
   it("oda görünürlüğü, kapasitesi ve adını sınırlar", () => {

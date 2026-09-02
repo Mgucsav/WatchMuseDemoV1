@@ -12,6 +12,8 @@ import {
   joinPublicRoomLocal,
   kickRoomParticipantLocal,
   listPublicRoomsLocal,
+  getRoomMessagesLocal,
+  sendRoomMessageLocal,
   setRoomSubscriptionsLocal,
 } from "./localStore";
 import { normalizeRoomError, roomError, type RoomError } from "./errors";
@@ -29,6 +31,7 @@ import type {
   CreateRoomResult,
   JoinRoomResult,
   PublicRoomSummary,
+  RoomChatMessage,
   RoomState,
   RoomSubscriptions,
   RoomVisibility,
@@ -219,6 +222,72 @@ export async function kickRoomParticipant(
   if (error) fail(normalizeRoomError(error));
 }
 
+export async function getRoomMessages(
+  spaceId: string,
+  localUserId?: string,
+): Promise<RoomChatMessage[]> {
+  if (isLocalRoomsBackend()) {
+    if (!localUserId) fail(roomError("unauthenticated"));
+    return getRoomMessagesLocal(spaceId, localUserId);
+  }
+
+  const supabase = await createSupabaseServerClient().catch(() => null);
+  if (!supabase) fail(roomError("not_configured"));
+  const userId = await getAuthenticatedUserId(supabase);
+  if (!userId) fail(roomError("unauthenticated"));
+
+  const { data, error } = await supabase.rpc("get_space_messages", {
+    p_space_id: spaceId,
+    p_limit: 50,
+  });
+  if (error) fail(normalizeRoomError(error));
+  if (!Array.isArray(data)) fail(roomError("unexpected"));
+
+  return data.map((row) => {
+    if (!row || typeof row !== "object") fail(roomError("unexpected"));
+    const record = row as Record<string, unknown>;
+    if (
+      typeof record.id !== "string" ||
+      typeof record.sender_display_name !== "string" ||
+      typeof record.body !== "string" ||
+      typeof record.created_at !== "string" ||
+      typeof record.is_mine !== "boolean"
+    ) {
+      fail(roomError("unexpected"));
+    }
+    return {
+      id: record.id,
+      senderDisplayName: record.sender_display_name,
+      body: record.body,
+      createdAt: record.created_at,
+      isMine: record.is_mine,
+    };
+  });
+}
+
+export async function sendRoomMessage(
+  spaceId: string,
+  body: string,
+  localUserId?: string,
+): Promise<void> {
+  if (isLocalRoomsBackend()) {
+    if (!localUserId) fail(roomError("unauthenticated"));
+    sendRoomMessageLocal(spaceId, body, localUserId);
+    return;
+  }
+
+  const supabase = await createSupabaseServerClient().catch(() => null);
+  if (!supabase) fail(roomError("not_configured"));
+  const userId = await getAuthenticatedUserId(supabase);
+  if (!userId) fail(roomError("unauthenticated"));
+
+  const { error } = await supabase.rpc("send_space_message", {
+    p_space_id: spaceId,
+    p_body: body,
+  });
+  if (error) fail(normalizeRoomError(error));
+}
+
 /**
  * Davet token'ını tüketir ve kullanıcıyı misafir olarak odaya ekler.
  *
@@ -338,13 +407,7 @@ export async function getRoomState(
     enoughParticipants: rows.length >= 2,
     participants: rows.map((participant, index) => ({
       userId: participant.user_id,
-      displayName:
-        typeof participant.display_name === "string" &&
-        participant.display_name.trim() !== ""
-          ? participant.display_name.trim()
-          : participant.role === "host"
-            ? "Oda sahibi"
-            : `Katılımcı ${index + 1}`,
+      displayName: participantDisplayName(participant, index),
       role: participant.role === "host" ? "host" : "guest",
       subscriptions: parseStoredSubscriptions(participant.subscriptions),
       isMe: participant.user_id === userId,
@@ -352,6 +415,31 @@ export async function getRoomState(
     mySubscriptions,
     sharedSubscriptions: sharedSubscriptionsForAll(participantSubscriptions),
   };
+}
+
+function participantDisplayName(
+  participant: {
+    user_id: string;
+    role: unknown;
+    display_name: unknown;
+  },
+  index: number,
+): string {
+  const stored =
+    typeof participant.display_name === "string"
+      ? participant.display_name.trim()
+      : "";
+  const fallback =
+    participant.role === "host" ? "Oda sahibi" : `Katılımcı ${index + 1}`;
+  const base = stored || fallback;
+  if (
+    base === "Anonim misafir" ||
+    base === "Anonim oda sahibi" ||
+    base === "WatchMuse üyesi"
+  ) {
+    return `${base} ${participant.user_id.slice(0, 4).toUpperCase()}`;
+  }
+  return base;
 }
 
 /**

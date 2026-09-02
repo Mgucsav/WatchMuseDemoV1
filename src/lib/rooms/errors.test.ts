@@ -25,6 +25,8 @@ const DATABASE_CONTRACT: readonly RoomErrorCode[] = [
   "participant_not_found",
   "participant_banned",
   "room_locked",
+  "invalid_room_message",
+  "room_message_rate_limited",
 ];
 
 describe("normalizeRoomError — veritabanı sözleşmesi", () => {
