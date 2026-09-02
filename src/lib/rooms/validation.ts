@@ -4,6 +4,8 @@ export const MIN_ROOM_CAPACITY = 2;
 export const MAX_ROOM_CAPACITY = 20;
 export const MAX_ROOM_NAME_LENGTH = 80;
 export const MAX_ROOM_MESSAGE_LENGTH = 1000;
+export const MIN_ROOM_PASSWORD_LENGTH = 6;
+export const MAX_ROOM_PASSWORD_LENGTH = 64;
 
 export const ROOM_UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -43,6 +45,18 @@ export function normalizeRoomMessage(value: unknown): string | null {
   return normalized.length >= 1 && normalized.length <= MAX_ROOM_MESSAGE_LENGTH
     ? normalized
     : null;
+}
+
+export function normalizeRoomPassword(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  if (
+    value.length < MIN_ROOM_PASSWORD_LENGTH ||
+    value.length > MAX_ROOM_PASSWORD_LENGTH ||
+    /[\u0000-\u001f\u007f]/.test(value)
+  ) {
+    return null;
+  }
+  return value;
 }
 
 export function isRecord(value: unknown): value is Record<string, unknown> {

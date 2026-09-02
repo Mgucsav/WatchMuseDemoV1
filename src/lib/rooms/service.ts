@@ -4,18 +4,24 @@ import {
   createSupabaseServerClient,
   getAuthenticatedUserId,
 } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isLocalRoomsBackend } from "./backend";
 import {
   createRoomLocal,
+  closeRoomLocal,
+  getListedRoomAccessLocal,
   joinRoomLocal,
   getRoomStateLocal,
   joinPublicRoomLocal,
+  joinPrivateRoomLocal,
   kickRoomParticipantLocal,
   listPublicRoomsLocal,
+  leaveRoomLocal,
   getRoomMessagesLocal,
   sendRoomMessageLocal,
   setRoomSubscriptionsLocal,
 } from "./localStore";
+import { hashRoomPassword, verifyRoomPassword } from "./password";
 import { normalizeRoomError, roomError, type RoomError } from "./errors";
 import {
   buildInvitationUrl,
@@ -69,19 +75,33 @@ function fail(error: RoomError): never {
 export async function createRoom(
   baseUrl: string,
   subscriptions: RoomSubscriptions,
-  options: { name: string; visibility: RoomVisibility; capacity: number },
+  options: {
+    name: string;
+    visibility: RoomVisibility;
+    capacity: number;
+    password: string | null;
+  },
   localUserId?: string,
 ): Promise<CreateRoomResult> {
   // Sunucu sınırındaki son kontrol: aboneliksiz oda, ortak küme üretemez ve
   // hiç tur başlatamaz. Bu yüzden oluşturma aşamasında reddedilir.
   if (subscriptions.length === 0) fail(roomError("subscriptions_required"));
+  if (options.visibility === "private" && !options.password) {
+    fail(roomError("room_password_required"));
+  }
+
+  const passwordHash =
+    options.visibility === "private" && options.password
+      ? await hashRoomPassword(options.password)
+      : null;
 
   // Arka uç seçimi tek yerden gelir (bkz. `backend.ts`).
   if (isLocalRoomsBackend()) {
     if (!localUserId) fail(roomError("unauthenticated"));
     return createRoomLocal(baseUrl, subscriptions, localUserId, {
       ...options,
-      isRegistered: false,
+      isRegistered: true,
+      passwordHash,
     });
   }
 
@@ -100,6 +120,7 @@ export async function createRoom(
     p_visibility: options.visibility,
     p_name: options.name,
     p_capacity: options.capacity,
+    p_password_hash: passwordHash,
   });
 
   if (error) fail(normalizeRoomError(error));
@@ -134,7 +155,7 @@ export async function listPublicRooms(): Promise<PublicRoomSummary[]> {
   const userId = await getAuthenticatedUserId(supabase);
   if (!userId) fail(roomError("unauthenticated"));
 
-  const { data, error } = await supabase.rpc("list_public_spaces");
+  const { data, error } = await supabase.rpc("list_discoverable_spaces");
   if (error) fail(normalizeRoomError(error));
   if (!Array.isArray(data)) fail(roomError("unexpected"));
 
@@ -144,6 +165,7 @@ export async function listPublicRooms(): Promise<PublicRoomSummary[]> {
     if (
       typeof record.space_id !== "string" ||
       typeof record.name !== "string" ||
+      (record.visibility !== "private" && record.visibility !== "public") ||
       typeof record.capacity !== "number" ||
       typeof record.participant_count !== "number" ||
       typeof record.host_display_name !== "string" ||
@@ -154,12 +176,79 @@ export async function listPublicRooms(): Promise<PublicRoomSummary[]> {
     return {
       spaceId: record.space_id,
       name: record.name,
+      visibility: record.visibility,
       capacity: record.capacity,
       participantCount: record.participant_count,
       hostDisplayName: record.host_display_name,
       createdAt: record.created_at,
     };
   });
+}
+
+/** Listed public/private room join. Private passwords are verified server-side. */
+export async function joinListedRoom(
+  spaceId: string,
+  subscriptions: RoomSubscriptions,
+  password: string | null,
+  localUserId?: string,
+): Promise<JoinRoomResult> {
+  if (subscriptions.length === 0) fail(roomError("subscriptions_required"));
+
+  if (isLocalRoomsBackend()) {
+    if (!localUserId) fail(roomError("unauthenticated"));
+    const access = getListedRoomAccessLocal(spaceId);
+    if (!access) fail(roomError("invalid_invitation"));
+    if (access.visibility === "public") {
+      return joinPublicRoomLocal(spaceId, subscriptions, localUserId, true);
+    }
+    if (!password || !access.passwordHash) fail(roomError("room_password_required"));
+    if (!(await verifyRoomPassword(password, access.passwordHash))) {
+      fail(roomError("invalid_room_password"));
+    }
+    return joinPrivateRoomLocal(spaceId, subscriptions, localUserId);
+  }
+
+  const supabase = await createSupabaseServerClient().catch(() => null);
+  if (!supabase) fail(roomError("not_configured"));
+  const userId = await getAuthenticatedUserId(supabase);
+  if (!userId) fail(roomError("unauthenticated"));
+
+  const admin = createSupabaseAdminClient();
+  const { data: space, error: spaceError } = await admin
+    .from("spaces")
+    .select("visibility, status")
+    .eq("id", spaceId)
+    .maybeSingle();
+  if (spaceError) fail(normalizeRoomError(spaceError));
+  if (!space) fail(roomError("invalid_invitation"));
+  if (space.status !== "active") fail(roomError("room_closed"));
+
+  if (space.visibility === "public") {
+    return joinPublicRoom(spaceId, subscriptions);
+  }
+  if (space.visibility !== "private") fail(roomError("invalid_invitation"));
+  if (!password) fail(roomError("room_password_required"));
+
+  const { data: secret, error: secretError } = await admin
+    .from("space_passwords")
+    .select("password_hash")
+    .eq("space_id", spaceId)
+    .maybeSingle();
+  if (secretError) fail(normalizeRoomError(secretError));
+  if (!secret || typeof secret.password_hash !== "string") {
+    fail(roomError("invalid_invitation"));
+  }
+  if (!(await verifyRoomPassword(password, secret.password_hash))) {
+    fail(roomError("invalid_room_password"));
+  }
+
+  const { data, error } = await admin.rpc("join_private_space_as_actor", {
+    p_space_id: spaceId,
+    p_actor_id: userId,
+    p_subscriptions: subscriptions,
+  });
+  if (error) fail(normalizeRoomError(error));
+  return parseJoinResult(spaceId, data);
 }
 
 /** Kayıtlı kullanıcıyı davet tokenı olmadan public odaya ekler. */
@@ -186,6 +275,10 @@ export async function joinPublicRoom(
   });
   if (error) fail(normalizeRoomError(error));
 
+  return parseJoinResult(spaceId, data);
+}
+
+function parseJoinResult(spaceId: string, data: unknown): JoinRoomResult {
   const row = Array.isArray(data) ? data[0] : data;
   if (!row || typeof row !== "object") fail(roomError("unexpected"));
   const record = row as Record<string, unknown>;
@@ -196,6 +289,38 @@ export async function joinPublicRoom(
     role,
     alreadyMember: record.already_member === true,
   };
+}
+
+export async function leaveRoom(
+  spaceId: string,
+  localUserId?: string,
+): Promise<void> {
+  if (isLocalRoomsBackend()) {
+    if (!localUserId) fail(roomError("unauthenticated"));
+    leaveRoomLocal(spaceId, localUserId);
+    return;
+  }
+  const supabase = await createSupabaseServerClient().catch(() => null);
+  if (!supabase) fail(roomError("not_configured"));
+  if (!(await getAuthenticatedUserId(supabase))) fail(roomError("unauthenticated"));
+  const { error } = await supabase.rpc("leave_space", { p_space_id: spaceId });
+  if (error) fail(normalizeRoomError(error));
+}
+
+export async function closeRoom(
+  spaceId: string,
+  localUserId?: string,
+): Promise<void> {
+  if (isLocalRoomsBackend()) {
+    if (!localUserId) fail(roomError("unauthenticated"));
+    closeRoomLocal(spaceId, localUserId);
+    return;
+  }
+  const supabase = await createSupabaseServerClient().catch(() => null);
+  if (!supabase) fail(roomError("not_configured"));
+  if (!(await getAuthenticatedUserId(supabase))) fail(roomError("unauthenticated"));
+  const { error } = await supabase.rpc("close_space", { p_space_id: spaceId });
+  if (error) fail(normalizeRoomError(error));
 }
 
 /** Oda sahibinin bir katılımcıyı çıkarıp aynı odaya dönüşünü engellemesi. */

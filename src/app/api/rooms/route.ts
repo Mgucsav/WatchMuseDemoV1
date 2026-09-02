@@ -14,6 +14,7 @@ import {
   isRoomVisibility,
   normalizeRoomCapacity,
   normalizeRoomName,
+  normalizeRoomPassword,
 } from "@/lib/rooms/validation";
 
 export async function GET(): Promise<Response> {
@@ -59,8 +60,14 @@ export async function POST(request: NextRequest): Promise<Response> {
     record.name ??
       (visibility === "public" ? "Public karar odası" : "Özel karar odası"),
   );
+  const password =
+    visibility === "private" ? normalizeRoomPassword(record.password) : null;
   if (!isRoomVisibility(visibility) || capacity === null || name === null) {
     const { code, message } = roomError("unexpected");
+    return errorResponse(code, message, 400);
+  }
+  if (visibility === "private" && password === null) {
+    const { code, message } = roomError("room_password_required");
     return errorResponse(code, message, 400);
   }
 
@@ -73,7 +80,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     const result = await createRoom(
       baseUrl,
       subscriptions,
-      { name, visibility, capacity },
+      { name, visibility, capacity, password },
       localUserId ?? undefined,
     );
     return Response.json(result, { status: 201 });

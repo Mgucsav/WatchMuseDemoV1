@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { StatusMessage } from "@/components/StatusMessage";
 import { SubscriptionPicker } from "@/components/rooms/SubscriptionPicker";
@@ -30,6 +30,9 @@ type State =
  */
 export function RoomWaiting({ spaceId }: { spaceId: string }) {
   const [state, setState] = useState<State>({ status: "loading" });
+  const [departing, setDeparting] = useState(false);
+  const [departureError, setDepartureError] = useState<string | null>(null);
+  const departureStarted = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -75,6 +78,55 @@ export function RoomWaiting({ spaceId }: { spaceId: string }) {
     };
   }, [spaceId]);
 
+  const isActiveGuest =
+    state.status === "ready" &&
+    state.room.status === "active" &&
+    state.room.myRole === "guest";
+
+  useEffect(() => {
+    if (!isActiveGuest) return;
+
+    function leaveWhenHidden() {
+      if (document.visibilityState !== "hidden" || departureStarted.current) return;
+      departureStarted.current = true;
+      navigator.sendBeacon(
+        `/api/rooms/${encodeURIComponent(spaceId)}/leave`,
+        new Blob([], { type: "application/json" }),
+      );
+    }
+
+    document.addEventListener("visibilitychange", leaveWhenHidden);
+    return () => document.removeEventListener("visibilitychange", leaveWhenHidden);
+  }, [isActiveGuest, spaceId]);
+
+  async function depart(action: "leave" | "close") {
+    if (departing || departureStarted.current) return;
+    if (action === "close" && !window.confirm("Odayı kapatmak istediğinize emin misiniz?")) {
+      return;
+    }
+    departureStarted.current = true;
+    setDeparting(true);
+    setDepartureError(null);
+    try {
+      await fetchJson<{ ok: true }>(
+        `/api/rooms/${encodeURIComponent(spaceId)}/${action}`,
+        undefined,
+        { method: "POST" },
+      );
+      window.location.replace("/rooms");
+    } catch (caught) {
+      departureStarted.current = false;
+      setDeparting(false);
+      setDepartureError(
+        caught instanceof ApiError
+          ? caught.message
+          : action === "close"
+            ? "Oda kapatılamadı."
+            : "Odadan çıkılamadı.",
+      );
+    }
+  }
+
   if (state.status === "loading") {
     return (
       <p role="status" className="text-sm text-black/60 dark:text-white/60">
@@ -103,10 +155,32 @@ export function RoomWaiting({ spaceId }: { spaceId: string }) {
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-lg font-bold">{room.name}</h1>
-        <span className="rounded-full border border-black/20 px-3 py-1 text-xs font-semibold uppercase dark:border-white/25">
-          {room.visibility}
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-full border border-black/20 px-3 py-1 text-xs font-semibold uppercase dark:border-white/25">
+            {room.visibility}
+          </span>
+          {room.status === "active" ? (
+            <button
+              type="button"
+              onClick={() => void depart(room.myRole === "host" ? "close" : "leave")}
+              disabled={departing}
+              className="min-h-9 rounded-lg border border-red-700/50 px-3 text-xs font-semibold text-red-700 disabled:opacity-50 dark:text-red-300"
+            >
+              {departing
+                ? "İşleniyor…"
+                : room.myRole === "host"
+                  ? "Odayı kapat"
+                  : "Odadan çık"}
+            </button>
+          ) : null}
+        </div>
       </div>
+
+      {departureError ? (
+        <StatusMessage tone="error" title="İşlem tamamlanamadı">
+          {departureError}
+        </StatusMessage>
+      ) : null}
 
       <dl className="flex flex-col gap-2 text-sm">
         <div className="flex flex-wrap items-center justify-between gap-2">

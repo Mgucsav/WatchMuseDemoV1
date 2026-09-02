@@ -46,6 +46,7 @@ export interface RoomParticipant {
 export interface PublicRoomSummary {
   spaceId: string;
   name: string;
+  visibility: RoomVisibility;
   capacity: number;
   participantCount: number;
   hostDisplayName: string;

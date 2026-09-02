@@ -30,8 +30,12 @@ export type RoomErrorCode =
   | "invalid_teleparty_link"
   | "teleparty_not_ready"
   | "host_required"
+  | "guest_required"
   | "registration_required"
   | "public_room_required"
+  | "private_password_required"
+  | "invalid_room_password"
+  | "room_password_required"
   | "participant_not_found"
   | "participant_banned"
   | "room_locked"
@@ -75,10 +79,14 @@ const MESSAGES: Record<RoomErrorCode, string> = {
   selection_expired: "Bu filmi listeye ekleme süresi dolmuş.",
   invalid_teleparty_link: "Panoda geçerli bir Teleparty davet bağlantısı bulunamadı.",
   teleparty_not_ready: "Teleparty için önce bütün katılımcıların filmi kabul etmesi gerekiyor.",
-  host_required: "Teleparty bağlantısını yalnızca oda sahibi paylaşabilir.",
+  host_required: "Bu işlemi yalnızca oda sahibi yapabilir.",
+  guest_required: "Oda sahibi odadan ayrılamaz; odayı kapatmalıdır.",
   registration_required:
     "Public odalar için hesabınızı kaydetmeniz veya giriş yapmanız gerekiyor.",
   public_room_required: "Bu oda public katılıma açık değil.",
+  private_password_required: "Bu private odaya şifreyle katılmanız gerekiyor.",
+  invalid_room_password: "Oda şifresi yanlış.",
+  room_password_required: "Private oda için 6-64 karakterlik bir şifre belirleyin.",
   participant_not_found: "Katılımcı bu odada bulunamadı.",
   participant_banned: "Bu odaya yeniden katılmanıza izin verilmiyor.",
   room_locked: "Aktif seçim turu sırasında katılımcı listesi değiştirilemez.",
@@ -116,8 +124,12 @@ const DATABASE_ERROR_CODES: readonly RoomErrorCode[] = [
   "invalid_teleparty_link",
   "teleparty_not_ready",
   "host_required",
+  "guest_required",
   "registration_required",
   "public_room_required",
+  "private_password_required",
+  "invalid_room_password",
+  "room_password_required",
   "participant_not_found",
   "participant_banned",
   "room_locked",

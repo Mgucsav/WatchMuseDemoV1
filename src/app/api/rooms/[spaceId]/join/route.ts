@@ -1,8 +1,12 @@
 import { errorResponse } from "@/lib/api/responses";
 import { normalizeRoomError, roomError } from "@/lib/rooms/errors";
-import { RoomServiceError, joinPublicRoom } from "@/lib/rooms/service";
+import { RoomServiceError, joinListedRoom } from "@/lib/rooms/service";
 import { normalizeSubscriptionSelection } from "@/lib/rooms/subscriptions";
-import { isRecord, isRoomUuid } from "@/lib/rooms/validation";
+import {
+  isRecord,
+  isRoomUuid,
+  normalizeRoomPassword,
+} from "@/lib/rooms/validation";
 import { getLocalRoomUserIdFromServerCookie } from "@/lib/supabase/server";
 
 export async function POST(
@@ -24,11 +28,23 @@ export async function POST(
     isRecord(body) ? body.subscriptions : undefined,
   );
   if (subscriptions === null) return invalidSubscriptions();
+  const passwordValue = isRecord(body) ? body.password : undefined;
+  const password =
+    passwordValue === undefined ? null : normalizeRoomPassword(passwordValue);
+  if (passwordValue !== undefined && password === null) {
+    const { code, message } = roomError("room_password_required");
+    return errorResponse(code, message, 400);
+  }
 
   try {
     const localUserId = await getLocalRoomUserIdFromServerCookie();
     return Response.json(
-      await joinPublicRoom(spaceId, subscriptions, localUserId ?? undefined),
+      await joinListedRoom(
+        spaceId,
+        subscriptions,
+        password,
+        localUserId ?? undefined,
+      ),
     );
   } catch (error) {
     const normalized =
@@ -38,8 +54,11 @@ export async function POST(
     const status =
       normalized.code === "unauthenticated"
         ? 401
-        : normalized.code === "registration_required"
+        : normalized.code === "registration_required" ||
+            normalized.code === "private_password_required"
           ? 403
+          : normalized.code === "invalid_invitation"
+            ? 404
           : normalized.code === "room_full" || normalized.code === "room_locked"
             ? 409
             : normalized.code === "not_configured"

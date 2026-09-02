@@ -25,22 +25,22 @@ type State =
  */
 export function RoomCreator({ canCreatePublic }: { canCreatePublic: boolean }) {
   const [state, setState] = useState<State>({ status: "idle" });
-  const [copied, setCopied] = useState(false);
   const [subscriptions, setSubscriptions] = useState<TargetProviderKey[]>([]);
   const [name, setName] = useState("Film gecesi");
   const [visibility, setVisibility] = useState<RoomVisibility>("private");
   const [capacity, setCapacity] = useState(2);
+  const [password, setPassword] = useState("");
 
   async function handleCreate() {
     // Boş beyanla oda açılamaz; buton da bu durumda devre dışıdır.
     if (
       subscriptions.length === 0 ||
       name.trim() === "" ||
+      (visibility === "private" && password.length < 6) ||
       (visibility === "public" && !canCreatePublic)
     ) return;
 
     setState({ status: "creating" });
-    setCopied(false);
 
     try {
       // Oda oluşturmadan önce anonim kimlik gerekir; RLS bu kimliğe dayanır.
@@ -48,7 +48,13 @@ export function RoomCreator({ canCreatePublic }: { canCreatePublic: boolean }) {
 
       const room = await fetchJson<CreateRoomResult>("/api/rooms", undefined, {
         method: "POST",
-        body: { subscriptions, name, visibility, capacity },
+        body: {
+          subscriptions,
+          name,
+          visibility,
+          capacity,
+          ...(visibility === "private" ? { password } : {}),
+        },
       });
 
       window.localStorage.setItem(
@@ -64,16 +70,6 @@ export function RoomCreator({ canCreatePublic }: { canCreatePublic: boolean }) {
             ? error.message
             : "Oda oluşturulamadı. Lütfen tekrar deneyin.",
       });
-    }
-  }
-
-  async function handleCopy(url: string) {
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-    } catch {
-      // Pano izni yoksa kullanıcı bağlantıyı elle seçebilir.
-      setCopied(false);
     }
   }
 
@@ -106,7 +102,7 @@ export function RoomCreator({ canCreatePublic }: { canCreatePublic: boolean }) {
                   </span>
                   <span className="mt-1 block text-xs text-black/60 dark:text-white/60">
                     {option === "private"
-                      ? "Davet bağlantısına sahip kişiler katılır; anonim kullanım açık kalır."
+                      ? "Odalar listesinde görünür; şifreyi bilenler anonim olarak da katılabilir."
                       : "Keşfet bölümünde görünür; yalnız kayıtlı üyeler katılabilir."}
                   </span>
                 </label>
@@ -143,6 +139,26 @@ export function RoomCreator({ canCreatePublic }: { canCreatePublic: boolean }) {
             </label>
           </div>
 
+          {visibility === "private" ? (
+            <label className="text-sm font-medium">
+              Oda şifresi
+              <input
+                type="password"
+                minLength={6}
+                maxLength={64}
+                autoComplete="new-password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                disabled={state.status === "creating"}
+                placeholder="En az 6 karakter"
+                className="mt-1 min-h-11 w-full rounded-lg border border-black/20 bg-transparent px-3 py-2 text-base dark:border-white/25"
+              />
+              <span className="mt-1 block text-xs font-normal text-black/60 dark:text-white/60">
+                Şifre açık biçimde saklanmaz ve daha sonra gösterilmez.
+              </span>
+            </label>
+          ) : null}
+
           {visibility === "public" && !canCreatePublic ? (
             <StatusMessage tone="warning" title="Public oda için üyelik gerekli">
               Anonim verileriniz kaybolmadan hesabınızı kaydedebilirsiniz.{" "}
@@ -168,6 +184,7 @@ export function RoomCreator({ canCreatePublic }: { canCreatePublic: boolean }) {
               state.status === "creating" ||
               subscriptions.length === 0 ||
               name.trim() === "" ||
+              (visibility === "private" && password.length < 6) ||
               (visibility === "public" && !canCreatePublic)
             }
             className="min-h-11 rounded-lg border border-black/20 px-4 py-2 text-sm font-medium transition-colors hover:bg-black/[0.04] disabled:opacity-60 dark:border-white/25 dark:hover:bg-white/10"
@@ -198,35 +215,9 @@ export function RoomCreator({ canCreatePublic }: { canCreatePublic: boolean }) {
             {state.room.capacity} kişi
           </p>
 
-          {state.room.visibility === "private" ? <div>
-            <label
-              htmlFor="invite-url"
-              className="block text-xs text-black/60 dark:text-white/60"
-            >
-              Davet bağlantısı — katılımcılara gönderin
-            </label>
-            <div className="mt-1 flex flex-wrap gap-2">
-              <input
-                id="invite-url"
-                type="text"
-                readOnly
-                value={state.room.inviteUrl}
-                onFocus={(event) => event.currentTarget.select()}
-                className="min-h-11 min-w-0 flex-1 rounded-lg border border-black/20 bg-transparent px-3 py-2 font-mono text-xs dark:border-white/25"
-              />
-              <button
-                type="button"
-                onClick={() => handleCopy(state.room.inviteUrl)}
-                className="min-h-11 shrink-0 rounded-lg border border-black/20 px-3 py-2 text-sm font-medium hover:bg-black/[0.04] dark:border-white/25 dark:hover:bg-white/10"
-              >
-                {copied ? "Kopyalandı" : "Kopyala"}
-              </button>
-            </div>
-          </div> : null}
-
           <p className="text-xs text-black/60 dark:text-white/60">
             {state.room.visibility === "private"
-              ? "Bağlantı 24 saat geçerlidir ve oda dolana kadar kullanılabilir. Katılımcılar kendi aboneliklerini seçer."
+              ? "Odanız Odalar listesinde PRIVATE etiketiyle görünür. Katılımcılar belirlediğiniz şifreyle girer."
               : "Odanız Public Odalar bölümünde listelenir; kayıtlı üyeler bağlantı olmadan katılabilir."}
           </p>
 

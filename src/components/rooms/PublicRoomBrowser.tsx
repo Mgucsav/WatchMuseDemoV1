@@ -6,9 +6,9 @@ import { useCallback, useEffect, useState } from "react";
 import { StatusMessage } from "@/components/StatusMessage";
 import { SubscriptionPicker } from "@/components/rooms/SubscriptionPicker";
 import { ApiError, fetchJson } from "@/lib/api/fetch-json";
-import { ensureAnonymousSession } from "@/lib/supabase/browser";
 import { isSubscriptionKey } from "@/lib/rooms/subscriptions";
 import type { JoinRoomResult, PublicRoomSummary } from "@/lib/rooms/types";
+import { ensureAnonymousSession } from "@/lib/supabase/browser";
 import type { TargetProviderKey } from "@/lib/tmdb/types";
 
 type ListResponse = { rooms: PublicRoomSummary[] };
@@ -17,6 +17,7 @@ const SAVED_SUBSCRIPTIONS_KEY = "watchmuse_room_subscriptions";
 export function PublicRoomBrowser({ canJoinPublic }: { canJoinPublic: boolean }) {
   const [rooms, setRooms] = useState<PublicRoomSummary[]>([]);
   const [subscriptions, setSubscriptions] = useState<TargetProviderKey[]>([]);
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(true);
   const [joiningId, setJoiningId] = useState<string | null>(null);
   const [choosingForId, setChoosingForId] = useState<string | null>(null);
@@ -30,7 +31,7 @@ export function PublicRoomBrowser({ canJoinPublic }: { canJoinPublic: boolean })
       const result = await fetchJson<ListResponse>("/api/rooms");
       setRooms(result.rooms);
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : "Public odalar alınamadı.");
+      setError(caught instanceof ApiError ? caught.message : "Odalar alınamadı.");
     } finally {
       setLoading(false);
     }
@@ -38,7 +39,6 @@ export function PublicRoomBrowser({ canJoinPublic }: { canJoinPublic: boolean })
 
   useEffect(() => {
     let cancelled = false;
-
     ensureAnonymousSession()
       .then(() => fetchJson<ListResponse>("/api/rooms"))
       .then((result) => {
@@ -46,15 +46,12 @@ export function PublicRoomBrowser({ canJoinPublic }: { canJoinPublic: boolean })
       })
       .catch((caught: unknown) => {
         if (!cancelled) {
-          setError(
-            caught instanceof ApiError ? caught.message : "Public odalar alınamadı.",
-          );
+          setError(caught instanceof ApiError ? caught.message : "Odalar alınamadı.");
         }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-
     return () => {
       cancelled = true;
     };
@@ -73,22 +70,33 @@ export function PublicRoomBrowser({ canJoinPublic }: { canJoinPublic: boolean })
   }
 
   function handleJoinIntent(room: PublicRoomSummary) {
-    if (!canJoinPublic || joiningId) return;
+    if (joiningId || (room.visibility === "public" && !canJoinPublic)) return;
     const saved = readSavedSubscriptions();
-    if (saved.length > 0) {
-      setSubscriptions(saved);
-      void join(room, saved);
+    setSubscriptions(saved);
+    setPassword("");
+    setError(null);
+
+    if (room.visibility === "public" && saved.length > 0) {
+      void join(room, saved, null);
       return;
     }
     setChoosingForId(room.spaceId);
-    setError(null);
   }
 
   async function join(
     room: PublicRoomSummary,
     selectedSubscriptions: TargetProviderKey[],
+    roomPassword: string | null,
   ) {
-    if (!canJoinPublic || selectedSubscriptions.length === 0 || joiningId) return;
+    if (
+      selectedSubscriptions.length === 0 ||
+      joiningId ||
+      (room.visibility === "public" && !canJoinPublic) ||
+      (room.visibility === "private" && (!roomPassword || roomPassword.length < 6))
+    ) {
+      return;
+    }
+
     setJoiningId(room.spaceId);
     setError(null);
     try {
@@ -99,7 +107,13 @@ export function PublicRoomBrowser({ canJoinPublic }: { canJoinPublic: boolean })
       const result = await fetchJson<JoinRoomResult>(
         `/api/rooms/${encodeURIComponent(room.spaceId)}/join`,
         undefined,
-        { method: "POST", body: { subscriptions: selectedSubscriptions } },
+        {
+          method: "POST",
+          body: {
+            subscriptions: selectedSubscriptions,
+            ...(room.visibility === "private" ? { password: roomPassword } : {}),
+          },
+        },
       );
       window.location.replace(`/rooms/${encodeURIComponent(result.spaceId)}`);
     } catch (caught) {
@@ -112,9 +126,9 @@ export function PublicRoomBrowser({ canJoinPublic }: { canJoinPublic: boolean })
     <section className="flex flex-col gap-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-lg font-bold">Public odalar</h2>
+          <h2 className="text-lg font-bold">Odalar</h2>
           <p className="mt-1 text-sm text-black/65 dark:text-white/65">
-            Davet bağlantısı olmadan açık bir film karar odasına katılın.
+            Public odaya doğrudan, private odaya oda şifresiyle katılın.
           </p>
         </div>
         <button
@@ -128,8 +142,9 @@ export function PublicRoomBrowser({ canJoinPublic }: { canJoinPublic: boolean })
       </div>
 
       {!canJoinPublic ? (
-        <StatusMessage tone="warning" title="Katılmak için üyelik gerekli">
-          Odaları görebilirsiniz; katılmak için anonim hesabınızı kaydedin.{" "}
+        <StatusMessage tone="warning" title="Public odalar için üyelik gerekli">
+          Private odalara anonim olarak katılabilirsiniz. Public odalar için anonim
+          hesabınızı kaydedin.{" "}
           <Link href="/hesabini-kaydet?next=/rooms" className="font-semibold underline">
             Hesabımı kaydet
           </Link>
@@ -144,76 +159,119 @@ export function PublicRoomBrowser({ canJoinPublic }: { canJoinPublic: boolean })
 
       {!loading && rooms.length === 0 ? (
         <p className="rounded-xl border border-dashed border-black/20 p-4 text-sm text-black/60 dark:border-white/25 dark:text-white/60">
-          Şu anda katılıma açık public oda yok. İlk odayı siz oluşturabilirsiniz.
+          Şu anda katılıma açık oda yok. İlk odayı siz oluşturabilirsiniz.
         </p>
       ) : null}
 
       <div className="grid gap-3">
-        {rooms.map((room) => (
-          <article
-            key={room.spaceId}
-            className="rounded-xl border border-black/10 p-4 dark:border-white/15"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="min-w-0">
-                <h3 className="truncate font-semibold">{room.name}</h3>
-                <p className="mt-1 text-sm text-black/60 dark:text-white/60">
-                  {room.hostDisplayName} · {room.participantCount}/{room.capacity} kişi
-                </p>
-              </div>
-              {canJoinPublic ? (
-                <button
-                  type="button"
-                  onClick={() => handleJoinIntent(room)}
-                  disabled={
-                    joiningId !== null || room.participantCount >= room.capacity
-                  }
-                  className="min-h-11 rounded-lg bg-black px-5 py-2 text-sm font-semibold text-white disabled:opacity-50 dark:bg-white dark:text-black"
-                >
-                  {joiningId === room.spaceId ? "Katılıyor…" : "Katıl"}
-                </button>
-              ) : (
-                <Link
-                  href="/hesabini-kaydet?next=/rooms"
-                  className="inline-flex min-h-11 items-center rounded-lg border border-black/20 px-4 text-sm font-semibold dark:border-white/25"
-                >
-                  Üye ol ve katıl
-                </Link>
-              )}
-            </div>
-
-            {choosingForId === room.spaceId ? (
-              <div className="mt-4 border-t border-black/10 pt-4 dark:border-white/15">
-                <SubscriptionPicker
-                  idPrefix={`public-room-${room.spaceId}`}
-                  legend="Hangi aboneliklere sahipsiniz?"
-                  description="Bu seçim sonraki public oda katılımlarınız için hatırlanır."
-                  value={subscriptions}
-                  onChange={setSubscriptions}
-                  disabled={joiningId !== null}
-                />
-                <div className="mt-3 flex flex-wrap gap-2">
+        {rooms.map((room) => {
+          const needsPublicAccount = room.visibility === "public" && !canJoinPublic;
+          const isChoosing = choosingForId === room.spaceId;
+          return (
+            <article
+              key={room.spaceId}
+              className="rounded-xl border border-black/10 p-4 dark:border-white/15"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="truncate font-semibold">{room.name}</h3>
+                    <span className="rounded-full border border-black/20 px-2 py-0.5 text-[10px] font-semibold uppercase dark:border-white/25">
+                      {room.visibility}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sm text-black/60 dark:text-white/60">
+                    {room.hostDisplayName} · {room.participantCount}/{room.capacity} kişi
+                  </p>
+                </div>
+                {needsPublicAccount ? (
+                  <Link
+                    href="/hesabini-kaydet?next=/rooms"
+                    className="inline-flex min-h-11 items-center rounded-lg border border-black/20 px-4 text-sm font-semibold dark:border-white/25"
+                  >
+                    Üye ol ve katıl
+                  </Link>
+                ) : (
                   <button
                     type="button"
-                    onClick={() => void join(room, subscriptions)}
-                    disabled={subscriptions.length === 0 || joiningId !== null}
+                    onClick={() => handleJoinIntent(room)}
+                    disabled={joiningId !== null || room.participantCount >= room.capacity}
                     className="min-h-11 rounded-lg bg-black px-5 py-2 text-sm font-semibold text-white disabled:opacity-50 dark:bg-white dark:text-black"
                   >
-                    {joiningId === room.spaceId ? "Katılıyor…" : "Odaya katıl"}
+                    {joiningId === room.spaceId ? "Katılıyor…" : "Katıl"}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setChoosingForId(null)}
-                    disabled={joiningId !== null}
-                    className="min-h-11 px-3 text-sm underline underline-offset-4"
-                  >
-                    Vazgeç
-                  </button>
-                </div>
+                )}
               </div>
-            ) : null}
-          </article>
-        ))}
+
+              {isChoosing ? (
+                <div className="mt-4 grid gap-4 border-t border-black/10 pt-4 dark:border-white/15">
+                  {room.visibility === "private" ? (
+                    <label className="text-sm font-medium">
+                      Oda şifresi
+                      <input
+                        type="password"
+                        minLength={6}
+                        maxLength={64}
+                        autoComplete="current-password"
+                        value={password}
+                        onChange={(event) => setPassword(event.target.value)}
+                        disabled={joiningId !== null}
+                        className="mt-1 min-h-11 w-full rounded-lg border border-black/20 bg-transparent px-3 py-2 text-base dark:border-white/25"
+                      />
+                    </label>
+                  ) : null}
+
+                  {subscriptions.length === 0 ? (
+                    <SubscriptionPicker
+                      idPrefix={`listed-room-${room.spaceId}`}
+                      legend="Hangi aboneliklere sahipsiniz?"
+                      description="Bu seçim sonraki oda katılımlarınız için hatırlanır."
+                      value={subscriptions}
+                      onChange={setSubscriptions}
+                      disabled={joiningId !== null}
+                    />
+                  ) : (
+                    <p className="text-xs text-black/60 dark:text-white/60">
+                      Kayıtlı abonelik seçiminiz kullanılacak.
+                    </p>
+                  )}
+
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void join(
+                          room,
+                          subscriptions,
+                          room.visibility === "private" ? password : null,
+                        )
+                      }
+                      disabled={
+                        subscriptions.length === 0 ||
+                        joiningId !== null ||
+                        (room.visibility === "private" && password.length < 6)
+                      }
+                      className="min-h-11 rounded-lg bg-black px-5 py-2 text-sm font-semibold text-white disabled:opacity-50 dark:bg-white dark:text-black"
+                    >
+                      {joiningId === room.spaceId ? "Katılıyor…" : "Odaya katıl"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setChoosingForId(null);
+                        setPassword("");
+                      }}
+                      disabled={joiningId !== null}
+                      className="min-h-11 px-3 text-sm underline underline-offset-4"
+                    >
+                      Vazgeç
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </article>
+          );
+        })}
       </div>
     </section>
   );

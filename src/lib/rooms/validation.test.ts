@@ -7,6 +7,7 @@ import {
   normalizeRoomCapacity,
   normalizeRoomMessage,
   normalizeRoomName,
+  normalizeRoomPassword,
 } from "./validation";
 
 describe("room route input validation", () => {
@@ -34,6 +35,14 @@ describe("room route input validation", () => {
     expect(normalizeRoomCapacity(21)).toBeNull();
     expect(normalizeRoomName("  Cuma   gecesi ")).toBe("Cuma gecesi");
     expect(normalizeRoomName(" ")).toBeNull();
+  });
+
+  it("private oda şifresini 6-64 karakter ve kontrol karaktersiz sınırlar", () => {
+    expect(normalizeRoomPassword("123456")).toBe("123456");
+    expect(normalizeRoomPassword("boşluk kabul edilir")).toBe("boşluk kabul edilir");
+    expect(normalizeRoomPassword("12345")).toBeNull();
+    expect(normalizeRoomPassword("x".repeat(65))).toBeNull();
+    expect(normalizeRoomPassword("abc\n123")).toBeNull();
   });
 
   it("oy API'sinde yalnızca üç izinli tercihi kabul eder", () => {

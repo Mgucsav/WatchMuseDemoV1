@@ -39,6 +39,7 @@ interface LocalSpace {
   status: "active" | "closed";
   createdBy: string;
   createdAt: string;
+  passwordHash: string | null;
   participants: Participant[];
   invitations: LocalInvitation[];
   bannedUserIds: Set<string>;
@@ -66,6 +67,7 @@ export async function createRoomLocal(
     visibility: RoomVisibility;
     capacity: number;
     isRegistered: boolean;
+    passwordHash: string | null;
   },
 ): Promise<CreateRoomResult> {
   if (!userId) throw roomError("unauthenticated");
@@ -83,6 +85,7 @@ export async function createRoomLocal(
     status: "active",
     createdBy: userId,
     createdAt: nowIso(),
+    passwordHash: options.passwordHash,
     participants: [{
       userId,
       role: "host",
@@ -143,6 +146,7 @@ export async function joinRoomLocal(
   }
 
   if (!foundInv || !ownerSpace) throw roomError("invalid_invitation");
+  if (ownerSpace.passwordHash !== null) throw roomError("private_password_required");
 
   if (ownerSpace.status !== "active") throw roomError("room_closed");
 
@@ -201,11 +205,16 @@ export async function getRoomStateLocal(spaceId: string, userId: string): Promis
 
 export function listPublicRoomsLocal(): PublicRoomSummary[] {
   return [...spaces.values()]
-    .filter((space) => space.visibility === "public" && space.status === "active")
+    .filter(
+      (space) =>
+        space.status === "active" &&
+        (space.visibility === "public" || space.passwordHash !== null),
+    )
     .filter((space) => space.participants.length < space.capacity)
     .map((space) => ({
       spaceId: space.id,
       name: space.name,
+      visibility: space.visibility,
       capacity: space.capacity,
       participantCount: space.participants.length,
       hostDisplayName:
@@ -214,6 +223,43 @@ export function listPublicRoomsLocal(): PublicRoomSummary[] {
       createdAt: space.createdAt,
     }))
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+}
+
+export function getListedRoomAccessLocal(spaceId: string): {
+  visibility: RoomVisibility;
+  passwordHash: string | null;
+} | null {
+  const space = spaces.get(spaceId);
+  if (!space || space.status !== "active") return null;
+  if (space.visibility === "private" && space.passwordHash === null) return null;
+  return { visibility: space.visibility, passwordHash: space.passwordHash };
+}
+
+export function joinPrivateRoomLocal(
+  spaceId: string,
+  subscriptions: RoomSubscriptions,
+  userId: string,
+): JoinRoomResult {
+  const space = spaces.get(spaceId);
+  if (!space || space.visibility !== "private" || space.passwordHash === null) {
+    throw roomError("invalid_invitation");
+  }
+  if (space.status !== "active") throw roomError("room_closed");
+  if (space.bannedUserIds.has(userId)) throw roomError("participant_banned");
+
+  const existing = space.participants.find((participant) => participant.userId === userId);
+  if (existing) {
+    existing.subscriptions = [...subscriptions];
+    return { spaceId, role: existing.role, alreadyMember: true };
+  }
+  if (space.participants.length >= space.capacity) throw roomError("room_full");
+  space.participants.push({
+    userId,
+    role: "guest",
+    displayName: `Misafir ${space.participants.length}`,
+    subscriptions: [...subscriptions],
+  });
+  return { spaceId, role: "guest", alreadyMember: false };
 }
 
 export function joinPublicRoomLocal(
@@ -261,6 +307,27 @@ export function kickRoomParticipantLocal(
   space.bannedUserIds.add(participantUserId);
 }
 
+export function leaveRoomLocal(spaceId: string, actorUserId: string): void {
+  const space = spaces.get(spaceId);
+  if (!space) throw roomError("invalid_invitation");
+  const actorIndex = space.participants.findIndex(
+    (participant) => participant.userId === actorUserId,
+  );
+  if (actorIndex < 0) throw roomError("participant_not_found");
+  if (space.participants[actorIndex]?.role === "host") throw roomError("guest_required");
+  space.participants.splice(actorIndex, 1);
+}
+
+export function closeRoomLocal(spaceId: string, actorUserId: string): void {
+  const space = spaces.get(spaceId);
+  if (!space) throw roomError("invalid_invitation");
+  const actor = space.participants.find(
+    (participant) => participant.userId === actorUserId,
+  );
+  if (actor?.role !== "host") throw roomError("host_required");
+  space.status = "closed";
+}
+
 export function getRoomMessagesLocal(
   spaceId: string,
   userId: string,
@@ -286,6 +353,7 @@ export function sendRoomMessageLocal(
   const space = spaces.get(spaceId);
   const participant = space?.participants.find((entry) => entry.userId === userId);
   if (!space || !participant) throw roomError("invalid_invitation");
+  if (space.status !== "active") throw roomError("room_closed");
 
   const previous = space.messages.at(-1);
   if (
