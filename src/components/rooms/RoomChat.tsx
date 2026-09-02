@@ -16,7 +16,7 @@ export function RoomChat({ spaceId }: { spaceId: string }) {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const messageListRef = useRef<HTMLDivElement>(null);
 
   const loadMessages = useCallback(async (signal?: AbortSignal) => {
     await ensureAnonymousSession();
@@ -55,8 +55,23 @@ export function RoomChat({ spaceId }: { spaceId: string }) {
   }, [loadMessages]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ block: "nearest" });
+    const messageList = messageListRef.current;
+    if (messageList) messageList.scrollTop = messageList.scrollHeight;
   }, [chat.messages.length]);
+
+  function handleComposerKeyDown(
+    event: React.KeyboardEvent<HTMLTextAreaElement>,
+  ) {
+    if (
+      event.key !== "Enter" ||
+      event.shiftKey ||
+      event.nativeEvent.isComposing
+    ) {
+      return;
+    }
+    event.preventDefault();
+    event.currentTarget.form?.requestSubmit();
+  }
 
   async function sendMessage(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -95,8 +110,9 @@ export function RoomChat({ spaceId }: { spaceId: string }) {
       </div>
 
       <div
+        ref={messageListRef}
         aria-live="polite"
-        className="mt-3 max-h-72 min-h-28 space-y-2 overflow-y-auto rounded-lg border border-black/10 p-3 dark:border-white/15"
+        className="mt-3 h-[22rem] space-y-2 overflow-y-auto overscroll-contain rounded-lg border border-black/10 p-3 dark:border-white/15"
       >
         {!loading && chat.messages.length === 0 ? (
           <p className="py-6 text-center text-sm text-black/50 dark:text-white/50">
@@ -122,7 +138,6 @@ export function RoomChat({ spaceId }: { spaceId: string }) {
             <p className="mt-1 whitespace-pre-wrap break-words">{message.body}</p>
           </article>
         ))}
-        <div ref={bottomRef} />
       </div>
 
       <form onSubmit={sendMessage} className="mt-3 flex items-end gap-2">
@@ -131,6 +146,7 @@ export function RoomChat({ spaceId }: { spaceId: string }) {
           <textarea
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={handleComposerKeyDown}
             maxLength={MAX_ROOM_MESSAGE_LENGTH}
             rows={2}
             placeholder="Odaya bir mesaj yaz…"
