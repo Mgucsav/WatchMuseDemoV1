@@ -86,8 +86,8 @@ export function RoomWaiting({ spaceId }: { spaceId: string }) {
   useEffect(() => {
     if (!isActiveGuest) return;
 
-    function leaveWhenHidden() {
-      if (document.visibilityState !== "hidden" || departureStarted.current) return;
+    function leaveWhenPageCloses() {
+      if (departureStarted.current) return;
       departureStarted.current = true;
       navigator.sendBeacon(
         `/api/rooms/${encodeURIComponent(spaceId)}/leave`,
@@ -95,8 +95,8 @@ export function RoomWaiting({ spaceId }: { spaceId: string }) {
       );
     }
 
-    document.addEventListener("visibilitychange", leaveWhenHidden);
-    return () => document.removeEventListener("visibilitychange", leaveWhenHidden);
+    window.addEventListener("pagehide", leaveWhenPageCloses);
+    return () => window.removeEventListener("pagehide", leaveWhenPageCloses);
   }, [isActiveGuest, spaceId]);
 
   async function depart(action: "leave" | "close") {

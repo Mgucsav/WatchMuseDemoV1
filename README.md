@@ -55,7 +55,9 @@ film topluluğudur.
   saklanır.
 - Oda sahibi katılımcı çıkarabilir, kullanıcıyı yeniden girişten menedebilir ve
   odayı kapatabilir.
-- Misafir odadan çıkabilir; sekmeyi değiştirdiğinde otomatik olarak ayrılır.
+- Misafir odadan çıkabilir; oda sayfasını kapattığında veya sayfadan ayrıldığında
+  otomatik olarak odadan çıkar. Film/Teleparty için başka sekmeye geçmek üyeliği
+  sonlandırmaz.
 
 ### Oda sohbeti ve ortak film seçimi
 
