@@ -16,9 +16,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "WatchMuse — Kişisel film kütüphanesi",
+  title: "WatchMuse — Film topluluğu",
   description:
-    "WatchMuse: TMDb verisiyle bir filmin Türkiye'de Netflix veya Amazon Prime Video aboneliğine dahil olup olmadığını kontrol edin.",
+    "Filmler hakkında paylaşım yapın, yorumlara katılın, birlikte film seçin ve kişisel film kütüphanenizi yönetin.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

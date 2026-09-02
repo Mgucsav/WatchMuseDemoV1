@@ -242,7 +242,7 @@ export function RoomWaiting({ spaceId }: { spaceId: string }) {
       ) : null}
 
       <div className="flex flex-wrap gap-4 text-sm">
-        <Link href="/" className="underline underline-offset-4">
+        <Link href="/ara" className="underline underline-offset-4">
           Film aramaya dön
         </Link>
         <Link href="/kutuphanem" className="underline underline-offset-4">

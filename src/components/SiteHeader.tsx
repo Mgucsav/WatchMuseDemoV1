@@ -24,6 +24,9 @@ export function SiteHeader() {
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
           <Link href="/" className="underline-offset-4 hover:underline">
+            Akış
+          </Link>
+          <Link href="/ara" className="underline-offset-4 hover:underline">
             Ara
           </Link>
           <Link href="/kutuphanem" className="underline-offset-4 hover:underline">

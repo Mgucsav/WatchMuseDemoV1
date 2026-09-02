@@ -15,7 +15,7 @@ export default async function RoomsPage() {
         <RoomsHub isRegistered={isRegistered} />
 
         <footer className="border-t border-black/10 pt-4 text-xs text-black/50 dark:border-white/15 dark:text-white/50">
-          <Link href="/" className="underline underline-offset-2">
+          <Link href="/ara" className="underline underline-offset-2">
             Film aramaya dön
           </Link>
         </footer>
