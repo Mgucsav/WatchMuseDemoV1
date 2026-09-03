@@ -16,6 +16,8 @@ export interface SocialPost {
   repostCount: number;
   likedByMe: boolean;
   repostedByMe: boolean;
+  /** Çağıran bu gönderinin yazarıysa true; yazar kimliği dışarı çıkarılmaz. */
+  isMine: boolean;
   latestReposterDisplayName: string | null;
 }
 

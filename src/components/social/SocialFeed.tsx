@@ -101,6 +101,33 @@ export function SocialFeed({ isRegistered }: { isRegistered: boolean }) {
     }
   }
 
+  async function requestDelete(post: SocialPost): Promise<boolean> {
+    if (!post.isMine || actingOn) return false;
+    if (!window.confirm("Bu paylaşımı kalıcı olarak silmek istediğinize emin misiniz?")) {
+      return false;
+    }
+
+    setActingOn(`${post.id}:delete`);
+    setError(null);
+    try {
+      await fetchJson<{ ok: true }>(
+        `/api/feed/${encodeURIComponent(post.id)}`,
+        undefined,
+        { method: "DELETE" },
+      );
+      return true;
+    } catch (caught) {
+      setError(
+        caught instanceof ApiError
+          ? caught.message
+          : "Paylaşım silinemedi.",
+      );
+      return false;
+    } finally {
+      setActingOn(null);
+    }
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 px-4 py-6">
       <header>
@@ -171,6 +198,10 @@ export function SocialFeed({ isRegistered }: { isRegistered: boolean }) {
             isRegistered={isRegistered}
             actingOn={actingOn}
             onReact={react}
+            requestDelete={requestDelete}
+            onDeleted={() =>
+              setPosts((current) => current.filter((entry) => entry.id !== post.id))
+            }
             onRepliesChanged={() => void loadFeed()}
             onMembershipNeeded={() =>
               setNotice("Cevap vermek için hesabınızı kaydetmeniz gerekiyor.")
@@ -367,6 +398,8 @@ function PostCard({
   isRegistered,
   actingOn,
   onReact,
+  requestDelete,
+  onDeleted,
   onRepliesChanged,
   onMembershipNeeded,
   reply = false,
@@ -375,6 +408,8 @@ function PostCard({
   isRegistered: boolean;
   actingOn: string | null;
   onReact: (post: SocialPost, reaction: "like" | "repost") => void | Promise<void>;
+  requestDelete: (post: SocialPost) => Promise<boolean>;
+  onDeleted: () => void;
   onRepliesChanged: () => void;
   onMembershipNeeded: () => void;
   reply?: boolean;
@@ -421,6 +456,18 @@ function PostCard({
             {formatSocialTime(post.createdAt)}
           </time>
         </div>
+        {post.isMine ? (
+          <button
+            type="button"
+            onClick={async () => {
+              if (await requestDelete(post)) onDeleted();
+            }}
+            disabled={actingOn !== null}
+            className="min-h-9 rounded-lg border border-red-700/40 px-3 text-xs font-semibold text-red-700 disabled:opacity-50 dark:text-red-300"
+          >
+            {actingOn === `${post.id}:delete` ? "Siliniyor…" : "Sil"}
+          </button>
+        ) : null}
       </div>
 
       <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed">{post.body}</p>
@@ -514,6 +561,13 @@ function PostCard({
               onReact={async (target, reaction) => {
                 await onReact(target, reaction);
                 await loadReplies();
+              }}
+              requestDelete={requestDelete}
+              onDeleted={() => {
+                setReplies((current) =>
+                  current.filter((replyPost) => replyPost.id !== entry.id),
+                );
+                onRepliesChanged();
               }}
               onRepliesChanged={onRepliesChanged}
               onMembershipNeeded={onMembershipNeeded}

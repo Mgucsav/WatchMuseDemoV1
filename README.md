@@ -24,6 +24,8 @@ film topluluğudur.
 - Gönderilere tek seviyeli cevap yazılabilir.
 - Gönderiler ve cevaplar beğenilebilir veya repost edilebilir.
 - Repost edilen içerik yeniden ana akışın üstüne çıkar.
+- Kayıtlı kullanıcı kendi gönderisini veya cevabını silebilir. Ana gönderi
+  silindiğinde ona bağlı cevaplar, beğeniler ve repostlar da temizlenir.
 - Anonim ziyaretçiler akışı ve cevapları okuyabilir.
 - Paylaşma, cevaplama, beğenme ve repost yalnızca kalıcı hesaplara açıktır.
 - Üyelik kontrolü arayüzün yanında PostgreSQL fonksiyonlarında da uygulanır.

@@ -36,13 +36,21 @@ async function authenticatedClient() {
 
 export async function listSocialPosts(parentPostId: string | null): Promise<SocialPost[]> {
   const supabase = await authenticatedClient();
-  const { data, error } = await supabase.rpc("list_social_posts", {
+  const { data, error } = await supabase.rpc("list_social_posts_v2", {
     p_parent_post_id: parentPostId,
     p_limit: parentPostId ? 50 : 30,
   });
   if (error) fail(normalizeSocialError(error));
   if (!Array.isArray(data)) fail(socialError("unexpected"));
   return data.map(parsePost);
+}
+
+export async function deleteSocialPost(postId: string): Promise<void> {
+  const supabase = await authenticatedClient();
+  const { error } = await supabase.rpc("delete_social_post", {
+    p_post_id: postId,
+  });
+  if (error) fail(normalizeSocialError(error));
 }
 
 export async function createSocialPost(input: {
@@ -88,7 +96,8 @@ function parsePost(row: unknown): SocialPost {
     typeof record.reply_count !== "number" ||
     typeof record.repost_count !== "number" ||
     typeof record.liked_by_me !== "boolean" ||
-    typeof record.reposted_by_me !== "boolean"
+    typeof record.reposted_by_me !== "boolean" ||
+    typeof record.is_mine !== "boolean"
   ) {
     fail(socialError("unexpected"));
   }
@@ -120,6 +129,7 @@ function parsePost(row: unknown): SocialPost {
     repostCount: record.repost_count,
     likedByMe: record.liked_by_me,
     repostedByMe: record.reposted_by_me,
+    isMine: record.is_mine,
     latestReposterDisplayName:
       typeof record.latest_reposter_display_name === "string"
         ? record.latest_reposter_display_name
