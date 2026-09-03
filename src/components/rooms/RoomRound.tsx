@@ -5,10 +5,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { StatusMessage } from "@/components/StatusMessage";
 import { ApiError, fetchJson } from "@/lib/api/fetch-json";
+import {
+  SEARCH_DEBOUNCE_MS,
+  SEARCH_MAX_QUERY_LENGTH,
+  SEARCH_MIN_QUERY_LENGTH,
+} from "@/lib/constants";
 import type {
   RoomCandidate,
   RoomRound,
   RoomRoundState,
+  RoomSelectionMode,
   RoomSelection,
   RoomSubscriptions,
   RoomTelepartyResponse,
@@ -29,16 +35,17 @@ import {
   WAITING_POLL_INTERVAL_MS,
 } from "@/lib/rooms/polling-policy";
 import { ensureAnonymousSession } from "@/lib/supabase/browser";
-import type { MovieDetailsResult } from "@/lib/tmdb/types";
+import type {
+  MovieDetailsResult,
+  MovieSearchResult,
+  MovieSummary,
+} from "@/lib/tmdb/types";
 
 const SWIPE_DISTANCE_PX = 60;
 
 type ViewState =
   | { kind: "loading" }
-  | {
-      kind: "ready";
-      state: RoomRoundState & { round: RoomRound };
-    }
+  | { kind: "ready"; state: RoomRoundState }
   | { kind: "waiting-for-host" }
   | { kind: "error"; message: string };
 
@@ -53,6 +60,7 @@ export function RoomRound({
   isHost,
   canStartRound,
   sharedSubscriptions,
+  selectionMode,
 }: {
   spaceId: string;
   isHost: boolean;
@@ -62,6 +70,7 @@ export function RoomRound({
    */
   canStartRound: boolean;
   sharedSubscriptions: RoomSubscriptions;
+  selectionMode: RoomSelectionMode;
 }) {
   const [view, setView] = useState<ViewState>({ kind: "loading" });
   // Aksiyon hataları (kabul, yeni tur) bütün oda görünümünü DEĞİŞTİRMEZ;
@@ -99,25 +108,31 @@ export function RoomRound({
     // aynı anda gelen istekleri kilitlediği için çift başlangıç güvenlidir.
     // Ortak abonelik yokken hiç denenmez: sunucu zaten reddeder ve tekrarlanan
     // istek kullanıcıya anlamsız bir hata döngüsü gösterirdi.
-    if (!data.round && isHost && canStartRound) {
+    if (
+      selectionMode === "wheel" &&
+      !data.round &&
+      isHost &&
+      canStartRound
+    ) {
       data = await fetchJson<RoomRoundState>(`/api/rooms/${spaceId}/round`, signal, {
         method: "POST",
         body: {},
       });
     }
 
-    if (data.round) {
-      setView({ kind: "ready", state: { ...data, round: data.round } });
-    }
-    else setView({ kind: "waiting-for-host" });
+    if (data.round || selectionMode === "direct") {
+      setView({ kind: "ready", state: data });
+    } else setView({ kind: "waiting-for-host" });
     return data.round;
-  }, [canStartRound, isHost, spaceId]);
+  }, [canStartRound, isHost, selectionMode, spaceId]);
 
   const pollInterval =
     view.kind === "loading" || view.kind === "waiting-for-host"
       ? WAITING_POLL_INTERVAL_MS
       : view.kind === "ready"
-        ? pollingIntervalFor(view.state.round)
+        ? selectionMode === "direct"
+          ? WAITING_POLL_INTERVAL_MS
+          : pollingIntervalFor(view.state.round)
         : null;
 
   const shouldPollTeleparty =
@@ -262,7 +277,7 @@ export function RoomRound({
         { method: "POST", body: { selectionId } },
       );
       if (data.round) {
-        setView({ kind: "ready", state: { ...data, round: data.round } });
+        setView({ kind: "ready", state: data });
       }
       setActionError(null);
     } catch (error) {
@@ -323,6 +338,29 @@ export function RoomRound({
       />
     </>
   );
+
+  if (selectionMode === "direct") {
+    return (
+      <div className="space-y-4">
+        {pendingArea}
+        <DirectMovieSession
+          spaceId={spaceId}
+          isHost={isHost}
+          canStart={canStartRound}
+          onStarted={(data) => setView({ kind: "ready", state: data })}
+        />
+      </div>
+    );
+  }
+
+  if (!round) {
+    return (
+      <StatusMessage title="Film turu hazırlanıyor">
+        Oda sahibinin ortak aday listesini başlatması bekleniyor.
+      </StatusMessage>
+    );
+  }
+
   if (round.status === "voting") {
     const nextCandidate = round.candidates.find((candidate) => !round.myVotes[candidate.id]);
     if (nextCandidate) {
@@ -394,6 +432,197 @@ export function RoomRound({
   }
 
   return <div className="space-y-4">{pendingArea}<WheelStage round={round} /></div>;
+}
+
+function DirectMovieSession({
+  spaceId,
+  isHost,
+  canStart,
+  onStarted,
+}: {
+  spaceId: string;
+  isHost: boolean;
+  canStart: boolean;
+  onStarted: (state: RoomRoundState) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [search, setSearch] = useState<
+    | { kind: "idle" }
+    | { kind: "loading" }
+    | { kind: "ready"; result: MovieSearchResult }
+    | { kind: "error"; message: string }
+  >({ kind: "idle" });
+  const [startingMovieId, setStartingMovieId] = useState<number | null>(null);
+  const [startError, setStartError] = useState<string | null>(null);
+  const trimmedQuery = query.trim();
+
+  useEffect(() => {
+    if (!isHost || trimmedQuery.length < SEARCH_MIN_QUERY_LENGTH) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      void fetchJson<MovieSearchResult>(
+        `/api/movies/search?q=${encodeURIComponent(trimmedQuery)}`,
+        controller.signal,
+      )
+        .then((result) => setSearch({ kind: "ready", result }))
+        .catch((error: unknown) => {
+          if (controller.signal.aborted) return;
+          setSearch({
+            kind: "error",
+            message:
+              error instanceof ApiError
+                ? error.message
+                : "Film araması tamamlanamadı.",
+          });
+        });
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [isHost, trimmedQuery]);
+
+  async function start(movie: MovieSummary) {
+    if (startingMovieId !== null || !canStart) return;
+    setStartingMovieId(movie.id);
+    setStartError(null);
+    try {
+      const state = await fetchJson<RoomRoundState>(
+        `/api/rooms/${spaceId}/direct-selection`,
+        undefined,
+        { method: "POST", body: { tmdbMovieId: movie.id } },
+      );
+      onStarted(state);
+      setQuery("");
+      setSearch({ kind: "idle" });
+    } catch (error) {
+      setStartError(
+        error instanceof ApiError
+          ? error.message
+          : "Film oturumu başlatılamadı.",
+      );
+    } finally {
+      setStartingMovieId(null);
+    }
+  }
+
+  if (!isHost) {
+    return (
+      <StatusMessage title="Belirlenmiş film oturumu">
+        Oda sahibi izlenecek filmi arayıp seçtiğinde burada otomatik görünecek.
+      </StatusMessage>
+    );
+  }
+
+  return (
+    <section className="rounded-xl border border-black/10 p-4 dark:border-white/15">
+      <h2 className="font-semibold">Film oturumu başlat</h2>
+      <p className="mt-1 text-sm text-black/65 dark:text-white/65">
+        İzlemek istediğiniz filmi arayın. Film, odadaki herkesin ortak aboneliklerinden
+        en az birinde bulunmalıdır.
+      </p>
+
+      <label className="mt-4 block text-sm font-medium">
+        Film adı
+        <input
+          type="search"
+          autoComplete="off"
+          maxLength={SEARCH_MAX_QUERY_LENGTH}
+          value={query}
+          onChange={(event) => {
+            const nextQuery = event.target.value;
+            setQuery(nextQuery);
+            setStartError(null);
+            setSearch(
+              nextQuery.trim().length < SEARCH_MIN_QUERY_LENGTH
+                ? { kind: "idle" }
+                : { kind: "loading" },
+            );
+          }}
+          disabled={!canStart || startingMovieId !== null}
+          placeholder="Örn: Interstellar"
+          className="mt-1 min-h-11 w-full rounded-lg border border-black/20 bg-transparent px-3 py-2 text-base dark:border-white/25"
+        />
+      </label>
+
+      {!canStart ? (
+        <p className="mt-2 text-xs text-black/60 dark:text-white/60">
+          Film oturumu için ortak bir abonelik gerekiyor.
+        </p>
+      ) : trimmedQuery.length > 0 && trimmedQuery.length < SEARCH_MIN_QUERY_LENGTH ? (
+        <p className="mt-2 text-xs text-black/60 dark:text-white/60">
+          Arama için en az {SEARCH_MIN_QUERY_LENGTH} karakter yazın.
+        </p>
+      ) : null}
+
+      {search.kind === "loading" ? (
+        <p role="status" className="mt-3 text-sm text-black/60 dark:text-white/60">
+          Aranıyor…
+        </p>
+      ) : null}
+
+      {search.kind === "error" ? (
+        <div className="mt-3">
+          <StatusMessage tone="error">{search.message}</StatusMessage>
+        </div>
+      ) : null}
+
+      {search.kind === "ready" && search.result.results.length === 0 ? (
+        <p className="mt-3 text-sm text-black/60 dark:text-white/60">
+          “{search.result.query}” için film bulunamadı.
+        </p>
+      ) : null}
+
+      {search.kind === "ready" && search.result.results.length > 0 ? (
+        <div className="mt-4 grid gap-2">
+          {search.result.results.slice(0, 8).map((movie) => (
+            <article
+              key={movie.id}
+              className="flex items-center gap-3 rounded-lg border border-black/10 p-2 dark:border-white/15"
+            >
+              {movie.posterUrl ? (
+                <Image
+                  src={movie.posterUrl}
+                  alt={`${movie.title} afişi`}
+                  width={44}
+                  height={66}
+                  className="h-[66px] w-11 shrink-0 rounded object-cover"
+                />
+              ) : (
+                <div className="grid h-[66px] w-11 shrink-0 place-items-center rounded bg-black/10 text-[10px] dark:bg-white/10">
+                  Afiş yok
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium">{movie.title}</p>
+                <p className="text-xs text-black/60 dark:text-white/60">
+                  {movie.releaseYear ?? "Yıl bilinmiyor"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void start(movie)}
+                disabled={startingMovieId !== null}
+                className="min-h-10 rounded-md bg-black px-3 text-xs font-semibold text-white disabled:opacity-60 dark:bg-white dark:text-black"
+              >
+                {startingMovieId === movie.id ? "Başlatılıyor…" : "Bu filmi seç"}
+              </button>
+            </article>
+          ))}
+        </div>
+      ) : null}
+
+      {startError ? (
+        <div className="mt-3">
+          <StatusMessage tone="error">{startError}</StatusMessage>
+        </div>
+      ) : null}
+    </section>
+  );
 }
 
 function PendingSelectionArea({

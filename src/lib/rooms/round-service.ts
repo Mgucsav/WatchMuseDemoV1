@@ -1,7 +1,7 @@
 import "server-only";
 
 import { toPosterUrl } from "@/lib/tmdb/normalize";
-import type { MovieSummary } from "@/lib/tmdb/types";
+import type { MovieDetails, MovieSummary, TargetProviderKey } from "@/lib/tmdb/types";
 import {
   SupabaseAdminNotConfiguredError,
   createSupabaseAdminClient,
@@ -142,6 +142,46 @@ export async function startNextRoomRound(
   if (error) throw new RoomServiceError(normalizeRoomError(error));
 }
 
+/**
+ * Belirlenmiş-film odasında hostun doğrulanmış TMDb filmini doğrudan oda
+ * seçimi olarak başlatır. Kalıcılaştırma yalnız service-role RPC'sindedir;
+ * tarayıcı film künyesini veya sağlayıcı kümesini dayatamaz.
+ */
+export async function startDirectRoomSelection(
+  spaceId: string,
+  movie: MovieDetails,
+  providerKeys: TargetProviderKey[],
+): Promise<void> {
+  if (providerKeys.length === 0) fail("movie_not_on_shared_provider");
+
+  const actorId = await requireSpaceMember(spaceId);
+
+  let admin;
+  try {
+    admin = createSupabaseAdminClient();
+  } catch (error) {
+    if (error instanceof SupabaseAdminNotConfiguredError) fail("not_configured");
+    throw error;
+  }
+
+  const { error } = await admin.rpc("start_direct_space_selection", {
+    p_space_id: spaceId,
+    p_actor_id: actorId,
+    p_movie: {
+      tmdbMovieId: movie.id,
+      title: movie.title,
+      originalTitle: movie.originalTitle,
+      posterPath: movie.posterPath,
+      overview: movie.overview,
+      releaseYear: movie.releaseYear,
+      voteAverage: movie.voteAverage,
+    },
+    p_provider_keys: providerKeys,
+  });
+
+  if (error) throw new RoomServiceError(normalizeRoomError(error));
+}
+
 export async function acceptRoomSelection(
   spaceId: string,
   selectionId: string,
@@ -268,7 +308,7 @@ export function parseRoomRoundState(value: unknown): RoomRoundState {
     typeof status !== "string" ||
     !ROUND_STATUSES.includes(status as RoomRoundStatus) ||
     typeof candidateCount !== "number" ||
-    candidateCount !== 10 ||
+    (candidateCount !== 1 && candidateCount !== 10) ||
     typeof myVoteCount !== "number" ||
     !Number.isInteger(myVoteCount) ||
     myVoteCount < 0 ||

@@ -64,11 +64,18 @@ film topluluğudur.
 - Oda katılımcıları kendi aralarında mesajlaşabilir.
 - Sohbet beş mesajlık sabit görünüm ve dahili kaydırma kullanır.
 - `Enter` mesajı gönderir, `Shift + Enter` yeni satır açar.
+- Oda oluştururken `Rastgele seçim (çark)` veya `Belirlenmiş film oturumu`
+  yöntemi seçilir ve bu tercih oda boyunca korunur.
 - Film adayları bütün katılımcıların ortak aboneliklerinden üretilir.
 - Her katılımcının `Geç`, `Belki` ve `İsterim` oyu gizlidir.
 - Herkes tamamladığında ortak adaylar açılır.
 - Çark kazananı sunucuda bir kez belirlenir ve bütün ekranlarda aynı sonuç
   gösterilir.
+- Belirlenmiş film odasında host TMDb kataloğundan filmi arayıp doğrudan oturum
+  başlatır. Film, bütün katılımcıların ortak aboneliklerinden en az birinde
+  bulunmalıdır.
+- Doğrudan seçilen film de mevcut hazır olma, kişisel kütüphane ve Teleparty
+  akışını kullanır.
 
 ### Teleparty köprüsü
 

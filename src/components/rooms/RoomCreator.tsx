@@ -8,7 +8,7 @@ import { SubscriptionPicker } from "@/components/rooms/SubscriptionPicker";
 import { ApiError, fetchJson } from "@/lib/api/fetch-json";
 import { ensureAnonymousSession } from "@/lib/supabase/browser";
 import type { CreateRoomResult } from "@/lib/rooms/types";
-import type { RoomVisibility } from "@/lib/rooms/types";
+import type { RoomSelectionMode, RoomVisibility } from "@/lib/rooms/types";
 import type { TargetProviderKey } from "@/lib/tmdb/types";
 
 type State =
@@ -28,6 +28,7 @@ export function RoomCreator({ canCreatePublic }: { canCreatePublic: boolean }) {
   const [subscriptions, setSubscriptions] = useState<TargetProviderKey[]>([]);
   const [name, setName] = useState("Film gecesi");
   const [visibility, setVisibility] = useState<RoomVisibility>("private");
+  const [selectionMode, setSelectionMode] = useState<RoomSelectionMode>("wheel");
   const [capacity, setCapacity] = useState(2);
   const [password, setPassword] = useState("");
 
@@ -52,6 +53,7 @@ export function RoomCreator({ canCreatePublic }: { canCreatePublic: boolean }) {
           subscriptions,
           name,
           visibility,
+          selectionMode,
           capacity,
           ...(visibility === "private" ? { password } : {}),
         },
@@ -104,6 +106,39 @@ export function RoomCreator({ canCreatePublic }: { canCreatePublic: boolean }) {
                     {option === "private"
                       ? "Odalar listesinde görünür; şifreyi bilenler anonim olarak da katılabilir."
                       : "Keşfet bölümünde görünür; yalnız kayıtlı üyeler katılabilir."}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          <fieldset className="rounded-xl border border-black/10 p-3 dark:border-white/15">
+            <legend className="px-1 text-sm font-semibold">Film seçme yöntemi</legend>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              {(["wheel", "direct"] as const).map((option) => (
+                <label
+                  key={option}
+                  className={`cursor-pointer rounded-lg border p-3 text-sm ${
+                    selectionMode === option
+                      ? "border-black bg-black/[0.04] dark:border-white dark:bg-white/10"
+                      : "border-black/15 dark:border-white/20"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="room-selection-mode"
+                    value={option}
+                    checked={selectionMode === option}
+                    onChange={() => setSelectionMode(option)}
+                    className="mr-2"
+                  />
+                  <span className="font-semibold">
+                    {option === "wheel" ? "Rastgele seçim (çark)" : "Belirlenmiş film oturumu"}
+                  </span>
+                  <span className="mt-1 block text-xs text-black/60 dark:text-white/60">
+                    {option === "wheel"
+                      ? "Katılımcılar filmleri gizlice oylar; ortak seçenekler arasından çark karar verir."
+                      : "Oda sahibi istediği filmi arayıp seçer; katılımcılar hazır olduklarını onaylar."}
                   </span>
                 </label>
               ))}
@@ -212,7 +247,7 @@ export function RoomCreator({ canCreatePublic }: { canCreatePublic: boolean }) {
 
           <p className="text-sm text-black/70 dark:text-white/70">
             {state.room.name} · {state.room.visibility === "public" ? "Public" : "Private"} ·{" "}
-            {state.room.capacity} kişi
+            {state.room.capacity} kişi · {state.room.selectionMode === "wheel" ? "Çark" : "Belirlenmiş film"}
           </p>
 
           <p className="text-xs text-black/60 dark:text-white/60">

@@ -8,6 +8,7 @@ import type {
   RoomChatMessage,
   RoomState,
   RoomSubscriptions,
+  RoomSelectionMode,
   RoomVisibility,
 } from "./types";
 import { roomError } from "./errors";
@@ -35,6 +36,7 @@ interface LocalSpace {
   id: string;
   name: string;
   visibility: RoomVisibility;
+  selectionMode: RoomSelectionMode;
   capacity: number;
   status: "active" | "closed";
   createdBy: string;
@@ -65,6 +67,7 @@ export async function createRoomLocal(
   options: {
     name: string;
     visibility: RoomVisibility;
+    selectionMode: RoomSelectionMode;
     capacity: number;
     isRegistered: boolean;
     passwordHash: string | null;
@@ -81,6 +84,7 @@ export async function createRoomLocal(
     id: spaceId,
     name: options.name,
     visibility: options.visibility,
+    selectionMode: options.selectionMode,
     capacity: options.capacity,
     status: "active",
     createdBy: userId,
@@ -116,6 +120,7 @@ export async function createRoomLocal(
     spaceId,
     name: space.name,
     visibility: space.visibility,
+    selectionMode: space.selectionMode,
     capacity: space.capacity,
     inviteUrl,
     invitationExpiresAt: invitation.expiresAt,
@@ -186,6 +191,7 @@ export async function getRoomStateLocal(spaceId: string, userId: string): Promis
     spaceId: space.id,
     name: space.name,
     visibility: space.visibility,
+    selectionMode: space.selectionMode,
     capacity: space.capacity,
     status: space.status,
     participantCount,
@@ -215,6 +221,7 @@ export function listPublicRoomsLocal(): PublicRoomSummary[] {
       spaceId: space.id,
       name: space.name,
       visibility: space.visibility,
+      selectionMode: space.selectionMode,
       capacity: space.capacity,
       participantCount: space.participants.length,
       hostDisplayName:

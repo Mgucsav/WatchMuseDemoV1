@@ -54,6 +54,9 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
     // Ortak abonelik yoksa TMDb'ye hiç gidilmez: filtresiz bir öneri üretmek,
     // kullanıcının izleyemeyeceği filmleri önermek olurdu.
     const room = await getRoomState(spaceId);
+    if (room.selectionMode !== "wheel") {
+      throw new RoomServiceError(roomError("selection_mode_mismatch"));
+    }
     if (room.sharedSubscriptions.length === 0) {
       throw new RoomServiceError(roomError("no_shared_subscriptions"));
     }
@@ -79,6 +82,7 @@ function roomErrorResponse(error: unknown): Response {
         : normalized.code === "invalid_invitation"
           ? 404
           : normalized.code === "no_shared_subscriptions" ||
+              normalized.code === "selection_mode_mismatch" ||
               normalized.code.startsWith("round_")
             ? 409
             : 400;

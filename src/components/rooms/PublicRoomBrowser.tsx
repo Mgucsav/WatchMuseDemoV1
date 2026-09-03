@@ -179,6 +179,9 @@ export function PublicRoomBrowser({ canJoinPublic }: { canJoinPublic: boolean })
                     <span className="rounded-full border border-black/20 px-2 py-0.5 text-[10px] font-semibold uppercase dark:border-white/25">
                       {room.visibility}
                     </span>
+                    <span className="rounded-full border border-black/20 px-2 py-0.5 text-[10px] font-semibold dark:border-white/25">
+                      {room.selectionMode === "wheel" ? "Çark" : "Belirlenmiş film"}
+                    </span>
                   </div>
                   <p className="mt-1 text-sm text-black/60 dark:text-white/60">
                     {room.hostDisplayName} · {room.participantCount}/{room.capacity} kişi

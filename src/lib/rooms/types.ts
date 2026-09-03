@@ -12,6 +12,7 @@ import type { TargetProviderKey } from "@/lib/tmdb/types";
 
 export type ParticipantRole = "host" | "guest";
 export type RoomVisibility = "private" | "public";
+export type RoomSelectionMode = "wheel" | "direct";
 
 /**
  * Bir katılımcının sahip olduğu abonelik platformları.
@@ -27,6 +28,7 @@ export interface CreateRoomResult {
   spaceId: string;
   name: string;
   visibility: RoomVisibility;
+  selectionMode: RoomSelectionMode;
   capacity: number;
   /** Tam davet bağlantısı. Kullanıcıya bir kez gösterilir; saklanmaz. */
   inviteUrl: string;
@@ -47,6 +49,7 @@ export interface PublicRoomSummary {
   spaceId: string;
   name: string;
   visibility: RoomVisibility;
+  selectionMode: RoomSelectionMode;
   capacity: number;
   participantCount: number;
   hostDisplayName: string;
@@ -78,6 +81,7 @@ export interface RoomState {
   spaceId: string;
   name: string;
   visibility: RoomVisibility;
+  selectionMode: RoomSelectionMode;
   capacity: number;
   status: SpaceStatus;
   participantCount: number;

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   isRoomUuid,
+  isRoomSelectionMode,
   isRoomVisibility,
   isRoomVoteChoice,
   normalizeRoomCapacity,
@@ -35,6 +36,13 @@ describe("room route input validation", () => {
     expect(normalizeRoomCapacity(21)).toBeNull();
     expect(normalizeRoomName("  Cuma   gecesi ")).toBe("Cuma gecesi");
     expect(normalizeRoomName(" ")).toBeNull();
+  });
+
+  it("yalnızca desteklenen film seçme yöntemlerini kabul eder", () => {
+    expect(isRoomSelectionMode("wheel")).toBe(true);
+    expect(isRoomSelectionMode("direct")).toBe(true);
+    expect(isRoomSelectionMode("random")).toBe(false);
+    expect(isRoomSelectionMode(null)).toBe(false);
   });
 
   it("private oda şifresini 6-64 karakter ve kontrol karaktersiz sınırlar", () => {

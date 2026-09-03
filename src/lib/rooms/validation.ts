@@ -1,4 +1,4 @@
-import type { RoomVisibility, RoomVoteChoice } from "./types";
+import type { RoomSelectionMode, RoomVisibility, RoomVoteChoice } from "./types";
 
 export const MIN_ROOM_CAPACITY = 2;
 export const MAX_ROOM_CAPACITY = 20;
@@ -20,6 +20,10 @@ export function isRoomVoteChoice(value: unknown): value is RoomVoteChoice {
 
 export function isRoomVisibility(value: unknown): value is RoomVisibility {
   return value === "private" || value === "public";
+}
+
+export function isRoomSelectionMode(value: unknown): value is RoomSelectionMode {
+  return value === "wheel" || value === "direct";
 }
 
 export function normalizeRoomCapacity(value: unknown): number | null {

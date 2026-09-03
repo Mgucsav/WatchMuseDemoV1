@@ -11,6 +11,7 @@ import { normalizeRoomError, roomError } from "@/lib/rooms/errors";
 import { normalizeSubscriptionSelection } from "@/lib/rooms/subscriptions";
 import {
   isRecord,
+  isRoomSelectionMode,
   isRoomVisibility,
   normalizeRoomCapacity,
   normalizeRoomName,
@@ -56,13 +57,19 @@ export async function POST(request: NextRequest): Promise<Response> {
   const record = isRecord(body) ? body : {};
   const visibility = record.visibility ?? "private";
   const capacity = normalizeRoomCapacity(record.capacity ?? 2);
+  const selectionMode = record.selectionMode ?? "wheel";
   const name = normalizeRoomName(
     record.name ??
       (visibility === "public" ? "Public karar odası" : "Özel karar odası"),
   );
   const password =
     visibility === "private" ? normalizeRoomPassword(record.password) : null;
-  if (!isRoomVisibility(visibility) || capacity === null || name === null) {
+  if (
+    !isRoomVisibility(visibility) ||
+    !isRoomSelectionMode(selectionMode) ||
+    capacity === null ||
+    name === null
+  ) {
     const { code, message } = roomError("unexpected");
     return errorResponse(code, message, 400);
   }
@@ -80,7 +87,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     const result = await createRoom(
       baseUrl,
       subscriptions,
-      { name, visibility, capacity, password },
+      { name, visibility, selectionMode, capacity, password },
       localUserId ?? undefined,
     );
     return Response.json(result, { status: 201 });

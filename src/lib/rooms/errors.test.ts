@@ -10,6 +10,8 @@ const DATABASE_CONTRACT: readonly RoomErrorCode[] = [
   "room_full",
   "host_cannot_join",
   "room_closed",
+  "selection_mode_mismatch",
+  "movie_not_on_shared_provider",
   "round_not_ready",
   "round_closed_for_votes",
   "invalid_round_candidate",

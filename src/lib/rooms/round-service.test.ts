@@ -45,6 +45,25 @@ describe("room state privacy parser", () => {
     expect(new Set(parsed.round?.candidates.map((entry) => entry.tmdbMovieId)).size).toBe(10);
   });
 
+  it("belirlenmiş film oturumu için tek adaylı sonuç turunu kabul eder", () => {
+    const selected = candidate(42, 1);
+    const base = validState();
+    const state = {
+      ...base,
+      round: {
+        ...base.round,
+        status: "result",
+        candidateCount: 1,
+        candidates: [selected],
+        matchedCandidates: [selected],
+        winnerCandidate: selected,
+        spinStartedAt: "2026-09-03T12:00:00.000Z",
+      },
+    };
+
+    expect(parseRoomRoundState(state).round?.candidateCount).toBe(1);
+  });
+
   it("tekrarlanan TMDb kimliğini reddeder", () => {
     const state = validState();
     state.round.candidates[1].tmdbMovieId = state.round.candidates[0].tmdbMovieId;

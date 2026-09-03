@@ -159,6 +159,9 @@ export function RoomWaiting({ spaceId }: { spaceId: string }) {
           <span className="rounded-full border border-black/20 px-3 py-1 text-xs font-semibold uppercase dark:border-white/25">
             {room.visibility}
           </span>
+          <span className="rounded-full border border-black/20 px-3 py-1 text-xs font-semibold dark:border-white/25">
+            {room.selectionMode === "wheel" ? "Çark" : "Belirlenmiş film"}
+          </span>
           {room.status === "active" ? (
             <button
               type="button"
@@ -208,7 +211,9 @@ export function RoomWaiting({ spaceId }: { spaceId: string }) {
       <div className="border-t border-black/10 pt-3 dark:border-white/15">
         {room.enoughParticipants ? (
           <p className="text-sm font-semibold">
-            Oda film seçimine hazır. Yeni katılımcılar tur başlamadan katılabilir.
+            {room.selectionMode === "wheel"
+              ? "Oda film seçimine hazır. Yeni katılımcılar tur başlamadan katılabilir."
+              : "Oda film oturumuna hazır. Oda sahibi izlenecek filmi belirleyebilir."}
           </p>
         ) : (
           <p className="text-sm text-black/70 dark:text-white/70">
@@ -238,6 +243,7 @@ export function RoomWaiting({ spaceId }: { spaceId: string }) {
           isHost={room.myRole === "host"}
           canStartRound={room.sharedSubscriptions.length > 0}
           sharedSubscriptions={room.sharedSubscriptions}
+          selectionMode={room.selectionMode}
         />
       ) : null}
 

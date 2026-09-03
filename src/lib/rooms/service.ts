@@ -40,6 +40,7 @@ import type {
   RoomChatMessage,
   RoomState,
   RoomSubscriptions,
+  RoomSelectionMode,
   RoomVisibility,
 } from "./types";
 
@@ -78,6 +79,7 @@ export async function createRoom(
   options: {
     name: string;
     visibility: RoomVisibility;
+    selectionMode: RoomSelectionMode;
     capacity: number;
     password: string | null;
   },
@@ -118,6 +120,7 @@ export async function createRoom(
     p_token_hash: tokenHash,
     p_subscriptions: subscriptions,
     p_visibility: options.visibility,
+    p_selection_mode: options.selectionMode,
     p_name: options.name,
     p_capacity: options.capacity,
     p_password_hash: passwordHash,
@@ -139,6 +142,7 @@ export async function createRoom(
     spaceId: data,
     name: options.name,
     visibility: options.visibility,
+    selectionMode: options.selectionMode,
     capacity: options.capacity,
     inviteUrl,
     invitationExpiresAt,
@@ -166,6 +170,7 @@ export async function listPublicRooms(): Promise<PublicRoomSummary[]> {
       typeof record.space_id !== "string" ||
       typeof record.name !== "string" ||
       (record.visibility !== "private" && record.visibility !== "public") ||
+      (record.selection_mode !== "wheel" && record.selection_mode !== "direct") ||
       typeof record.capacity !== "number" ||
       typeof record.participant_count !== "number" ||
       typeof record.host_display_name !== "string" ||
@@ -177,6 +182,7 @@ export async function listPublicRooms(): Promise<PublicRoomSummary[]> {
       spaceId: record.space_id,
       name: record.name,
       visibility: record.visibility,
+      selectionMode: record.selection_mode,
       capacity: record.capacity,
       participantCount: record.participant_count,
       hostDisplayName: record.host_display_name,
@@ -490,7 +496,7 @@ export async function getRoomState(
 
   const { data: space, error: spaceError } = await supabase
     .from("spaces")
-    .select("id, name, visibility, capacity, status")
+    .select("id, name, visibility, selection_mode, capacity, status")
     .eq("id", spaceId)
     .maybeSingle();
 
@@ -512,6 +518,7 @@ export async function getRoomState(
 
   const status = space.status === "closed" ? "closed" : "active";
   const visibility = space.visibility === "public" ? "public" : "private";
+  const selectionMode = space.selection_mode === "direct" ? "direct" : "wheel";
   const myRole = mine.role === "host" ? "host" : "guest";
   const mySubscriptions = parseStoredSubscriptions(mine.subscriptions);
   const participantSubscriptions = rows.map((participant) =>
@@ -522,6 +529,7 @@ export async function getRoomState(
     spaceId,
     name: typeof space.name === "string" ? space.name : "Karar odası",
     visibility,
+    selectionMode,
     capacity:
       typeof space.capacity === "number" && Number.isInteger(space.capacity)
         ? space.capacity

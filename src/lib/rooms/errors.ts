@@ -19,6 +19,8 @@ export type RoomErrorCode =
   | "subscriptions_required"
   | "invalid_subscriptions"
   | "no_shared_subscriptions"
+  | "selection_mode_mismatch"
+  | "movie_not_on_shared_provider"
   | "round_not_ready"
   | "round_closed_for_votes"
   | "invalid_round_candidate"
@@ -67,6 +69,10 @@ const MESSAGES: Record<RoomErrorCode, string> = {
     "Abonelik seçimi geçersiz. Listedeki platformlardan en az birini seçin.",
   no_shared_subscriptions:
     "Katılımcıların ortak aboneliği yok. Öneriler yalnızca herkeste olan platformlardan gelir.",
+  selection_mode_mismatch:
+    "Bu işlem odanın film seçme yöntemiyle uyumlu değil.",
+  movie_not_on_shared_provider:
+    "Bu film katılımcıların ortak abonelik platformlarında bulunmuyor.",
   round_not_ready: "Seçim turu henüz hazır değil.",
   round_closed_for_votes: "Bu turun seçimleri artık değiştirilemez.",
   invalid_round_candidate: "Seçilen film bu odaya ait değil.",
@@ -113,6 +119,8 @@ const DATABASE_ERROR_CODES: readonly RoomErrorCode[] = [
   "subscriptions_required",
   "invalid_subscriptions",
   "no_shared_subscriptions",
+  "selection_mode_mismatch",
+  "movie_not_on_shared_provider",
   "round_not_ready",
   "round_closed_for_votes",
   "invalid_round_candidate",
