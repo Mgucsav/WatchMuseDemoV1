@@ -6,6 +6,7 @@ import { useState } from "react";
 import { StatusMessage } from "@/components/StatusMessage";
 import { SubscriptionPicker } from "@/components/rooms/SubscriptionPicker";
 import { ApiError, fetchJson } from "@/lib/api/fetch-json";
+import { requiresRegisteredRoomAccount } from "@/lib/rooms/access-policy";
 import { ensureAnonymousSession } from "@/lib/supabase/browser";
 import type { CreateRoomResult } from "@/lib/rooms/types";
 import type { RoomSelectionMode, RoomVisibility } from "@/lib/rooms/types";
@@ -38,7 +39,7 @@ export function RoomCreator({ canCreatePublic }: { canCreatePublic: boolean }) {
       subscriptions.length === 0 ||
       name.trim() === "" ||
       (visibility === "private" && password.length < 6) ||
-      (visibility === "public" && !canCreatePublic)
+      (requiresRegisteredRoomAccount(visibility) && !canCreatePublic)
     ) return;
 
     setState({ status: "creating" });
@@ -194,7 +195,7 @@ export function RoomCreator({ canCreatePublic }: { canCreatePublic: boolean }) {
             </label>
           ) : null}
 
-          {visibility === "public" && !canCreatePublic ? (
+          {requiresRegisteredRoomAccount(visibility) && !canCreatePublic ? (
             <StatusMessage tone="warning" title="Public oda için üyelik gerekli">
               Anonim verileriniz kaybolmadan hesabınızı kaydedebilirsiniz.{" "}
               <Link href="/hesabini-kaydet?next=/rooms" className="font-semibold underline">
@@ -220,7 +221,7 @@ export function RoomCreator({ canCreatePublic }: { canCreatePublic: boolean }) {
               subscriptions.length === 0 ||
               name.trim() === "" ||
               (visibility === "private" && password.length < 6) ||
-              (visibility === "public" && !canCreatePublic)
+              (requiresRegisteredRoomAccount(visibility) && !canCreatePublic)
             }
             className="min-h-11 rounded-lg border border-black/20 px-4 py-2 text-sm font-medium transition-colors hover:bg-black/[0.04] disabled:opacity-60 dark:border-white/25 dark:hover:bg-white/10"
           >

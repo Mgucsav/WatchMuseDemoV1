@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { StatusMessage } from "@/components/StatusMessage";
 import { SubscriptionPicker } from "@/components/rooms/SubscriptionPicker";
 import { ApiError, fetchJson } from "@/lib/api/fetch-json";
+import { requiresRegisteredRoomAccount } from "@/lib/rooms/access-policy";
 import { isSubscriptionKey } from "@/lib/rooms/subscriptions";
 import type { JoinRoomResult, PublicRoomSummary } from "@/lib/rooms/types";
 import { ensureAnonymousSession } from "@/lib/supabase/browser";
@@ -70,7 +71,12 @@ export function PublicRoomBrowser({ canJoinPublic }: { canJoinPublic: boolean })
   }
 
   function handleJoinIntent(room: PublicRoomSummary) {
-    if (joiningId || (room.visibility === "public" && !canJoinPublic)) return;
+    if (
+      joiningId ||
+      (requiresRegisteredRoomAccount(room.visibility) && !canJoinPublic)
+    ) {
+      return;
+    }
     const saved = readSavedSubscriptions();
     setSubscriptions(saved);
     setPassword("");
@@ -91,7 +97,7 @@ export function PublicRoomBrowser({ canJoinPublic }: { canJoinPublic: boolean })
     if (
       selectedSubscriptions.length === 0 ||
       joiningId ||
-      (room.visibility === "public" && !canJoinPublic) ||
+      (requiresRegisteredRoomAccount(room.visibility) && !canJoinPublic) ||
       (room.visibility === "private" && (!roomPassword || roomPassword.length < 6))
     ) {
       return;
@@ -141,16 +147,6 @@ export function PublicRoomBrowser({ canJoinPublic }: { canJoinPublic: boolean })
         </button>
       </div>
 
-      {!canJoinPublic ? (
-        <StatusMessage tone="warning" title="Public odalar için üyelik gerekli">
-          Private odalara anonim olarak katılabilirsiniz. Public odalar için anonim
-          hesabınızı kaydedin.{" "}
-          <Link href="/hesabini-kaydet?next=/rooms" className="font-semibold underline">
-            Hesabımı kaydet
-          </Link>
-        </StatusMessage>
-      ) : null}
-
       {error ? (
         <StatusMessage tone="error" title="İşlem tamamlanamadı">
           {error}
@@ -165,7 +161,8 @@ export function PublicRoomBrowser({ canJoinPublic }: { canJoinPublic: boolean })
 
       <div className="grid gap-3">
         {rooms.map((room) => {
-          const needsPublicAccount = room.visibility === "public" && !canJoinPublic;
+          const needsPublicAccount =
+            requiresRegisteredRoomAccount(room.visibility) && !canJoinPublic;
           const isChoosing = choosingForId === room.spaceId;
           return (
             <article
@@ -186,6 +183,11 @@ export function PublicRoomBrowser({ canJoinPublic }: { canJoinPublic: boolean })
                   <p className="mt-1 text-sm text-black/60 dark:text-white/60">
                     {room.hostDisplayName} · {room.participantCount}/{room.capacity} kişi
                   </p>
+                  {room.visibility === "private" ? (
+                    <p className="mt-1 text-xs text-black/55 dark:text-white/55">
+                      Üyelik gerekmez · oda şifresiyle katılır
+                    </p>
+                  ) : null}
                 </div>
                 {needsPublicAccount ? (
                   <Link
@@ -201,7 +203,11 @@ export function PublicRoomBrowser({ canJoinPublic }: { canJoinPublic: boolean })
                     disabled={joiningId !== null || room.participantCount >= room.capacity}
                     className="min-h-11 rounded-lg bg-black px-5 py-2 text-sm font-semibold text-white disabled:opacity-50 dark:bg-white dark:text-black"
                   >
-                    {joiningId === room.spaceId ? "Katılıyor…" : "Katıl"}
+                    {joiningId === room.spaceId
+                      ? "Katılıyor…"
+                      : room.visibility === "private"
+                        ? "Şifreyle katıl"
+                        : "Katıl"}
                   </button>
                 )}
               </div>
