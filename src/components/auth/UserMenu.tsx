@@ -32,9 +32,13 @@ export async function UserMenu() {
 
   return (
     <>
-      <span className="max-w-[12rem] truncate" title={label}>
-        {label}
-      </span>
+      <Link href="/hesabim" className="flex max-w-[12rem] items-center gap-2 truncate underline-offset-4 hover:underline" title={label}>
+        {actor.avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={actor.avatarUrl} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover" />
+        ) : null}
+        <span className="truncate">{label}</span>
+      </Link>
       <form action={signOutAction}>
         <button
           type="submit"

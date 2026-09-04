@@ -34,6 +34,7 @@ export interface CurrentActor {
   isAnonymous: boolean;
   email: string | null;
   displayName: string | null;
+  avatarUrl: string | null;
   emailConfirmed: boolean;
 }
 
@@ -58,7 +59,7 @@ export const getCurrentActor = cache(async (): Promise<CurrentActor | null> => {
   // Profil adı ayrı tabloda; RLS gereği yalnızca kendi satırı okunabilir.
   const { data: profile } = await supabase
     .from("profiles")
-    .select("display_name")
+    .select("display_name, avatar_path")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -66,12 +67,21 @@ export const getCurrentActor = cache(async (): Promise<CurrentActor | null> => {
     typeof profile?.display_name === "string" && profile.display_name.trim() !== ""
       ? profile.display_name.trim()
       : null;
+  const avatarPath =
+    typeof profile?.avatar_path === "string" && profile.avatar_path !== ""
+      ? profile.avatar_path
+      : null;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "");
 
   return {
     id: user.id,
     isAnonymous: user.is_anonymous === true,
     email: user.email ?? null,
     displayName,
+    avatarUrl:
+      avatarPath && supabaseUrl
+        ? `${supabaseUrl}/storage/v1/object/public/profile-avatars/${avatarPath}`
+        : null,
     emailConfirmed: Boolean(user.email_confirmed_at),
   };
 });

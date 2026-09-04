@@ -14,6 +14,7 @@ film topluluğudur.
 | Film arama | [/ara](https://watch-muse-demo-v1.vercel.app/ara) |
 | Kişisel kütüphane | [/kutuphanem](https://watch-muse-demo-v1.vercel.app/kutuphanem) |
 | Film karar odaları | [/rooms](https://watch-muse-demo-v1.vercel.app/rooms) |
+| Hesap ve mesajlar | [/hesabim](https://watch-muse-demo-v1.vercel.app/hesabim) |
 
 ## Güncel özellikler
 
@@ -23,6 +24,18 @@ film topluluğudur.
 - Gönderiye TMDb aramasıyla film ve afiş eklenebilir.
 - Gönderilere tek seviyeli cevap yazılabilir.
 - Gönderiler ve cevaplar beğenilebilir veya repost edilebilir.
+
+### Sosyal hesaplar
+
+- Her kayıtlı üye benzersiz bir kullanıcı adı, görünen ad ve 300 karakterlik
+  profil açıklaması belirleyebilir.
+- JPG, PNG veya WebP profil fotoğrafları en fazla 5 MB olacak şekilde Supabase
+  Storage'a yüklenir.
+- Üyeler kullanıcı adı veya görünen adla birbirini arayabilir; arkadaşlık isteği
+  gönderebilir, kabul/reddedebilir ve bağlantıyı kaldırabilir.
+- Özel mesajlar sohbet geçmişi ve okunmamış mesaj sayısıyla birlikte gösterilir.
+- DM gizliliği `Herkes`, `Yalnızca arkadaşlarım` veya `Hiç kimse` olarak
+  kişiselleştirilebilir.
 - Repost edilen içerik yeniden ana akışın üstüne çıkar.
 - Kayıtlı kullanıcı kendi gönderisini veya cevabını silebilir. Ana gönderi
   silindiğinde ona bağlı cevaplar, beğeniler ve repostlar da temizlenir.
@@ -193,6 +206,8 @@ npm run build
 | Oda yazmaları doğrudan tabloya yapılmaz | Yetki, kapasite ve rol kontrolleri `SECURITY DEFINER` RPC'lerde uygulanır |
 | Sosyal yazmalar üyelik gerektirir | PostgreSQL, `auth.users.is_anonymous` değerini her yazmada kontrol eder |
 | Sosyal akış kimlik sızdırmaz | Okuma RPC'si e-posta ve `user_id` döndürmez |
+| DM gizliliği istemcide aşılamaz | Alıcının tercihi ve arkadaşlık durumu mesaj RPC'sinde yeniden doğrulanır |
+| Avatar yüklemeleri sınırlandırılır | Sunucu dosya boyutunu, MIME türünü ve dosya imzasını doğrular |
 | Beğeni ve repost tekildir | `primary key (post_id, user_id)` ile garanti edilir |
 | Kütüphane yalnız sahibine aittir | RLS işlemleri `auth.uid()` ile sınırlar |
 | Gizli oda oyları doğrudan okunamaz | İstemci yalnız kendi oylarını ve tamamlanan ortak sonucu görür |
@@ -247,6 +262,7 @@ iş kuralları veri kaynağına en yakın katmanda tekrar doğrulanır.
 - Sosyal cevaplar şu anda tek seviyelidir.
 - Sosyal akış ilk 30, cevaplar ilk 50 kayıtla sınırlıdır; sonsuz kaydırma yoktur.
 - Kullanıcı engelleme, içerik raporlama ve moderasyon paneli henüz yoktur.
+- DM'lerde dosya/görsel gönderimi, mesaj silme ve uçtan uca şifreleme henüz yoktur.
 - Oda ve sohbet güncellemeleri Supabase Realtime yerine kontrollü polling
   kullanır.
 - Teleparty oturumunun oluşturulması tarayıcı eklentisi nedeniyle yarı
