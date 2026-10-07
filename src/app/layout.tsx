@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Bebas_Neue, Geist, Geist_Mono } from "next/font/google";
 
 import { HeaderVisibility } from "@/components/HeaderVisibility";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -16,6 +16,13 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+/** Logo yazısı ve tanıtım başlıkları için retro sinema afişi yazı tipi. */
+const bebasNeue = Bebas_Neue({
+  variable: "--font-bebas-neue",
+  weight: "400",
+  subsets: ["latin", "latin-ext"],
+});
+
 export const metadata: Metadata = {
   title: "WatchMuse — Film topluluğu",
   description:
@@ -26,7 +33,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="tr"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`dark ${geistSans.variable} ${geistMono.variable} ${bebasNeue.variable} h-full antialiased`}
       >
       <body className="flex min-h-full flex-col watchmuse-retro film-grain">
         <AnonymousSessionBootstrap />

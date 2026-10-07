@@ -1,24 +1,32 @@
 @import "tailwindcss";
 
-/* WatchMuse retro black & white theme - minimal, high-contrast */
+/* Koyu tema, işletim sistemi tercihine değil <html class="dark"> sınıfına
+   bağlıdır: site her zaman siyah zeminde açılır. Sınıf kaldırılırsa açık
+   değerler (aşağıdaki :root blokları) devreye girer. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* WatchMuse retro theme - black, with green and red as brand colours */
 :root {
   --wm-background: #0b0b0b;
   --wm-foreground: #efefef;
   --wm-accent: #d9d9d9;
   --wm-muted: #bdbdbd;
+
+  /* Marka renkleri: iki temada aynı. Siyah zeminde yeşil 9.7:1, kırmızı 4.9:1. */
+  --brand-green: #3ccf6e;
+  --brand-red: #e8423f;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    --wm-background: #ffffff;
-    --wm-foreground: #111111;
-    --wm-accent: #222222;
-    --wm-muted: #6b6b6b;
-  }
+:root:not(.dark) {
+  --wm-background: #ffffff;
+  --wm-foreground: #111111;
+  --wm-accent: #222222;
+  --wm-muted: #6b6b6b;
 }
 
-/* Colour tokens (docs/design-system/tokens.json). Values match the Tailwind
-   light/dark class pairs they replace, so the rendered colours are unchanged. */
+/* Colour tokens (docs/design-system/tokens.json). Light values on :root, dark
+   values on .dark. In the dark theme the primary button (fill-inverse) is the
+   brand green with black text. */
 :root {
   --ink-75: rgba(0, 0, 0, 0.75);
   --ink-70: rgba(0, 0, 0, 0.7);
@@ -63,46 +71,46 @@
   --unknown-badge-text: oklch(41.4% 0.112 45.904);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --ink-75: rgba(255, 255, 255, 0.75);
-    --ink-70: rgba(255, 255, 255, 0.7);
-    --ink-65: rgba(255, 255, 255, 0.65);
-    --ink-60: rgba(255, 255, 255, 0.6);
-    --ink-55: rgba(255, 255, 255, 0.55);
-    --ink-50: rgba(255, 255, 255, 0.5);
-    --ink-45: rgba(255, 255, 255, 0.45);
-    --ink-40: rgba(255, 255, 255, 0.4);
+.dark {
+  color-scheme: dark;
 
-    --line-10: rgba(255, 255, 255, 0.15);
-    --line-15: rgba(255, 255, 255, 0.2);
-    --line-20: rgba(255, 255, 255, 0.25);
-    --line-30: rgba(255, 255, 255, 0.35);
-    --line-focus: rgba(255, 255, 255, 0.7);
-    --line-selected: rgba(255, 255, 255, 0.5);
+  --ink-75: rgba(255, 255, 255, 0.75);
+  --ink-70: rgba(255, 255, 255, 0.7);
+  --ink-65: rgba(255, 255, 255, 0.65);
+  --ink-60: rgba(255, 255, 255, 0.6);
+  --ink-55: rgba(255, 255, 255, 0.55);
+  --ink-50: rgba(255, 255, 255, 0.5);
+  --ink-45: rgba(255, 255, 255, 0.45);
+  --ink-40: rgba(255, 255, 255, 0.4);
 
-    --fill-subtle: rgba(255, 255, 255, 0.05);
-    --fill-hover: rgba(255, 255, 255, 0.1);
-    --fill-selected: rgba(255, 255, 255, 0.1);
-    --fill-placeholder: rgba(255, 255, 255, 0.1);
-    --fill-badge: rgba(255, 255, 255, 0.1);
-    --fill-inverse: #ffffff;
-    --on-inverse: #000000;
+  --line-10: rgba(255, 255, 255, 0.15);
+  --line-15: rgba(255, 255, 255, 0.2);
+  --line-20: rgba(255, 255, 255, 0.25);
+  --line-30: rgba(255, 255, 255, 0.35);
+  --line-focus: rgba(255, 255, 255, 0.7);
+  --line-selected: rgba(255, 255, 255, 0.5);
 
-    --error-ink: oklch(80.8% 0.114 19.571);
-    --error-surface: oklch(25.8% 0.092 26.042 / 0.4);
-    --error-border: oklch(39.6% 0.141 25.723 / 0.6);
-    --error-text: oklch(88.5% 0.062 18.334);
+  --fill-subtle: rgba(255, 255, 255, 0.05);
+  --fill-hover: rgba(255, 255, 255, 0.1);
+  --fill-selected: rgba(255, 255, 255, 0.1);
+  --fill-placeholder: rgba(255, 255, 255, 0.1);
+  --fill-badge: rgba(255, 255, 255, 0.1);
+  --fill-inverse: var(--brand-green);
+  --on-inverse: #000000;
 
-    --warning-surface: oklch(27.9% 0.077 45.635 / 0.4);
-    --warning-border: oklch(41.4% 0.112 45.904 / 0.6);
-    --warning-text: oklch(92.4% 0.12 95.746);
+  --error-ink: oklch(80.8% 0.114 19.571);
+  --error-surface: oklch(25.8% 0.092 26.042 / 0.4);
+  --error-border: oklch(39.6% 0.141 25.723 / 0.6);
+  --error-text: oklch(88.5% 0.062 18.334);
 
-    --success-badge: oklch(26.2% 0.051 172.552);
-    --success-badge-text: oklch(90.5% 0.093 164.15);
-    --unknown-badge: oklch(27.9% 0.077 45.635);
-    --unknown-badge-text: oklch(92.4% 0.12 95.746);
-  }
+  --warning-surface: oklch(27.9% 0.077 45.635 / 0.4);
+  --warning-border: oklch(41.4% 0.112 45.904 / 0.6);
+  --warning-text: oklch(92.4% 0.12 95.746);
+
+  --success-badge: oklch(26.2% 0.051 172.552);
+  --success-badge-text: oklch(90.5% 0.093 164.15);
+  --unknown-badge: oklch(27.9% 0.077 45.635);
+  --unknown-badge-text: oklch(92.4% 0.12 95.746);
 }
 
 @theme inline {
@@ -110,6 +118,10 @@
   --color-foreground: var(--wm-foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-bebas-neue), Impact, "Arial Narrow", sans-serif;
+
+  --color-brand-green: var(--brand-green);
+  --color-brand-red: var(--brand-red);
 
   --color-wm-background: var(--wm-background);
   --color-wm-foreground: var(--wm-foreground);
@@ -192,11 +204,19 @@ body.watchmuse-retro {
   color: var(--wm-background);
 }
 
-/* Links and accents */
-a {
-  color: var(--wm-accent);
-  text-decoration: underline;
-  text-underline-offset: 3px;
+/* Links and accents. Kept in the base layer so Tailwind utilities on a link
+   (no-underline, text-*) can override it. */
+@layer base {
+  a {
+    color: var(--wm-accent);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+
+/* Pages sit next to the sidebar in a flex row; let them shrink. */
+body > main {
+  min-width: 0;
 }
 
 /* Small utilities for components */

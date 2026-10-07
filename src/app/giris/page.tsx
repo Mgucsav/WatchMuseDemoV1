@@ -33,23 +33,18 @@ export default async function SignInPage({
   return (
     <main className="flex flex-1 flex-col lg:flex-row">
       <aside className="flex flex-col gap-8 border-b border-line-10 px-4 pt-5 pb-8 sm:px-8 lg:w-1/2 lg:justify-between lg:gap-14 lg:border-r lg:border-b-0 lg:px-16 lg:pt-10 lg:pb-12">
-        <Link
-          href="/"
-          aria-label="WatchMuse ana sayfa"
-          className="self-start"
-          // globals.css'teki `a` kuralı Tailwind sınıflarını ezer; bkz. SiteHeader.
-          style={{ textDecoration: "none", color: "var(--wm-foreground)" }}
-        >
-          <Logo markSize={36} className="gap-2.5 text-xl" />
+        <Link href="/" aria-label="WatchMuse tanıtım sayfası" className="self-start no-underline">
+          <Logo size="md" />
         </Link>
 
         <div className="flex max-w-lg flex-col gap-8">
           <div>
-            <p className="text-xs font-semibold tracking-wide text-ink-50 uppercase">
+            <p className="text-xs font-semibold tracking-wide text-brand-green uppercase">
               Film topluluğu
             </p>
-            <h2 className="mt-3 text-[28px] leading-tight font-bold tracking-tight lg:text-[40px]">
-              Filmleri birlikte konuşalım, birlikte seçelim.
+            <h2 className="mt-3 font-display text-[40px] leading-[0.95] tracking-[0.02em] lg:text-[60px]">
+              Filmleri birlikte <span className="text-brand-red">konuşalım</span>,
+              birlikte <span className="text-brand-green">seçelim</span>.
             </h2>
             <p className="mt-3 text-sm leading-relaxed text-ink-60 lg:mt-4 lg:text-base">
               Filmler hakkında paylaşım yapın, yorumlara katılın, birlikte film
