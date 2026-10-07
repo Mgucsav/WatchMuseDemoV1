@@ -15,7 +15,7 @@ import type { LibraryStatus } from "@/lib/library/types";
 import type { MovieSummary } from "@/lib/tmdb/types";
 
 const buttonClass =
-  "min-h-11 flex-1 rounded-lg border border-black/20 px-3 py-2 text-sm font-medium hover:bg-black/[0.04] disabled:opacity-60 dark:border-white/25 dark:hover:bg-white/10";
+  "min-h-11 flex-1 rounded-lg border border-line-20 px-3 py-2 text-sm font-medium hover:bg-fill-hover disabled:opacity-60";
 
 function SaveButton({ label, status }: { label: string; status: LibraryStatus }) {
   const { pending } = useFormStatus();

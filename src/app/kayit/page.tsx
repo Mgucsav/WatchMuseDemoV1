@@ -31,7 +31,7 @@ export default async function SignUpPage({
       <div className="mx-auto flex w-full max-w-md flex-col gap-5 px-4 py-8">
         <header>
           <h1 className="text-xl font-bold">Kayıt ol</h1>
-          <p className="mt-1 text-sm text-black/70 dark:text-white/70">
+          <p className="mt-1 text-sm text-ink-70">
             İzleyeceğiniz filmleri kaydedin, izlediklerinize puan ve not ekleyin.
           </p>
         </header>
@@ -50,7 +50,7 @@ export default async function SignUpPage({
           nextPath={nextPath}
         />
 
-        <div className="border-t border-black/10 pt-4 text-sm dark:border-white/15">
+        <div className="border-t border-line-10 pt-4 text-sm">
           <Link href="/giris" className="underline underline-offset-4">
             Zaten hesabınız var mı? Giriş yapın
           </Link>

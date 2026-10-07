@@ -132,7 +132,7 @@ export function SocialFeed({ isRegistered }: { isRegistered: boolean }) {
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 px-4 py-6">
       <header>
         <h1 className="text-xl font-bold">WatchMuse Akış</h1>
-        <p className="mt-1 text-sm text-black/70 dark:text-white/70">
+        <p className="mt-1 text-sm text-ink-70">
           Filmler hakkında konuşun, yorumlara katılın ve yeni fikirler keşfedin.
         </p>
       </header>
@@ -178,14 +178,14 @@ export function SocialFeed({ isRegistered }: { isRegistered: boolean }) {
             void loadFeed().finally(() => setLoading(false));
           }}
           disabled={loading}
-          className="min-h-10 rounded-lg border border-black/20 px-3 text-sm dark:border-white/25"
+          className="min-h-10 rounded-lg border border-line-20 px-3 text-sm"
         >
           {loading ? "Yenileniyor…" : "Yenile"}
         </button>
       </div>
 
       {!loading && posts.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-black/20 p-5 text-center text-sm text-black/60 dark:border-white/25 dark:text-white/60">
+        <p className="rounded-xl border border-dashed border-line-20 p-5 text-center text-sm text-ink-60">
           Akış henüz boş. İlk film sohbetini başlatabilirsiniz.
         </p>
       ) : null}
@@ -292,7 +292,7 @@ function SocialComposer({
   return (
     <form
       onSubmit={submit}
-      className={compact ? "grid gap-2" : "grid gap-3 rounded-xl border border-black/15 p-4 dark:border-white/20"}
+      className={compact ? "grid gap-2" : "grid gap-3 rounded-xl border border-line-15 p-4"}
     >
       {!compact ? <h2 className="font-semibold">Bir film konuşması başlat</h2> : null}
       <textarea
@@ -301,18 +301,18 @@ function SocialComposer({
         maxLength={MAX_SOCIAL_POST_LENGTH}
         rows={compact ? 2 : 3}
         placeholder={compact ? "Bu yoruma cevap ver…" : "Bir film hakkında ne düşünüyorsun?"}
-        className="w-full resize-y rounded-lg border border-black/20 bg-transparent px-3 py-2 text-sm outline-none dark:border-white/25"
+        className="w-full resize-y rounded-lg border border-line-20 bg-transparent px-3 py-2 text-sm outline-none"
       />
 
       {!compact ? (
         <div className="grid gap-2">
           {selectedMovie ? (
-            <div className="flex items-center justify-between gap-3 rounded-lg border border-black/10 p-2 dark:border-white/15">
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-line-10 p-2">
               <div className="flex min-w-0 items-center gap-3">
                 <MoviePoster movie={selectedMovie} size="sm" />
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold">{selectedMovie.title}</p>
-                  <p className="text-xs text-black/55 dark:text-white/55">Gönderiye eklendi</p>
+                  <p className="text-xs text-ink-55">Gönderiye eklendi</p>
                 </div>
               </div>
               <button
@@ -329,7 +329,7 @@ function SocialComposer({
             </div>
           ) : (
             <label className="text-xs font-medium">
-              Film ekle <span className="font-normal text-black/50 dark:text-white/50">(isteğe bağlı)</span>
+              Film ekle <span className="font-normal text-ink-50">(isteğe bağlı)</span>
               <input
                 type="search"
                 value={movieQuery}
@@ -340,17 +340,17 @@ function SocialComposer({
                   setSearchingMovies(value.trim().length >= SEARCH_MIN_QUERY_LENGTH);
                 }}
                 placeholder="Film adı ara…"
-                className="mt-1 min-h-10 w-full rounded-lg border border-black/20 bg-transparent px-3 text-sm dark:border-white/25"
+                className="mt-1 min-h-10 w-full rounded-lg border border-line-20 bg-transparent px-3 text-sm"
               />
             </label>
           )}
 
           {!selectedMovie && searchingMovies ? (
-            <p className="text-xs text-black/50 dark:text-white/50">Film aranıyor…</p>
+            <p className="text-xs text-ink-50">Film aranıyor…</p>
           ) : null}
 
           {!selectedMovie && movieResults.length > 0 ? (
-            <div className="grid gap-1 rounded-lg border border-black/10 p-2 dark:border-white/15">
+            <div className="grid gap-1 rounded-lg border border-line-10 p-2">
               {movieResults.map((movie) => (
                 <button
                   key={movie.id}
@@ -360,12 +360,12 @@ function SocialComposer({
                     setMovieResults([]);
                     setSearchingMovies(false);
                   }}
-                  className="flex items-center gap-3 rounded-md p-2 text-left hover:bg-black/[0.04] dark:hover:bg-white/10"
+                  className="flex items-center gap-3 rounded-md p-2 text-left hover:bg-fill-hover"
                 >
                   <MoviePoster movie={movie} size="sm" />
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-semibold">{movie.title}</span>
-                    <span className="text-xs text-black/50 dark:text-white/50">
+                    <span className="text-xs text-ink-50">
                       {movie.releaseYear ?? "Yıl bilinmiyor"}
                     </span>
                   </span>
@@ -377,18 +377,18 @@ function SocialComposer({
       ) : null}
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-xs text-black/45 dark:text-white/45">
+        <span className="text-xs text-ink-45">
           {body.length}/{MAX_SOCIAL_POST_LENGTH}
         </span>
         <button
           type="submit"
           disabled={sending || body.trim() === ""}
-          className="min-h-10 rounded-lg bg-black px-4 text-sm font-semibold text-white disabled:opacity-50 dark:bg-white dark:text-black"
+          className="min-h-10 rounded-lg bg-fill-inverse px-4 text-sm font-semibold text-on-inverse disabled:opacity-50"
         >
           {sending ? "Paylaşılıyor…" : compact ? "Cevapla" : "Paylaş"}
         </button>
       </div>
-      {error ? <p className="text-sm text-red-700 dark:text-red-300">{error}</p> : null}
+      {error ? <p className="text-sm text-error-ink">{error}</p> : null}
     </form>
   );
 }
@@ -442,9 +442,9 @@ function PostCard({
   }
 
   return (
-    <article className={reply ? "rounded-lg border border-black/10 p-3 dark:border-white/15" : "rounded-xl border border-black/15 p-4 dark:border-white/20"}>
+    <article className={reply ? "rounded-lg border border-line-10 p-3" : "rounded-xl border border-line-15 p-4"}>
       {post.latestReposterDisplayName && !reply ? (
-        <p className="mb-2 text-xs text-black/50 dark:text-white/50">
+        <p className="mb-2 text-xs text-ink-50">
           ↻ {post.latestReposterDisplayName} repostladı
         </p>
       ) : null}
@@ -452,7 +452,7 @@ function PostCard({
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm font-semibold">{post.authorDisplayName}</p>
-          <time className="text-xs text-black/45 dark:text-white/45">
+          <time className="text-xs text-ink-45">
             {formatSocialTime(post.createdAt)}
           </time>
         </div>
@@ -463,7 +463,7 @@ function PostCard({
               if (await requestDelete(post)) onDeleted();
             }}
             disabled={actingOn !== null}
-            className="min-h-9 rounded-lg border border-red-700/40 px-3 text-xs font-semibold text-red-700 disabled:opacity-50 dark:text-red-300"
+            className="min-h-9 rounded-lg border border-red-700/40 px-3 text-xs font-semibold text-error-ink disabled:opacity-50"
           >
             {actingOn === `${post.id}:delete` ? "Siliniyor…" : "Sil"}
           </button>
@@ -473,7 +473,7 @@ function PostCard({
       <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed">{post.body}</p>
 
       {post.movie ? (
-        <div className="mt-3 flex items-center gap-3 rounded-lg border border-black/10 p-3 dark:border-white/15">
+        <div className="mt-3 flex items-center gap-3 rounded-lg border border-line-10 p-3">
           {post.movie.posterUrl ? (
             <Image
               src={post.movie.posterUrl}
@@ -483,18 +483,18 @@ function PostCard({
               className="h-[84px] w-14 shrink-0 rounded object-cover"
             />
           ) : (
-            <div className="flex h-[84px] w-14 shrink-0 items-center justify-center rounded bg-black/5 text-center text-[10px] dark:bg-white/10">
+            <div className="flex h-[84px] w-14 shrink-0 items-center justify-center rounded bg-fill-placeholder text-center text-[10px]">
               Afiş yok
             </div>
           )}
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold">{post.movie.title}</p>
-            <p className="mt-1 text-xs text-black/50 dark:text-white/50">TMDb #{post.movie.id}</p>
+            <p className="mt-1 text-xs text-ink-50">TMDb #{post.movie.id}</p>
           </div>
         </div>
       ) : null}
 
-      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-black/10 pt-3 text-xs dark:border-white/15">
+      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line-10 pt-3 text-xs">
         {!reply ? (
           <button
             type="button"
@@ -502,7 +502,7 @@ function PostCard({
               if (!isRegistered) onMembershipNeeded();
               toggleReplies();
             }}
-            className="min-h-9 rounded-lg px-3 hover:bg-black/[0.04] dark:hover:bg-white/10"
+            className="min-h-9 rounded-lg px-3 hover:bg-fill-hover"
           >
             ↩ {post.replyCount} cevap
           </button>
@@ -512,7 +512,7 @@ function PostCard({
           onClick={() => onReact(post, "like")}
           disabled={actingOn === `${post.id}:like`}
           aria-pressed={post.likedByMe}
-          className={`min-h-9 rounded-lg px-3 hover:bg-black/[0.04] disabled:opacity-50 dark:hover:bg-white/10 ${
+          className={`min-h-9 rounded-lg px-3 hover:bg-fill-hover disabled:opacity-50 ${
             post.likedByMe ? "font-semibold" : ""
           }`}
         >
@@ -523,7 +523,7 @@ function PostCard({
           onClick={() => onReact(post, "repost")}
           disabled={actingOn === `${post.id}:repost`}
           aria-pressed={post.repostedByMe}
-          className={`min-h-9 rounded-lg px-3 hover:bg-black/[0.04] disabled:opacity-50 dark:hover:bg-white/10 ${
+          className={`min-h-9 rounded-lg px-3 hover:bg-fill-hover disabled:opacity-50 ${
             post.repostedByMe ? "font-semibold" : ""
           }`}
         >
@@ -532,7 +532,7 @@ function PostCard({
       </div>
 
       {repliesOpen && !reply ? (
-        <div className="mt-3 grid gap-3 border-t border-black/10 pt-3 dark:border-white/15">
+        <div className="mt-3 grid gap-3 border-t border-line-10 pt-3">
           {isRegistered ? (
             <SocialComposer
               compact
@@ -543,14 +543,14 @@ function PostCard({
               }}
             />
           ) : (
-            <p className="text-xs text-black/55 dark:text-white/55">
+            <p className="text-xs text-ink-55">
               Cevap yazmak için üyelik gerekir; mevcut cevapları okuyabilirsiniz.
             </p>
           )}
           {loadingReplies ? (
-            <p className="text-xs text-black/50 dark:text-white/50">Cevaplar yükleniyor…</p>
+            <p className="text-xs text-ink-50">Cevaplar yükleniyor…</p>
           ) : null}
-          {replyError ? <p className="text-sm text-red-700 dark:text-red-300">{replyError}</p> : null}
+          {replyError ? <p className="text-sm text-error-ink">{replyError}</p> : null}
           {replies.map((entry) => (
             <PostCard
               key={entry.id}

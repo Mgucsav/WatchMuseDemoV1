@@ -293,7 +293,7 @@ export function RoomRound({
   };
 
   if (view.kind === "loading") {
-    return <p className="text-sm text-black/60 dark:text-white/60">Film turu hazırlanıyor…</p>;
+    return <p className="text-sm text-ink-60">Film turu hazırlanıyor…</p>;
   }
 
   if (view.kind === "waiting-for-host") {
@@ -385,21 +385,21 @@ export function RoomRound({
 
   if (round.status === "no_match") {
     return <div className="space-y-4">{pendingArea}
-      <section className="rounded-xl border border-black/10 p-4 dark:border-white/15">
+      <section className="rounded-xl border border-line-10 p-4">
         <h2 className="font-semibold">Bu turda ortak “izlemek isterim” çıkmadı</h2>
-        <p className="mt-1 text-sm text-black/70 dark:text-white/70">
+        <p className="mt-1 text-sm text-ink-70">
           Yeni ve farklı 10 filmle tekrar deneyebilirsiniz. Eski oylar yeni tura taşınmaz.
         </p>
         <button
           type="button"
-          className="mt-4 rounded-md border border-black/30 px-3 py-2 text-sm font-medium disabled:opacity-60 dark:border-white/35"
+          className="mt-4 rounded-md border border-line-30 px-3 py-2 text-sm font-medium disabled:opacity-60"
           onClick={() => void startNextRound()}
           disabled={resetting || !canStartRound}
         >
           {resetting ? "Yeni tur hazırlanıyor…" : "Yeni 10 film getir"}
         </button>
         {!canStartRound ? (
-          <p className="mt-2 text-xs text-black/60 dark:text-white/60">
+          <p className="mt-2 text-xs text-ink-60">
             Yeni tur için ortak bir abonelik gerekiyor.
           </p>
         ) : null}
@@ -519,9 +519,9 @@ function DirectMovieSession({
   }
 
   return (
-    <section className="rounded-xl border border-black/10 p-4 dark:border-white/15">
+    <section className="rounded-xl border border-line-10 p-4">
       <h2 className="font-semibold">Film oturumu başlat</h2>
-      <p className="mt-1 text-sm text-black/65 dark:text-white/65">
+      <p className="mt-1 text-sm text-ink-65">
         İzlemek istediğiniz filmi arayın. Film, odadaki herkesin ortak aboneliklerinden
         en az birinde bulunmalıdır.
       </p>
@@ -545,22 +545,22 @@ function DirectMovieSession({
           }}
           disabled={!canStart || startingMovieId !== null}
           placeholder="Örn: Interstellar"
-          className="mt-1 min-h-11 w-full rounded-lg border border-black/20 bg-transparent px-3 py-2 text-base dark:border-white/25"
+          className="mt-1 min-h-11 w-full rounded-lg border border-line-20 bg-transparent px-3 py-2 text-base"
         />
       </label>
 
       {!canStart ? (
-        <p className="mt-2 text-xs text-black/60 dark:text-white/60">
+        <p className="mt-2 text-xs text-ink-60">
           Film oturumu için ortak bir abonelik gerekiyor.
         </p>
       ) : trimmedQuery.length > 0 && trimmedQuery.length < SEARCH_MIN_QUERY_LENGTH ? (
-        <p className="mt-2 text-xs text-black/60 dark:text-white/60">
+        <p className="mt-2 text-xs text-ink-60">
           Arama için en az {SEARCH_MIN_QUERY_LENGTH} karakter yazın.
         </p>
       ) : null}
 
       {search.kind === "loading" ? (
-        <p role="status" className="mt-3 text-sm text-black/60 dark:text-white/60">
+        <p role="status" className="mt-3 text-sm text-ink-60">
           Aranıyor…
         </p>
       ) : null}
@@ -572,7 +572,7 @@ function DirectMovieSession({
       ) : null}
 
       {search.kind === "ready" && search.result.results.length === 0 ? (
-        <p className="mt-3 text-sm text-black/60 dark:text-white/60">
+        <p className="mt-3 text-sm text-ink-60">
           “{search.result.query}” için film bulunamadı.
         </p>
       ) : null}
@@ -582,7 +582,7 @@ function DirectMovieSession({
           {search.result.results.slice(0, 8).map((movie) => (
             <article
               key={movie.id}
-              className="flex items-center gap-3 rounded-lg border border-black/10 p-2 dark:border-white/15"
+              className="flex items-center gap-3 rounded-lg border border-line-10 p-2"
             >
               {movie.posterUrl ? (
                 <Image
@@ -599,7 +599,7 @@ function DirectMovieSession({
               )}
               <div className="min-w-0 flex-1">
                 <p className="truncate font-medium">{movie.title}</p>
-                <p className="text-xs text-black/60 dark:text-white/60">
+                <p className="text-xs text-ink-60">
                   {movie.releaseYear ?? "Yıl bilinmiyor"}
                 </p>
               </div>
@@ -607,7 +607,7 @@ function DirectMovieSession({
                 type="button"
                 onClick={() => void start(movie)}
                 disabled={startingMovieId !== null}
-                className="min-h-10 rounded-md bg-black px-3 text-xs font-semibold text-white disabled:opacity-60 dark:bg-white dark:text-black"
+                className="min-h-10 rounded-md bg-fill-inverse px-3 text-xs font-semibold text-on-inverse disabled:opacity-60"
               >
                 {startingMovieId === movie.id ? "Başlatılıyor…" : "Bu filmi seç"}
               </button>
@@ -652,7 +652,7 @@ function PendingSelectionArea({
   if (selections.length === 0) return null;
 
   return (
-    <section className="rounded-xl border border-black/10 p-4 dark:border-white/15">
+    <section className="rounded-xl border border-line-10 p-4">
       <p className="text-sm font-semibold">Odada seçilen filmler</p>
 
       {actionError ? (
@@ -686,12 +686,12 @@ function PendingSelectionArea({
           return (
             <article
               key={selection.id}
-              className="rounded-lg border border-black/10 p-3 dark:border-white/15"
+              className="rounded-lg border border-line-10 p-3"
             >
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="font-medium">{selection.title}</p>
-                  <p className="mt-1 text-xs text-black/60 dark:text-white/60">
+                  <p className="mt-1 text-xs text-ink-60">
                     {expired
                       ? `Seçim süresi ${deadline} tarihinde doldu.`
                       : `${deadline} tarihine kadar birlikte izlemeye geçebilirsiniz.`}
@@ -704,13 +704,13 @@ function PendingSelectionArea({
                       : "Hazırsın · diğer katılımcılar bekleniyor"}
                   </p>
                 ) : expired ? (
-                  <p className="text-sm text-black/60 dark:text-white/60">
+                  <p className="text-sm text-ink-60">
                     Süresi doldu
                   </p>
                 ) : (
                   <button
                     type="button"
-                    className="rounded-md border border-black/30 px-3 py-2 text-sm font-medium disabled:opacity-60 dark:border-white/35"
+                    className="rounded-md border border-line-30 px-3 py-2 text-sm font-medium disabled:opacity-60"
                     disabled={acceptingSelectionId !== null}
                     onClick={() => void onAccept(selection.id)}
                   >
@@ -848,16 +848,16 @@ function TelepartyBridge({
 
   if (telepartyState.joinUrl) {
     return (
-      <div className="mt-3 border-t border-black/10 pt-3 dark:border-white/15">
+      <div className="mt-3 border-t border-line-10 pt-3">
         <a
           href={telepartyState.joinUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex rounded-md bg-black px-4 py-2 text-sm font-semibold text-white dark:bg-white dark:text-black"
+          className="inline-flex rounded-md bg-fill-inverse px-4 py-2 text-sm font-semibold text-on-inverse"
         >
           Teleparty’ye katıl
         </a>
-        <p className="mt-2 text-xs text-black/60 dark:text-white/60">
+        <p className="mt-2 text-xs text-ink-60">
           Bağlantı yeni sekmede filmi ve ortak Teleparty odasını açar.
         </p>
       </div>
@@ -866,7 +866,7 @@ function TelepartyBridge({
 
   if (!isHost) {
     return (
-      <p className="mt-3 border-t border-black/10 pt-3 text-sm text-black/65 dark:border-white/15 dark:text-white/65">
+      <p className="mt-3 border-t border-line-10 pt-3 text-sm text-ink-65">
         Oda sahibi Teleparty’yi hazırlıyor. Bağlantı hazır olunca katıl düğmesi burada otomatik görünecek.
       </p>
     );
@@ -879,9 +879,9 @@ function TelepartyBridge({
   };
 
   return (
-    <div className="mt-3 border-t border-black/10 pt-3 dark:border-white/15">
+    <div className="mt-3 border-t border-line-10 pt-3">
       <p className="text-sm font-semibold">Teleparty’yi hazırla</p>
-      <p className="mt-1 text-sm text-black/65 dark:text-white/65">
+      <p className="mt-1 text-sm text-ink-65">
         Ortak platformunuzda <strong>{selection.title}</strong> filmini açıp oynat. Video oynarken tarayıcıdaki Tp uzantısında Start Party ve Copy URL’ye bas. WatchMuse’e döndüğünde bağlantıyı panodan otomatik almayı deneyeceğiz.
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
@@ -889,7 +889,7 @@ function TelepartyBridge({
           <button
             type="button"
             disabled
-            className="rounded-md bg-black px-4 py-2 text-sm font-semibold text-white opacity-60 dark:bg-white dark:text-black"
+            className="rounded-md bg-fill-inverse px-4 py-2 text-sm font-semibold text-on-inverse opacity-60"
           >
             Platformlar kontrol ediliyor…
           </button>
@@ -899,7 +899,7 @@ function TelepartyBridge({
               key={target.key}
               type="button"
               onClick={() => openProvider(target)}
-              className="rounded-md bg-black px-4 py-2 text-sm font-semibold text-white dark:bg-white dark:text-black"
+              className="rounded-md bg-fill-inverse px-4 py-2 text-sm font-semibold text-on-inverse"
             >
               {target.key === "netflix"
                 ? "Netflix’te ara"
@@ -909,7 +909,7 @@ function TelepartyBridge({
             </button>
           ))
         ) : (
-          <p className="text-sm text-black/65 dark:text-white/65">
+          <p className="text-sm text-ink-65">
             Bu film ortak aboneliklerinizden Teleparty’nin desteklediği Netflix, Prime Video veya Disney+’ta görünmüyor.
           </p>
         )}
@@ -918,14 +918,14 @@ function TelepartyBridge({
             type="button"
             disabled={sharing}
             onClick={() => void takeLinkFromClipboard(false)}
-            className="rounded-md border border-black/30 px-4 py-2 text-sm font-medium disabled:cursor-wait disabled:opacity-60 dark:border-white/35"
+            className="rounded-md border border-line-30 px-4 py-2 text-sm font-medium disabled:cursor-wait disabled:opacity-60"
           >
             {sharing ? "Bağlantı alınıyor…" : "Kopyaladığım bağlantıyı al"}
           </button>
         ) : null}
       </div>
       {setupStarted ? (
-        <p className="mt-2 text-xs text-black/55 dark:text-white/55">
+        <p className="mt-2 text-xs text-ink-55">
           Otomatik okuma tarayıcı iznine takılırsa ikinci düğme aynı işlemi tek tıkla tamamlar; bağlantıyı yapıştırmanız gerekmez.
         </p>
       ) : null}
@@ -952,14 +952,14 @@ function NewRoundButton({
     <div>
       <button
         type="button"
-        className="w-full rounded-md border border-black/30 px-3 py-3 text-sm font-semibold disabled:opacity-60 dark:border-white/35"
+        className="w-full rounded-md border border-line-30 px-3 py-3 text-sm font-semibold disabled:opacity-60"
         onClick={() => void onStart()}
         disabled={pending || disabled}
       >
         {pending ? "Yeni tur hazırlanıyor…" : "Yeni 10 filmle devam et"}
       </button>
       {disabled ? (
-        <p className="mt-2 text-xs text-black/60 dark:text-white/60">
+        <p className="mt-2 text-xs text-ink-60">
           Yeni tur için ortak bir abonelik gerekiyor.
         </p>
       ) : null}
@@ -996,10 +996,10 @@ function VotingCard({
   };
 
   return (
-    <section aria-live="polite" className="rounded-xl border border-black/10 p-4 dark:border-white/15">
+    <section aria-live="polite" className="rounded-xl border border-line-10 p-4">
       <div className="flex items-center justify-between gap-3 text-sm">
         <p className="font-semibold">Gizli seçim · {completed + 1} / {total}</p>
-        <p className="text-black/60 dark:text-white/60">Sola geç · Sağa iste</p>
+        <p className="text-ink-60">Sola geç · Sağa iste</p>
       </div>
 
       <article
@@ -1011,13 +1011,13 @@ function VotingCard({
           <CandidatePoster candidate={candidate} />
           <div className="min-w-0">
             <h2 className="text-lg font-bold">{candidate.title}</h2>
-            {candidate.originalTitle ? <p className="text-sm text-black/60 dark:text-white/60">{candidate.originalTitle}</p> : null}
-            <p className="mt-2 text-sm text-black/70 dark:text-white/70">
+            {candidate.originalTitle ? <p className="text-sm text-ink-60">{candidate.originalTitle}</p> : null}
+            <p className="mt-2 text-sm text-ink-70">
               {[candidate.releaseYear, candidate.voteAverage ? `TMDb ${candidate.voteAverage.toFixed(1)}` : null]
                 .filter(Boolean)
                 .join(" · ")}
             </p>
-            {candidate.overview ? <p className="mt-3 text-sm leading-6 text-black/75 dark:text-white/75">{candidate.overview}</p> : null}
+            {candidate.overview ? <p className="mt-3 text-sm leading-6 text-ink-75">{candidate.overview}</p> : null}
           </div>
         </div>
       </article>
@@ -1033,7 +1033,7 @@ function VotingCard({
           {pendingChoice === "want" ? "Kaydediliyor…" : "İsterim →"}
         </ChoiceButton>
       </div>
-      <p className="mt-3 text-center text-xs text-black/55 dark:text-white/55">
+      <p className="mt-3 text-center text-xs text-ink-55">
         Kartı sola veya sağa kaydırmak da aynı kararı verir.
       </p>
     </section>
@@ -1054,7 +1054,7 @@ function ChoiceButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="rounded-md border border-black/30 px-2 py-2 text-sm font-medium disabled:cursor-wait disabled:opacity-60 dark:border-white/35"
+      className="rounded-md border border-line-30 px-2 py-2 text-sm font-medium disabled:cursor-wait disabled:opacity-60"
     >
       {children}
     </button>
@@ -1071,29 +1071,29 @@ function MatchStage({
   onStart: () => void;
 }) {
   return (
-    <section className="rounded-xl border border-black/10 p-4 dark:border-white/15">
+    <section className="rounded-xl border border-line-10 p-4">
       <p className="text-sm font-semibold">Ortak istekleriniz</p>
       <h2 className="mt-1 text-xl font-bold">{candidates.length} filmde buluştunuz</h2>
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
         {candidates.map((candidate) => (
-          <article key={candidate.id} className="flex gap-3 rounded-lg border border-black/10 p-2 dark:border-white/15">
+          <article key={candidate.id} className="flex gap-3 rounded-lg border border-line-10 p-2">
             <CandidatePoster candidate={candidate} small />
             <div className="min-w-0">
               <p className="font-medium">{candidate.title}</p>
-              {candidate.releaseYear ? <p className="text-sm text-black/60 dark:text-white/60">{candidate.releaseYear}</p> : null}
+              {candidate.releaseYear ? <p className="text-sm text-ink-60">{candidate.releaseYear}</p> : null}
             </div>
           </article>
         ))}
       </div>
       <button
         type="button"
-        className="mt-5 w-full rounded-md bg-black px-3 py-3 text-sm font-semibold text-white disabled:opacity-60 dark:bg-white dark:text-black"
+        className="mt-5 w-full rounded-md bg-fill-inverse px-3 py-3 text-sm font-semibold text-on-inverse disabled:opacity-60"
         onClick={onStart}
         disabled={startingWheel}
       >
         {startingWheel ? "Çark başlatılıyor…" : "Ortak çarkı çevir"}
       </button>
-      <p className="mt-2 text-center text-xs text-black/55 dark:text-white/55">
+      <p className="mt-2 text-center text-xs text-ink-55">
         Sonuç sunucuda bir kez seçilir; herkes aynı çarkı görür.
       </p>
     </section>
@@ -1122,9 +1122,9 @@ function WheelStage({ round }: { round: RoomRound }) {
 
   const result = round.status === "result" ? round.winnerCandidate : null;
   return (
-    <section aria-live="polite" className="rounded-xl border border-black/10 p-4 text-center dark:border-white/15">
+    <section aria-live="polite" className="rounded-xl border border-line-10 p-4 text-center">
       <p className="text-sm font-semibold">{result ? "Bu akşamın önerisi" : "Ortak çark dönüyor"}</p>
-      <div className="relative mx-auto mt-5 grid h-60 w-60 place-items-center overflow-hidden rounded-full border-4 border-black/70 bg-black/5 dark:border-white/70 dark:bg-white/10">
+      <div className="relative mx-auto mt-5 grid h-60 w-60 place-items-center overflow-hidden rounded-full border-4 border-black/70 bg-fill-placeholder dark:border-white/70">
         <div className="absolute top-0 z-10 -translate-y-1/2 text-xl" aria-hidden="true">▼</div>
         <div
           className="h-[92%] w-[92%] rounded-full border border-black/30 dark:border-white/30"
@@ -1141,11 +1141,11 @@ function WheelStage({ round }: { round: RoomRound }) {
       {result ? (
         <div className="mt-5">
           <h2 className="text-2xl font-bold">{result.title}</h2>
-          {result.originalTitle ? <p className="mt-1 text-sm text-black/60 dark:text-white/60">{result.originalTitle}</p> : null}
-          <p className="mt-3 text-sm text-black/70 dark:text-white/70">Bütün katılımcıların “izlemek isterim” dediği filmler arasından seçildi.</p>
+          {result.originalTitle ? <p className="mt-1 text-sm text-ink-60">{result.originalTitle}</p> : null}
+          <p className="mt-3 text-sm text-ink-70">Bütün katılımcıların “izlemek isterim” dediği filmler arasından seçildi.</p>
         </div>
       ) : (
-        <p className="mt-4 text-sm text-black/70 dark:text-white/70">Bütün ekranlar aynı sunucu zaman damgasına göre dönüyor…</p>
+        <p className="mt-4 text-sm text-ink-70">Bütün ekranlar aynı sunucu zaman damgasına göre dönüyor…</p>
       )}
     </section>
   );
@@ -1154,7 +1154,7 @@ function WheelStage({ round }: { round: RoomRound }) {
 function CandidatePoster({ candidate, small = false }: { candidate: RoomCandidate; small?: boolean }) {
   const dimensions = small ? { width: 44, height: 66, className: "h-[66px] w-11" } : { width: 112, height: 168, className: "h-[168px] w-28" };
   if (!candidate.posterUrl) {
-    return <div aria-hidden="true" className={`${dimensions.className} shrink-0 rounded bg-black/10 p-2 text-center text-xs text-black/55 dark:bg-white/10 dark:text-white/55`}>Afiş<br />yok</div>;
+    return <div aria-hidden="true" className={`${dimensions.className} shrink-0 rounded bg-black/10 p-2 text-center text-xs text-ink-55 dark:bg-white/10`}>Afiş<br />yok</div>;
   }
   return <Image src={candidate.posterUrl} alt={`${candidate.title} afişi`} width={dimensions.width} height={dimensions.height} className={`${dimensions.className} shrink-0 rounded object-cover`} />;
 }

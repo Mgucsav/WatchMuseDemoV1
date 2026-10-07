@@ -133,7 +133,7 @@ export function PublicRoomBrowser({ canJoinPublic }: { canJoinPublic: boolean })
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold">Odalar</h2>
-          <p className="mt-1 text-sm text-black/65 dark:text-white/65">
+          <p className="mt-1 text-sm text-ink-65">
             Public odaya doğrudan, private odaya oda şifresiyle katılın.
           </p>
         </div>
@@ -141,7 +141,7 @@ export function PublicRoomBrowser({ canJoinPublic }: { canJoinPublic: boolean })
           type="button"
           onClick={() => void loadRooms()}
           disabled={loading}
-          className="min-h-10 rounded-lg border border-black/20 px-3 text-sm dark:border-white/25"
+          className="min-h-10 rounded-lg border border-line-20 px-3 text-sm"
         >
           {loading ? "Yenileniyor…" : "Yenile"}
         </button>
@@ -154,7 +154,7 @@ export function PublicRoomBrowser({ canJoinPublic }: { canJoinPublic: boolean })
       ) : null}
 
       {!loading && rooms.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-black/20 p-4 text-sm text-black/60 dark:border-white/25 dark:text-white/60">
+        <p className="rounded-xl border border-dashed border-line-20 p-4 text-sm text-ink-60">
           Şu anda katılıma açık oda yok. İlk odayı siz oluşturabilirsiniz.
         </p>
       ) : null}
@@ -167,24 +167,24 @@ export function PublicRoomBrowser({ canJoinPublic }: { canJoinPublic: boolean })
           return (
             <article
               key={room.spaceId}
-              className="rounded-xl border border-black/10 p-4 dark:border-white/15"
+              className="rounded-xl border border-line-10 p-4"
             >
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="truncate font-semibold">{room.name}</h3>
-                    <span className="rounded-full border border-black/20 px-2 py-0.5 text-[10px] font-semibold uppercase dark:border-white/25">
+                    <span className="rounded-full border border-line-20 px-2 py-0.5 text-[10px] font-semibold uppercase">
                       {room.visibility}
                     </span>
-                    <span className="rounded-full border border-black/20 px-2 py-0.5 text-[10px] font-semibold dark:border-white/25">
+                    <span className="rounded-full border border-line-20 px-2 py-0.5 text-[10px] font-semibold">
                       {room.selectionMode === "wheel" ? "Çark" : "Belirlenmiş film"}
                     </span>
                   </div>
-                  <p className="mt-1 text-sm text-black/60 dark:text-white/60">
+                  <p className="mt-1 text-sm text-ink-60">
                     {room.hostDisplayName} · {room.participantCount}/{room.capacity} kişi
                   </p>
                   {room.visibility === "private" ? (
-                    <p className="mt-1 text-xs text-black/55 dark:text-white/55">
+                    <p className="mt-1 text-xs text-ink-55">
                       Üyelik gerekmez · oda şifresiyle katılır
                     </p>
                   ) : null}
@@ -192,7 +192,7 @@ export function PublicRoomBrowser({ canJoinPublic }: { canJoinPublic: boolean })
                 {needsPublicAccount ? (
                   <Link
                     href="/hesabini-kaydet?next=/rooms"
-                    className="inline-flex min-h-11 items-center rounded-lg border border-black/20 px-4 text-sm font-semibold dark:border-white/25"
+                    className="inline-flex min-h-11 items-center rounded-lg border border-line-20 px-4 text-sm font-semibold"
                   >
                     Üye ol ve katıl
                   </Link>
@@ -201,7 +201,7 @@ export function PublicRoomBrowser({ canJoinPublic }: { canJoinPublic: boolean })
                     type="button"
                     onClick={() => handleJoinIntent(room)}
                     disabled={joiningId !== null || room.participantCount >= room.capacity}
-                    className="min-h-11 rounded-lg bg-black px-5 py-2 text-sm font-semibold text-white disabled:opacity-50 dark:bg-white dark:text-black"
+                    className="min-h-11 rounded-lg bg-fill-inverse px-5 py-2 text-sm font-semibold text-on-inverse disabled:opacity-50"
                   >
                     {joiningId === room.spaceId
                       ? "Katılıyor…"
@@ -213,7 +213,7 @@ export function PublicRoomBrowser({ canJoinPublic }: { canJoinPublic: boolean })
               </div>
 
               {isChoosing ? (
-                <div className="mt-4 grid gap-4 border-t border-black/10 pt-4 dark:border-white/15">
+                <div className="mt-4 grid gap-4 border-t border-line-10 pt-4">
                   {room.visibility === "private" ? (
                     <label className="text-sm font-medium">
                       Oda şifresi
@@ -225,7 +225,7 @@ export function PublicRoomBrowser({ canJoinPublic }: { canJoinPublic: boolean })
                         value={password}
                         onChange={(event) => setPassword(event.target.value)}
                         disabled={joiningId !== null}
-                        className="mt-1 min-h-11 w-full rounded-lg border border-black/20 bg-transparent px-3 py-2 text-base dark:border-white/25"
+                        className="mt-1 min-h-11 w-full rounded-lg border border-line-20 bg-transparent px-3 py-2 text-base"
                       />
                     </label>
                   ) : null}
@@ -240,7 +240,7 @@ export function PublicRoomBrowser({ canJoinPublic }: { canJoinPublic: boolean })
                       disabled={joiningId !== null}
                     />
                   ) : (
-                    <p className="text-xs text-black/60 dark:text-white/60">
+                    <p className="text-xs text-ink-60">
                       Kayıtlı abonelik seçiminiz kullanılacak.
                     </p>
                   )}
@@ -260,7 +260,7 @@ export function PublicRoomBrowser({ canJoinPublic }: { canJoinPublic: boolean })
                         joiningId !== null ||
                         (room.visibility === "private" && password.length < 6)
                       }
-                      className="min-h-11 rounded-lg bg-black px-5 py-2 text-sm font-semibold text-white disabled:opacity-50 dark:bg-white dark:text-black"
+                      className="min-h-11 rounded-lg bg-fill-inverse px-5 py-2 text-sm font-semibold text-on-inverse disabled:opacity-50"
                     >
                       {joiningId === room.spaceId ? "Katılıyor…" : "Odaya katıl"}
                     </button>

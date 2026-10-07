@@ -90,13 +90,13 @@ export function InviteRedeemer({ token }: { token: string }) {
         type="button"
         onClick={handleJoin}
         disabled={state.status === "redeeming" || subscriptions.length === 0}
-        className="min-h-11 rounded-lg border border-black/20 px-4 py-2 text-sm font-medium transition-colors hover:bg-black/[0.04] disabled:opacity-60 dark:border-white/25 dark:hover:bg-white/10"
+        className="min-h-11 rounded-lg border border-line-20 px-4 py-2 text-sm font-medium transition-colors hover:bg-fill-hover disabled:opacity-60"
       >
         {state.status === "redeeming" ? "Odaya katılıyor…" : "Odaya katıl"}
       </button>
 
       {subscriptions.length === 0 ? (
-        <p className="text-xs text-black/60 dark:text-white/60">
+        <p className="text-xs text-ink-60">
           Devam etmek için en az bir abonelik seçin.
         </p>
       ) : null}

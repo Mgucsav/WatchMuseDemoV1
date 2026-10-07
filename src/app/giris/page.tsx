@@ -27,7 +27,7 @@ export default async function SignInPage({
       <div className="mx-auto flex w-full max-w-md flex-col gap-5 px-4 py-8">
         <header>
           <h1 className="text-xl font-bold">Giriş yap</h1>
-          <p className="mt-1 text-sm text-black/70 dark:text-white/70">
+          <p className="mt-1 text-sm text-ink-70">
             Kişisel film kütüphanenize erişmek için giriş yapın.
           </p>
         </header>
@@ -66,7 +66,7 @@ export default async function SignInPage({
           nextPath={nextPath}
         />
 
-        <div className="flex flex-col gap-1 border-t border-black/10 pt-4 text-sm dark:border-white/15">
+        <div className="flex flex-col gap-1 border-t border-line-10 pt-4 text-sm">
           <Link href="/hesabini-kaydet" className="underline underline-offset-4">
             Bu cihazdaki puanlarımı kaydet
           </Link>

@@ -22,7 +22,7 @@ function SubmitButton({ label }: { label: string }) {
     <button
       type="submit"
       disabled={pending}
-      className="min-h-11 w-full rounded-lg border border-black/20 px-4 py-2 text-sm font-medium hover:bg-black/[0.04] disabled:opacity-60 dark:border-white/25 dark:hover:bg-white/10"
+      className="min-h-11 w-full rounded-lg border border-line-20 px-4 py-2 text-sm font-medium hover:bg-fill-hover disabled:opacity-60"
     >
       {pending ? "Gönderiliyor…" : label}
     </button>
@@ -30,7 +30,7 @@ function SubmitButton({ label }: { label: string }) {
 }
 
 const inputClass =
-  "mt-1 min-h-11 w-full rounded-lg border border-black/20 bg-transparent px-3 py-2 text-base outline-none focus:border-black/60 dark:border-white/25 dark:focus:border-white/70";
+  "mt-1 min-h-11 w-full rounded-lg border border-line-20 bg-transparent px-3 py-2 text-base outline-none focus:border-line-focus";
 
 export function AuthForm({
   action,
@@ -65,7 +65,7 @@ export function AuthForm({
       {showDisplayName ? (
         <div>
           <label htmlFor="displayName" className="block text-sm font-medium">
-            Görünen ad <span className="text-black/50 dark:text-white/50">(isteğe bağlı)</span>
+            Görünen ad <span className="text-ink-50">(isteğe bağlı)</span>
           </label>
           <input
             id="displayName"
@@ -111,7 +111,7 @@ export function AuthForm({
             className={inputClass}
           />
           {mode !== "signIn" ? (
-            <p className="mt-1 text-xs text-black/50 dark:text-white/50">
+            <p className="mt-1 text-xs text-ink-50">
               En az {PASSWORD_MIN_LENGTH} karakter.
             </p>
           ) : null}

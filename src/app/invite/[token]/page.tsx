@@ -33,7 +33,7 @@ export default async function InvitePage({
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 px-4 py-6">
         <header>
           <h1 className="text-xl font-bold">Odaya katıl</h1>
-          <p className="mt-1 text-sm text-black/70 dark:text-white/70">
+          <p className="mt-1 text-sm text-ink-70">
             Önce hangi aboneliklere sahip olduğunuzu seçin. Film önerileri,
             sizin ve odayı kuran kişinin ortak platformlarından gelecek.
           </p>

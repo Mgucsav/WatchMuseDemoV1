@@ -38,7 +38,7 @@ export default async function SaveAccountPage({
           <h1 className="text-xl font-bold">
             {isPasswordStep ? "Şifrenizi belirleyin" : "Puanlarınızı kaydedin"}
           </h1>
-          <p className="mt-1 text-sm text-black/70 dark:text-white/70">
+          <p className="mt-1 text-sm text-ink-70">
             {isPasswordStep
               ? "Son adım: bu hesabı başka cihazlardan açabilmeniz için bir şifre belirleyin."
               : "E-posta eklediğinizde bu cihazdaki listeniz ve puanlarınız aynen korunur."}
@@ -68,7 +68,7 @@ export default async function SaveAccountPage({
           <AccountSaveForm action={startAccountSaveAction} nextPath={nextPath} />
         ) : null}
 
-        <div className="flex flex-col gap-1 border-t border-black/10 pt-4 text-sm dark:border-white/15">
+        <div className="flex flex-col gap-1 border-t border-line-10 pt-4 text-sm">
           <Link href="/kutuphanem" className="underline underline-offset-4">
             Kütüphaneme dön
           </Link>

@@ -1,9 +1,9 @@
 const TONES = {
-  info: "border-black/10 bg-black/[0.03] text-black/70 dark:border-white/15 dark:bg-white/5 dark:text-white/70",
+  info: "border-line-10 bg-fill-subtle text-ink-70",
   error:
-    "border-red-300 bg-red-50 text-red-900 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-200",
+    "border-error-border bg-error-surface text-error-text",
   warning:
-    "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200",
+    "border-warning-border bg-warning-surface text-warning-text",
 } as const;
 
 /** Boş sonuç, yapılandırma hatası ve API hatası gibi durumlar için ortak kutu. */

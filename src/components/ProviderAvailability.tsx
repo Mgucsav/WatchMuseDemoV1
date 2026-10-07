@@ -42,24 +42,24 @@ const BADGE_BY_STATE: Record<
   available: {
     label: "Aboneliğe dahil",
     className:
-      "bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200",
+      "bg-success-badge text-success-badge-text",
   },
   unavailable: {
     label: "Bulunamadı",
     className:
-      "bg-black/[0.06] text-black/70 dark:bg-white/10 dark:text-white/70",
+      "bg-fill-badge text-ink-70",
   },
   unknown: {
     label: "Bilgi mevcut değil",
     className:
-      "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200",
+      "bg-unknown-badge text-unknown-badge-text",
   },
 };
 
 export function ProviderAvailabilitySection({ state }: { state: ProviderState }) {
   if (state.status === "loading") {
     return (
-      <p className="text-sm text-black/60 dark:text-white/60">
+      <p className="text-sm text-ink-60">
         Türkiye abonelik bilgisi kontrol ediliyor…
       </p>
     );
@@ -109,7 +109,7 @@ export function ProviderAvailabilitySection({ state }: { state: ProviderState })
       ) : null}
 
       {data.otherFlatrateProviders.length > 0 ? (
-        <p className="text-xs text-black/60 dark:text-white/60">
+        <p className="text-xs text-ink-60">
           Türkiye&apos;de abonelikle sunan diğer platformlar:{" "}
           {data.otherFlatrateProviders
             .map((provider) => provider.name)
@@ -117,7 +117,7 @@ export function ProviderAvailabilitySection({ state }: { state: ProviderState })
         </p>
       ) : null}
 
-      <p className="text-xs text-black/50 dark:text-white/50">
+      <p className="text-xs text-ink-50">
         Son kontrol: {formatCheckedAt(data.checkedAt)}
       </p>
 

@@ -13,7 +13,7 @@ import { UserMenu } from "@/components/auth/UserMenu";
  */
 export function SiteHeader() {
   return (
-    <header className="border-b border-black/10 dark:border-white/15">
+    <header className="border-b border-line-10">
       <nav
         aria-label="Ana gezinme"
         className="mx-auto flex w-full max-w-2xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3"
@@ -38,7 +38,7 @@ export function SiteHeader() {
         </div>
 
         <div className="ml-auto flex items-center gap-3 text-sm">
-          <Suspense fallback={<span className="text-black/40 dark:text-white/40">…</span>}>
+          <Suspense fallback={<span className="text-ink-40">…</span>}>
             <UserMenu />
           </Suspense>
         </div>

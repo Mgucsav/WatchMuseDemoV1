@@ -20,7 +20,7 @@ export function MoviePoster({
   if (!movie.posterUrl) {
     return (
       <div
-        className={`${className} shrink-0 rounded flex items-center justify-center bg-black/5 text-[10px] leading-tight text-center text-black/50 dark:bg-white/10 dark:text-white/50`}
+        className={`${className} shrink-0 rounded flex items-center justify-center bg-fill-placeholder text-[10px] leading-tight text-center text-ink-50`}
         aria-hidden="true"
       >
         Afiş
@@ -36,7 +36,7 @@ export function MoviePoster({
       alt={`${movie.title} afişi`}
       width={width}
       height={height}
-      className={`${className} shrink-0 rounded object-cover bg-black/5 dark:bg-white/10`}
+      className={`${className} shrink-0 rounded object-cover bg-fill-placeholder`}
     />
   );
 }

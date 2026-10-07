@@ -90,7 +90,7 @@ export function MovieSearch() {
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 px-4 py-6">
       <header>
         <h1 className="text-xl font-bold">Film Abonelik Kontrolü</h1>
-        <p className="mt-1 text-sm text-black/70 dark:text-white/70">
+        <p className="mt-1 text-sm text-ink-70">
           Bir film arayın, afiş ve yayın yılından doğru filmi seçin; Netflix ve
           Amazon Prime Video&apos;nun Türkiye kataloğunda aboneliğe dahil olup
           olmadığını görün.
@@ -109,9 +109,9 @@ export function MovieSearch() {
           value={query}
           onChange={(event) => handleQueryChange(event.target.value)}
           placeholder="Örn: Yüzüklerin Efendisi"
-          className="mt-1 min-h-11 w-full rounded-lg border border-black/20 bg-transparent px-3 py-2 text-base outline-none focus:border-black/60 dark:border-white/25 dark:focus:border-white/70"
+          className="mt-1 min-h-11 w-full rounded-lg border border-line-20 bg-transparent px-3 py-2 text-base outline-none focus:border-line-focus"
         />
-        <p className="mt-1 text-xs text-black/50 dark:text-white/50">
+        <p className="mt-1 text-xs text-ink-50">
           Arama en az {SEARCH_MIN_QUERY_LENGTH} karakterden sonra başlar.
         </p>
       </div>
@@ -129,7 +129,7 @@ export function MovieSearch() {
         <MovieDetailModal movie={selectedMovie} onClose={closeDetail} />
       ) : null}
 
-      <footer className="border-t border-black/10 pt-4 text-xs leading-relaxed text-black/50 dark:border-white/15 dark:text-white/50">
+      <footer className="border-t border-line-10 pt-4 text-xs leading-relaxed text-ink-50">
         <p>
           Film verileri{" "}
           <a
@@ -173,7 +173,7 @@ function SearchSection({
 
   if (state.status === "loading") {
     return (
-      <p role="status" className="text-sm text-black/60 dark:text-white/60">
+      <p role="status" className="text-sm text-ink-60">
         Aranıyor…
       </p>
     );

@@ -80,7 +80,7 @@ export function RoomCreator({ canCreatePublic }: { canCreatePublic: boolean }) {
     <div className="flex flex-col gap-4">
       {state.status !== "created" ? (
         <>
-          <fieldset className="rounded-xl border border-black/10 p-3 dark:border-white/15">
+          <fieldset className="rounded-xl border border-line-10 p-3">
             <legend className="px-1 text-sm font-semibold">Oda görünürlüğü</legend>
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
               {(["private", "public"] as const).map((option) => (
@@ -88,8 +88,8 @@ export function RoomCreator({ canCreatePublic }: { canCreatePublic: boolean }) {
                   key={option}
                   className={`cursor-pointer rounded-lg border p-3 text-sm ${
                     visibility === option
-                      ? "border-black bg-black/[0.04] dark:border-white dark:bg-white/10"
-                      : "border-black/15 dark:border-white/20"
+                      ? "border-black bg-fill-selected dark:border-white"
+                      : "border-line-15"
                   }`}
                 >
                   <input
@@ -103,7 +103,7 @@ export function RoomCreator({ canCreatePublic }: { canCreatePublic: boolean }) {
                   <span className="font-semibold">
                     {option === "private" ? "Private" : "Public"}
                   </span>
-                  <span className="mt-1 block text-xs text-black/60 dark:text-white/60">
+                  <span className="mt-1 block text-xs text-ink-60">
                     {option === "private"
                       ? "Odalar listesinde görünür; şifreyi bilenler anonim olarak da katılabilir."
                       : "Keşfet bölümünde görünür; yalnız kayıtlı üyeler katılabilir."}
@@ -113,7 +113,7 @@ export function RoomCreator({ canCreatePublic }: { canCreatePublic: boolean }) {
             </div>
           </fieldset>
 
-          <fieldset className="rounded-xl border border-black/10 p-3 dark:border-white/15">
+          <fieldset className="rounded-xl border border-line-10 p-3">
             <legend className="px-1 text-sm font-semibold">Film seçme yöntemi</legend>
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
               {(["wheel", "direct"] as const).map((option) => (
@@ -121,8 +121,8 @@ export function RoomCreator({ canCreatePublic }: { canCreatePublic: boolean }) {
                   key={option}
                   className={`cursor-pointer rounded-lg border p-3 text-sm ${
                     selectionMode === option
-                      ? "border-black bg-black/[0.04] dark:border-white dark:bg-white/10"
-                      : "border-black/15 dark:border-white/20"
+                      ? "border-black bg-fill-selected dark:border-white"
+                      : "border-line-15"
                   }`}
                 >
                   <input
@@ -136,7 +136,7 @@ export function RoomCreator({ canCreatePublic }: { canCreatePublic: boolean }) {
                   <span className="font-semibold">
                     {option === "wheel" ? "Rastgele seçim (çark)" : "Belirlenmiş film oturumu"}
                   </span>
-                  <span className="mt-1 block text-xs text-black/60 dark:text-white/60">
+                  <span className="mt-1 block text-xs text-ink-60">
                     {option === "wheel"
                       ? "Katılımcılar filmleri gizlice oylar; ortak seçenekler arasından çark karar verir."
                       : "Oda sahibi istediği filmi arayıp seçer; katılımcılar hazır olduklarını onaylar."}
@@ -155,7 +155,7 @@ export function RoomCreator({ canCreatePublic }: { canCreatePublic: boolean }) {
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 disabled={state.status === "creating"}
-                className="mt-1 min-h-11 w-full rounded-lg border border-black/20 bg-transparent px-3 py-2 text-base dark:border-white/25"
+                className="mt-1 min-h-11 w-full rounded-lg border border-line-20 bg-transparent px-3 py-2 text-base"
               />
             </label>
             <label className="text-sm font-medium">
@@ -164,7 +164,7 @@ export function RoomCreator({ canCreatePublic }: { canCreatePublic: boolean }) {
                 value={capacity}
                 onChange={(event) => setCapacity(Number(event.target.value))}
                 disabled={state.status === "creating"}
-                className="mt-1 min-h-11 w-full rounded-lg border border-black/20 bg-transparent px-3 py-2 text-base dark:border-white/25"
+                className="mt-1 min-h-11 w-full rounded-lg border border-line-20 bg-transparent px-3 py-2 text-base"
               >
                 {Array.from({ length: 19 }, (_, index) => index + 2).map((value) => (
                   <option key={value} value={value} className="text-black">
@@ -187,9 +187,9 @@ export function RoomCreator({ canCreatePublic }: { canCreatePublic: boolean }) {
                 onChange={(event) => setPassword(event.target.value)}
                 disabled={state.status === "creating"}
                 placeholder="En az 6 karakter"
-                className="mt-1 min-h-11 w-full rounded-lg border border-black/20 bg-transparent px-3 py-2 text-base dark:border-white/25"
+                className="mt-1 min-h-11 w-full rounded-lg border border-line-20 bg-transparent px-3 py-2 text-base"
               />
-              <span className="mt-1 block text-xs font-normal text-black/60 dark:text-white/60">
+              <span className="mt-1 block text-xs font-normal text-ink-60">
                 Şifre açık biçimde saklanmaz ve daha sonra gösterilmez.
               </span>
             </label>
@@ -223,13 +223,13 @@ export function RoomCreator({ canCreatePublic }: { canCreatePublic: boolean }) {
               (visibility === "private" && password.length < 6) ||
               (requiresRegisteredRoomAccount(visibility) && !canCreatePublic)
             }
-            className="min-h-11 rounded-lg border border-black/20 px-4 py-2 text-sm font-medium transition-colors hover:bg-black/[0.04] disabled:opacity-60 dark:border-white/25 dark:hover:bg-white/10"
+            className="min-h-11 rounded-lg border border-line-20 px-4 py-2 text-sm font-medium transition-colors hover:bg-fill-hover disabled:opacity-60"
           >
             {state.status === "creating" ? "Oda oluşturuluyor…" : "Yeni oda oluştur"}
           </button>
 
           {subscriptions.length === 0 ? (
-            <p className="text-xs text-black/60 dark:text-white/60">
+            <p className="text-xs text-ink-60">
               Devam etmek için en az bir abonelik seçin.
             </p>
           ) : null}
@@ -243,15 +243,15 @@ export function RoomCreator({ canCreatePublic }: { canCreatePublic: boolean }) {
       ) : null}
 
       {state.status === "created" ? (
-        <div className="flex flex-col gap-3 rounded-xl border border-black/10 p-3 dark:border-white/15">
+        <div className="flex flex-col gap-3 rounded-xl border border-line-10 p-3">
           <p className="text-sm font-semibold">Oda hazır</p>
 
-          <p className="text-sm text-black/70 dark:text-white/70">
+          <p className="text-sm text-ink-70">
             {state.room.name} · {state.room.visibility === "public" ? "Public" : "Private"} ·{" "}
             {state.room.capacity} kişi · {state.room.selectionMode === "wheel" ? "Çark" : "Belirlenmiş film"}
           </p>
 
-          <p className="text-xs text-black/60 dark:text-white/60">
+          <p className="text-xs text-ink-60">
             {state.room.visibility === "private"
               ? "Odanız Odalar listesinde PRIVATE etiketiyle görünür. Katılımcılar belirlediğiniz şifreyle girer."
               : "Odanız Public Odalar bölümünde listelenir; kayıtlı üyeler bağlantı olmadan katılabilir."}

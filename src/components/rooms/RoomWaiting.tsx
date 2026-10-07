@@ -129,7 +129,7 @@ export function RoomWaiting({ spaceId }: { spaceId: string }) {
 
   if (state.status === "loading") {
     return (
-      <p role="status" className="text-sm text-black/60 dark:text-white/60">
+      <p role="status" className="text-sm text-ink-60">
         Oda yükleniyor…
       </p>
     );
@@ -151,15 +151,15 @@ export function RoomWaiting({ spaceId }: { spaceId: string }) {
   return (
     <section
       aria-live="polite"
-      className="flex flex-col gap-3 rounded-xl border border-black/10 p-3 dark:border-white/15"
+      className="flex flex-col gap-3 rounded-xl border border-line-10 p-3"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-lg font-bold">{room.name}</h1>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full border border-black/20 px-3 py-1 text-xs font-semibold uppercase dark:border-white/25">
+          <span className="rounded-full border border-line-20 px-3 py-1 text-xs font-semibold uppercase">
             {room.visibility}
           </span>
-          <span className="rounded-full border border-black/20 px-3 py-1 text-xs font-semibold dark:border-white/25">
+          <span className="rounded-full border border-line-20 px-3 py-1 text-xs font-semibold">
             {room.selectionMode === "wheel" ? "Çark" : "Belirlenmiş film"}
           </span>
           {room.status === "active" ? (
@@ -167,7 +167,7 @@ export function RoomWaiting({ spaceId }: { spaceId: string }) {
               type="button"
               onClick={() => void depart(room.myRole === "host" ? "close" : "leave")}
               disabled={departing}
-              className="min-h-9 rounded-lg border border-red-700/50 px-3 text-xs font-semibold text-red-700 disabled:opacity-50 dark:text-red-300"
+              className="min-h-9 rounded-lg border border-error-line px-3 text-xs font-semibold text-error-ink disabled:opacity-50"
             >
               {departing
                 ? "İşleniyor…"
@@ -187,28 +187,28 @@ export function RoomWaiting({ spaceId }: { spaceId: string }) {
 
       <dl className="flex flex-col gap-2 text-sm">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <dt className="text-black/60 dark:text-white/60">Oda durumu</dt>
+          <dt className="text-ink-60">Oda durumu</dt>
           <dd className="font-medium">
             {room.status === "active" ? "Açık" : "Kapalı"}
           </dd>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <dt className="text-black/60 dark:text-white/60">Katılımcı</dt>
+          <dt className="text-ink-60">Katılımcı</dt>
           <dd className="font-medium">
             {room.participantCount} / {room.capacity}
           </dd>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <dt className="text-black/60 dark:text-white/60">Sizin rolünüz</dt>
+          <dt className="text-ink-60">Sizin rolünüz</dt>
           <dd className="font-medium">
             {room.myRole === "host" ? "Oda sahibi" : "Misafir"}
           </dd>
         </div>
       </dl>
 
-      <div className="border-t border-black/10 pt-3 dark:border-white/15">
+      <div className="border-t border-line-10 pt-3">
         {room.enoughParticipants ? (
           <p className="text-sm font-semibold">
             {room.selectionMode === "wheel"
@@ -216,7 +216,7 @@ export function RoomWaiting({ spaceId }: { spaceId: string }) {
               : "Oda film oturumuna hazır. Oda sahibi izlenecek filmi belirleyebilir."}
           </p>
         ) : (
-          <p className="text-sm text-black/70 dark:text-white/70">
+          <p className="text-sm text-ink-70">
             Film seçimine başlamak için en az bir katılımcı daha gerekiyor.
             Bu sayfa biri katıldığında kendiliğinden güncellenecek.
           </p>
@@ -291,17 +291,17 @@ function ParticipantsPanel({
   }
 
   return (
-    <div className="border-t border-black/10 pt-3 dark:border-white/15">
+    <div className="border-t border-line-10 pt-3">
       <h2 className="text-sm font-semibold">Katılımcılar</h2>
       <ul className="mt-2 grid gap-2">
         {room.participants.map((participant) => (
           <li
             key={participant.userId}
-            className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/15"
+            className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line-10 px-3 py-2 text-sm"
           >
             <span>
               <span className="font-medium">{participant.displayName}</span>{" "}
-              <span className="text-black/50 dark:text-white/50">
+              <span className="text-ink-50">
                 {participant.isMe
                   ? "(siz)"
                   : participant.role === "host"
@@ -314,7 +314,7 @@ function ParticipantsPanel({
                 type="button"
                 onClick={() => void kick(participant.userId)}
                 disabled={kickingId !== null}
-                className="rounded-md border border-red-700/50 px-3 py-1.5 text-xs font-semibold text-red-700 disabled:opacity-50 dark:text-red-300"
+                className="rounded-md border border-error-line px-3 py-1.5 text-xs font-semibold text-error-ink disabled:opacity-50"
               >
                 {kickingId === participant.userId ? "Çıkarılıyor…" : "Odadan çıkar"}
               </button>
@@ -322,7 +322,7 @@ function ParticipantsPanel({
           </li>
         ))}
       </ul>
-      {error ? <p className="mt-2 text-sm text-red-700 dark:text-red-300">{error}</p> : null}
+      {error ? <p className="mt-2 text-sm text-error-ink">{error}</p> : null}
     </div>
   );
 }
@@ -375,10 +375,10 @@ function SubscriptionSummary({
   }
 
   return (
-    <div className="flex flex-col gap-3 border-t border-black/10 pt-3 dark:border-white/15">
+    <div className="flex flex-col gap-3 border-t border-line-10 pt-3">
       <dl className="flex flex-col gap-2 text-sm">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <dt className="text-black/60 dark:text-white/60">Abonelikleriniz</dt>
+          <dt className="text-ink-60">Abonelikleriniz</dt>
           <dd className="font-medium">{formatList(room.mySubscriptions)}</dd>
         </div>
 
@@ -389,7 +389,7 @@ function SubscriptionSummary({
               key={participant.userId}
               className="flex flex-wrap items-center justify-between gap-2"
             >
-              <dt className="text-black/60 dark:text-white/60">
+              <dt className="text-ink-60">
                 {participant.displayName}
               </dt>
               <dd className="font-medium">
@@ -399,7 +399,7 @@ function SubscriptionSummary({
           ))}
 
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <dt className="text-black/60 dark:text-white/60">
+          <dt className="text-ink-60">
             Ortak abonelikler
           </dt>
           <dd className="font-semibold">
@@ -438,7 +438,7 @@ function SubscriptionSummary({
               type="button"
               onClick={save}
               disabled={saving || draft.length === 0}
-              className="min-h-11 rounded-lg border border-black/20 px-4 py-2 text-sm font-medium hover:bg-black/[0.04] disabled:opacity-60 dark:border-white/25 dark:hover:bg-white/10"
+              className="min-h-11 rounded-lg border border-line-20 px-4 py-2 text-sm font-medium hover:bg-fill-hover disabled:opacity-60"
             >
               {saving ? "Kaydediliyor…" : "Kaydet"}
             </button>
@@ -463,7 +463,7 @@ function SubscriptionSummary({
             setDraft(room.mySubscriptions);
             setEditing(true);
           }}
-          className="min-h-11 self-start rounded-lg border border-black/20 px-4 py-2 text-sm font-medium hover:bg-black/[0.04] dark:border-white/25 dark:hover:bg-white/10"
+          className="min-h-11 self-start rounded-lg border border-line-20 px-4 py-2 text-sm font-medium hover:bg-fill-hover"
         >
           Aboneliklerimi güncelle
         </button>

@@ -16,7 +16,7 @@ export default async function RoomPage({
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 px-4 py-6">
         <header>
           <h1 className="text-xl font-bold">Oda</h1>
-          <p className="mt-1 text-sm text-black/70 dark:text-white/70">
+          <p className="mt-1 text-sm text-ink-70">
             Birlikte film arayın, gizli oy verin ve ortak çarkı çevirin.
           </p>
         </header>

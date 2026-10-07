@@ -46,7 +46,7 @@ export function SubscriptionPicker({
       <legend className="text-sm font-semibold">{legend}</legend>
 
       {description ? (
-        <p className="mt-1 text-xs text-black/60 dark:text-white/60">
+        <p className="mt-1 text-xs text-ink-60">
           {description}
         </p>
       ) : null}
@@ -62,8 +62,8 @@ export function SubscriptionPicker({
                 htmlFor={inputId}
                 className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
                   checked
-                    ? "border-black/60 bg-black/[0.04] font-medium dark:border-white/60 dark:bg-white/10"
-                    : "border-black/20 hover:bg-black/[0.03] dark:border-white/25 dark:hover:bg-white/[0.06]"
+                    ? "border-black/60 bg-fill-selected font-medium dark:border-white/60"
+                    : "border-line-20 hover:bg-black/[0.03] dark:hover:bg-white/[0.06]"
                 }`}
               >
                 <input

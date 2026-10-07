@@ -37,7 +37,7 @@ export default async function LibraryPage() {
         <div className="flex flex-wrap gap-3">
           <Link
             href="/giris?next=%2Fkutuphanem"
-            className="inline-flex min-h-11 items-center rounded-lg border border-black/20 px-4 py-2 text-sm font-medium hover:bg-black/[0.04] dark:border-white/25 dark:hover:bg-white/10"
+            className="inline-flex min-h-11 items-center rounded-lg border border-line-20 px-4 py-2 text-sm font-medium hover:bg-fill-hover"
           >
             Giriş yap
           </Link>
@@ -94,7 +94,7 @@ function Shell({ children }: { children: React.ReactNode }) {
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-6">
         <header>
           <h1 className="text-xl font-bold">Kütüphanem</h1>
-          <p className="mt-1 text-sm text-black/70 dark:text-white/70">
+          <p className="mt-1 text-sm text-ink-70">
             İzleyeceğiniz filmleri kaydedin; izlediklerinize puan ve not ekleyin.
           </p>
         </header>
@@ -116,7 +116,7 @@ function Section({
 }) {
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="text-sm font-semibold tracking-wide text-black/50 uppercase dark:text-white/50">
+      <h2 className="text-sm font-semibold tracking-wide text-ink-50 uppercase">
         {title} ({items.length})
       </h2>
 

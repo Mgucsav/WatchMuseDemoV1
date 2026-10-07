@@ -14,7 +14,7 @@ export default async function RoomsPage() {
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 px-4 py-6">
         <RoomsHub isRegistered={isRegistered} />
 
-        <footer className="border-t border-black/10 pt-4 text-xs text-black/50 dark:border-white/15 dark:text-white/50">
+        <footer className="border-t border-line-10 pt-4 text-xs text-ink-50">
           <Link href="/ara" className="underline underline-offset-2">
             Film aramaya dön
           </Link>

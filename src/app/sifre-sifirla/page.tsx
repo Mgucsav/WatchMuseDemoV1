@@ -29,7 +29,7 @@ export default async function ResetPasswordPage() {
           <h1 className="text-xl font-bold">
             {user ? "Yeni şifre belirle" : "Şifre sıfırlama"}
           </h1>
-          <p className="mt-1 text-sm text-black/70 dark:text-white/70">
+          <p className="mt-1 text-sm text-ink-70">
             {user
               ? "Hesabınız için yeni bir şifre belirleyin."
               : "E-posta adresinizi girin; sıfırlama bağlantısı gönderelim."}
@@ -56,7 +56,7 @@ export default async function ResetPasswordPage() {
           />
         )}
 
-        <div className="border-t border-black/10 pt-4 text-sm dark:border-white/15">
+        <div className="border-t border-line-10 pt-4 text-sm">
           <Link href="/giris" className="underline underline-offset-4">
             Giriş ekranına dön
           </Link>

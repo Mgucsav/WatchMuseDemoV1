@@ -20,7 +20,7 @@ export async function UserMenu() {
         </Link>
         <Link
           href="/hesabini-kaydet"
-          className="rounded-lg border border-black/20 px-3 py-1.5 hover:bg-black/[0.04] dark:border-white/25 dark:hover:bg-white/10"
+          className="rounded-lg border border-line-20 px-3 py-1.5 hover:bg-fill-hover"
         >
           Hesabımı kaydet
         </Link>
@@ -42,7 +42,7 @@ export async function UserMenu() {
       <form action={signOutAction}>
         <button
           type="submit"
-          className="rounded-lg border border-black/20 px-3 py-1.5 hover:bg-black/[0.04] dark:border-white/25 dark:hover:bg-white/10"
+          className="rounded-lg border border-line-20 px-3 py-1.5 hover:bg-fill-hover"
         >
           Çıkış yap
         </button>

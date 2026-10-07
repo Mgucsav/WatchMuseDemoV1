@@ -96,15 +96,15 @@ export function RoomChat({ spaceId }: { spaceId: string }) {
   }
 
   return (
-    <section className="border-t border-black/10 pt-3 dark:border-white/15">
+    <section className="border-t border-line-10 pt-3">
       <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold">Oda sohbeti</h2>
-          <p className="mt-0.5 text-xs text-black/55 dark:text-white/55">
+          <p className="mt-0.5 text-xs text-ink-55">
             Mesajları yalnızca bu odanın katılımcıları görebilir.
           </p>
         </div>
-        <span className="text-xs text-black/45 dark:text-white/45">
+        <span className="text-xs text-ink-45">
           {loading ? "Yükleniyor…" : `${chat.messages.length} mesaj`}
         </span>
       </div>
@@ -112,10 +112,10 @@ export function RoomChat({ spaceId }: { spaceId: string }) {
       <div
         ref={messageListRef}
         aria-live="polite"
-        className="mt-3 h-[22rem] space-y-2 overflow-y-auto overscroll-contain rounded-lg border border-black/10 p-3 dark:border-white/15"
+        className="mt-3 h-[22rem] space-y-2 overflow-y-auto overscroll-contain rounded-lg border border-line-10 p-3"
       >
         {!loading && chat.messages.length === 0 ? (
-          <p className="py-6 text-center text-sm text-black/50 dark:text-white/50">
+          <p className="py-6 text-center text-sm text-ink-50">
             Henüz mesaj yok. Sohbeti başlatın.
           </p>
         ) : null}
@@ -125,13 +125,13 @@ export function RoomChat({ spaceId }: { spaceId: string }) {
             key={message.id}
             className={`max-w-[88%] rounded-lg px-3 py-2 text-sm ${
               message.isMine
-                ? "ml-auto bg-black text-white dark:bg-white dark:text-black"
-                : "border border-black/10 dark:border-white/15"
+                ? "ml-auto bg-fill-inverse text-on-inverse"
+                : "border border-line-10"
             }`}
           >
             <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-xs">
               <span className="font-semibold">{message.senderDisplayName}</span>
-              <time className={message.isMine ? "opacity-70" : "text-black/50 dark:text-white/50"}>
+              <time className={message.isMine ? "opacity-70" : "text-ink-50"}>
                 {formatMessageTime(message.createdAt)}
               </time>
             </div>
@@ -150,13 +150,13 @@ export function RoomChat({ spaceId }: { spaceId: string }) {
             maxLength={MAX_ROOM_MESSAGE_LENGTH}
             rows={2}
             placeholder="Odaya bir mesaj yaz…"
-            className="mt-1 w-full resize-none rounded-lg border border-black/20 bg-transparent px-3 py-2 text-sm outline-none dark:border-white/25"
+            className="mt-1 w-full resize-none rounded-lg border border-line-20 bg-transparent px-3 py-2 text-sm outline-none"
           />
         </label>
         <button
           type="submit"
           disabled={sending || draft.trim() === ""}
-          className="min-h-11 rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 dark:bg-white dark:text-black"
+          className="min-h-11 rounded-lg bg-fill-inverse px-4 py-2 text-sm font-semibold text-on-inverse disabled:opacity-50"
         >
           {sending ? "Gönderiliyor…" : "Gönder"}
         </button>

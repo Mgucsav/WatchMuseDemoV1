@@ -29,9 +29,9 @@ export function ProviderPanel({
   return (
     <section
       aria-live="polite"
-      className="rounded-xl border border-black/10 p-3 dark:border-white/15"
+      className="rounded-xl border border-line-10 p-3"
     >
-      <h2 className="text-xs font-semibold tracking-wide text-black/50 uppercase dark:text-white/50">
+      <h2 className="text-xs font-semibold tracking-wide text-ink-50 uppercase">
         Seçilen film
       </h2>
 
@@ -40,18 +40,18 @@ export function ProviderPanel({
 
         <div className="min-w-0 flex-1">
           <p className="text-base font-semibold break-words">{movie.title}</p>
-          <p className="mt-0.5 text-sm text-black/60 dark:text-white/60">
+          <p className="mt-0.5 text-sm text-ink-60">
             {movie.releaseYear ?? "Yıl bilgisi yok"}
           </p>
           {movie.overview ? (
-            <p className="mt-2 line-clamp-4 text-xs leading-relaxed text-black/70 dark:text-white/70">
+            <p className="mt-2 line-clamp-4 text-xs leading-relaxed text-ink-70">
               {movie.overview}
             </p>
           ) : null}
         </div>
       </div>
 
-      <div className="mt-4 border-t border-black/10 pt-4 dark:border-white/15">
+      <div className="mt-4 border-t border-line-10 pt-4">
         <LibraryActions movie={movie} />
       </div>
 

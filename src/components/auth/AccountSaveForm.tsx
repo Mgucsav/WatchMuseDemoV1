@@ -21,7 +21,7 @@ function SubmitButton() {
     <button
       type="submit"
       disabled={pending}
-      className="min-h-11 w-full rounded-lg border border-black/20 px-4 py-2 text-sm font-medium hover:bg-black/[0.04] disabled:opacity-60 dark:border-white/25 dark:hover:bg-white/10"
+      className="min-h-11 w-full rounded-lg border border-line-20 px-4 py-2 text-sm font-medium hover:bg-fill-hover disabled:opacity-60"
     >
       {pending ? "Bağlantı gönderiliyor…" : "Doğrulama bağlantısı gönder"}
     </button>
@@ -63,7 +63,7 @@ export function AccountSaveForm({
           type="email"
           required
           autoComplete="email"
-          className="mt-1 min-h-11 w-full rounded-lg border border-black/20 bg-transparent px-3 py-2 text-base outline-none focus:border-black/60 dark:border-white/25 dark:focus:border-white/70"
+          className="mt-1 min-h-11 w-full rounded-lg border border-line-20 bg-transparent px-3 py-2 text-base outline-none focus:border-line-focus"
         />
       </div>
 

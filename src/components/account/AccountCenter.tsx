@@ -111,14 +111,14 @@ export function AccountCenter() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex gap-2 overflow-x-auto border-b border-black/10 pb-3 dark:border-white/15">
+      <div className="flex gap-2 overflow-x-auto border-b border-line-10 pb-3">
         <TabButton selected={tab === "profile"} onClick={() => setTab("profile")}>Profilim</TabButton>
         <TabButton selected={tab === "people"} onClick={() => setTab("people")}>Arkadaşlar</TabButton>
         <TabButton selected={tab === "messages"} onClick={() => setTab("messages")}>Mesajlar{threads.some((item) => item.unreadCount > 0) ? " •" : ""}</TabButton>
       </div>
 
       {error ? <p role="alert" className="rounded-xl border border-red-500/40 bg-red-500/10 p-3 text-sm">{error}</p> : null}
-      {!profile ? <p className="text-sm text-black/60 dark:text-white/60">Hesabınız yükleniyor…</p> : null}
+      {!profile ? <p className="text-sm text-ink-60">Hesabınız yükleniyor…</p> : null}
       {profile && tab === "profile" ? <ProfileEditor profile={profile} onChange={setProfile} /> : null}
       {profile && tab === "people" ? (
         <PeoplePanel
@@ -180,30 +180,30 @@ function ProfileEditor({ profile, onChange }: { profile: SocialProfile; onChange
 
   return (
     <form onSubmit={save} className="grid gap-5">
-      <section className="flex flex-wrap items-center gap-4 rounded-xl border border-black/10 p-4 dark:border-white/15">
+      <section className="flex flex-wrap items-center gap-4 rounded-xl border border-line-10 p-4">
         <Avatar name={displayName || username || "W"} url={profile.avatarUrl} size="large" />
         <div className="flex flex-wrap gap-2">
           <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(event) => void upload(event.target.files?.[0])} />
-          <button type="button" disabled={busy} onClick={() => inputRef.current?.click()} className="rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white dark:bg-white dark:text-black">Fotoğraf yükle</button>
-          {profile.avatarUrl ? <button type="button" disabled={busy} onClick={() => void removeAvatar()} className="rounded-lg border border-black/20 px-4 py-2 text-sm dark:border-white/25">Kaldır</button> : null}
+          <button type="button" disabled={busy} onClick={() => inputRef.current?.click()} className="rounded-lg bg-fill-inverse px-4 py-2 text-sm font-semibold text-on-inverse">Fotoğraf yükle</button>
+          {profile.avatarUrl ? <button type="button" disabled={busy} onClick={() => void removeAvatar()} className="rounded-lg border border-line-20 px-4 py-2 text-sm">Kaldır</button> : null}
         </div>
-        <p className="w-full text-xs text-black/55 dark:text-white/55">JPG, PNG veya WebP · en fazla 5 MB</p>
+        <p className="w-full text-xs text-ink-55">JPG, PNG veya WebP · en fazla 5 MB</p>
       </section>
       <label className="text-sm font-medium">Kullanıcı adı
-        <input value={username} onChange={(event) => setUsername(event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))} minLength={3} maxLength={24} required className="mt-1 min-h-11 w-full rounded-lg border border-black/20 bg-transparent px-3 dark:border-white/25" placeholder="watchmuse_user" />
+        <input value={username} onChange={(event) => setUsername(event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))} minLength={3} maxLength={24} required className="mt-1 min-h-11 w-full rounded-lg border border-line-20 bg-transparent px-3" placeholder="watchmuse_user" />
       </label>
       <label className="text-sm font-medium">Görünen ad
-        <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} maxLength={60} required className="mt-1 min-h-11 w-full rounded-lg border border-black/20 bg-transparent px-3 dark:border-white/25" />
+        <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} maxLength={60} required className="mt-1 min-h-11 w-full rounded-lg border border-line-20 bg-transparent px-3" />
       </label>
       <label className="text-sm font-medium">Hakkımda <span className="float-right text-xs font-normal">{bio.length}/300</span>
-        <textarea value={bio} onChange={(event) => setBio(event.target.value)} maxLength={300} rows={4} className="mt-1 w-full resize-y rounded-lg border border-black/20 bg-transparent p-3 dark:border-white/25" placeholder="Filmler, türler, favori yönetmenler…" />
+        <textarea value={bio} onChange={(event) => setBio(event.target.value)} maxLength={300} rows={4} className="mt-1 w-full resize-y rounded-lg border border-line-20 bg-transparent p-3" placeholder="Filmler, türler, favori yönetmenler…" />
       </label>
       <label className="text-sm font-medium">Kimler DM atabilir?
-        <select value={privacy} onChange={(event) => setPrivacy(event.target.value as DmPrivacy)} className="mt-1 min-h-11 w-full rounded-lg border border-black/20 bg-transparent px-3 dark:border-white/25">
+        <select value={privacy} onChange={(event) => setPrivacy(event.target.value as DmPrivacy)} className="mt-1 min-h-11 w-full rounded-lg border border-line-20 bg-transparent px-3">
           <option value="everyone" className="text-black">Herkes</option><option value="friends" className="text-black">Yalnızca arkadaşlarım</option><option value="nobody" className="text-black">Hiç kimse</option>
         </select>
       </label>
-      <button disabled={busy} className="min-h-11 rounded-lg bg-black px-5 font-semibold text-white disabled:opacity-50 dark:bg-white dark:text-black">{busy ? "Kaydediliyor…" : "Profili kaydet"}</button>
+      <button disabled={busy} className="min-h-11 rounded-lg bg-fill-inverse px-5 font-semibold text-on-inverse disabled:opacity-50">{busy ? "Kaydediliyor…" : "Profili kaydet"}</button>
       {notice ? <p role="status" className="text-sm">{notice}</p> : null}
     </form>
   );
@@ -216,7 +216,7 @@ function PeoplePanel(props: {
   openChat: (peer: ChatPeer) => void;
 }) {
   return <div className="grid gap-6">
-    <form onSubmit={props.search} className="flex gap-2"><input value={props.query} onChange={(e) => props.setQuery(e.target.value)} minLength={2} maxLength={60} className="min-h-11 min-w-0 flex-1 rounded-lg border border-black/20 bg-transparent px-3 dark:border-white/25" placeholder="Kullanıcı adı veya isim ara" /><button disabled={props.busy || props.query.trim().length < 2} className="rounded-lg bg-black px-5 text-sm font-semibold text-white disabled:opacity-50 dark:bg-white dark:text-black">Ara</button></form>
+    <form onSubmit={props.search} className="flex gap-2"><input value={props.query} onChange={(e) => props.setQuery(e.target.value)} minLength={2} maxLength={60} className="min-h-11 min-w-0 flex-1 rounded-lg border border-line-20 bg-transparent px-3" placeholder="Kullanıcı adı veya isim ara" /><button disabled={props.busy || props.query.trim().length < 2} className="rounded-lg bg-fill-inverse px-5 text-sm font-semibold text-on-inverse disabled:opacity-50">Ara</button></form>
     {props.people.length > 0 ? <PersonList title="Arama sonuçları" people={props.people} busy={props.busy} act={props.act} openChat={props.openChat} /> : null}
     <PersonList title="Bağlantılarım" people={props.connections} busy={props.busy} act={props.act} openChat={props.openChat} />
   </div>;
@@ -224,11 +224,11 @@ function PeoplePanel(props: {
 
 function PersonList({ title, people, busy, act, openChat }: { title: string; people: SocialPerson[]; busy: boolean; act: PeoplePanelParameters["act"]; openChat: (peer: ChatPeer) => void }) {
   return <section><h2 className="mb-3 font-bold">{title}</h2><div className="grid gap-2">
-    {people.length === 0 ? <p className="rounded-xl border border-dashed border-black/20 p-4 text-sm text-black/55 dark:border-white/25 dark:text-white/55">Henüz burada kimse yok.</p> : people.map((person) => <article key={person.userId} className="flex flex-wrap items-center gap-3 rounded-xl border border-black/10 p-3 dark:border-white/15">
-      <Avatar name={person.displayName} url={person.avatarUrl} /><div className="min-w-0 flex-1"><p className="truncate font-semibold">{person.displayName}</p><p className="truncate text-xs text-black/55 dark:text-white/55">@{person.username}{person.bio ? ` · ${person.bio}` : ""}</p></div>
+    {people.length === 0 ? <p className="rounded-xl border border-dashed border-line-20 p-4 text-sm text-ink-55">Henüz burada kimse yok.</p> : people.map((person) => <article key={person.userId} className="flex flex-wrap items-center gap-3 rounded-xl border border-line-10 p-3">
+      <Avatar name={person.displayName} url={person.avatarUrl} /><div className="min-w-0 flex-1"><p className="truncate font-semibold">{person.displayName}</p><p className="truncate text-xs text-ink-55">@{person.username}{person.bio ? ` · ${person.bio}` : ""}</p></div>
       <div className="flex flex-wrap gap-2 text-sm">
         {person.relationship === "none" ? <button disabled={busy} onClick={() => void act("POST", person.userId)} className="rounded-lg border px-3 py-2">Arkadaş ekle</button> : null}
-        {person.relationship === "incoming" ? <><button disabled={busy} onClick={() => void act("PATCH", person.userId, true)} className="rounded-lg bg-black px-3 py-2 text-white dark:bg-white dark:text-black">Kabul et</button><button disabled={busy} onClick={() => void act("PATCH", person.userId, false)} className="rounded-lg border px-3 py-2">Reddet</button></> : null}
+        {person.relationship === "incoming" ? <><button disabled={busy} onClick={() => void act("PATCH", person.userId, true)} className="rounded-lg bg-fill-inverse px-3 py-2 text-on-inverse">Kabul et</button><button disabled={busy} onClick={() => void act("PATCH", person.userId, false)} className="rounded-lg border px-3 py-2">Reddet</button></> : null}
         {person.relationship === "outgoing" ? <button disabled={busy} onClick={() => void act("DELETE", person.userId)} className="rounded-lg border px-3 py-2">İsteği iptal et</button> : null}
         {person.relationship === "friends" ? <button disabled={busy} onClick={() => void act("DELETE", person.userId)} className="rounded-lg border px-3 py-2">Arkadaşlıktan çıkar</button> : null}
         {person.canMessage ? <button onClick={() => openChat(person)} className="rounded-lg border px-3 py-2">Mesaj</button> : null}
@@ -245,8 +245,8 @@ function MessagesPanel({ threads, activeChat, openChat, messages, body, setBody,
 }) {
   function key(event: KeyboardEvent<HTMLTextAreaElement>) { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void send(); } }
   return <div className="grid min-h-[32rem] gap-4 md:grid-cols-[15rem_1fr]">
-    <aside className="rounded-xl border border-black/10 p-2 dark:border-white/15"><h2 className="px-2 py-2 font-bold">Sohbetler</h2>{threads.length === 0 ? <p className="p-2 text-sm text-black/55 dark:text-white/55">Henüz mesaj yok.</p> : threads.map((thread) => <button key={thread.userId} onClick={() => openChat(thread)} className={`flex w-full items-center gap-2 rounded-lg p-2 text-left ${activeChat?.userId === thread.userId ? "bg-black/5 dark:bg-white/10" : ""}`}><Avatar name={thread.displayName} url={thread.avatarUrl} /><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{thread.displayName}</span><span className="block truncate text-xs text-black/50 dark:text-white/50">{thread.lastBody}</span></span>{thread.unreadCount ? <span className="rounded-full bg-black px-2 py-0.5 text-xs text-white dark:bg-white dark:text-black">{thread.unreadCount}</span> : null}</button>)}</aside>
-    <section className="flex min-h-[28rem] flex-col rounded-xl border border-black/10 dark:border-white/15">{activeChat ? <><header className="border-b border-black/10 p-3 dark:border-white/15"><p className="font-semibold">{activeChat.displayName}</p><p className="text-xs text-black/55 dark:text-white/55">@{activeChat.username}</p></header><div className="flex max-h-[28rem] flex-1 flex-col gap-2 overflow-y-auto p-3">{messages.map((message) => <div key={message.id} className={`max-w-[85%] rounded-xl px-3 py-2 text-sm ${message.isMine ? "ml-auto bg-black text-white dark:bg-white dark:text-black" : "bg-black/5 dark:bg-white/10"}`}><p className="whitespace-pre-wrap break-words">{message.body}</p><time className="mt-1 block text-[10px] opacity-60">{new Date(message.createdAt).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}</time></div>)}</div><div className="flex gap-2 border-t border-black/10 p-3 dark:border-white/15"><textarea value={body} onChange={(e) => setBody(e.target.value)} onKeyDown={key} maxLength={2000} rows={2} className="min-w-0 flex-1 resize-none rounded-lg border border-black/20 bg-transparent p-2 dark:border-white/25" placeholder="Mesaj yaz…" /><button disabled={busy || !body.trim()} onClick={() => void send()} className="rounded-lg bg-black px-4 text-sm font-semibold text-white disabled:opacity-50 dark:bg-white dark:text-black">Gönder</button></div></> : <p className="m-auto p-6 text-center text-sm text-black/55 dark:text-white/55">Bir sohbet seçin veya Arkadaşlar bölümünden mesaj başlatın.</p>}</section>
+    <aside className="rounded-xl border border-line-10 p-2"><h2 className="px-2 py-2 font-bold">Sohbetler</h2>{threads.length === 0 ? <p className="p-2 text-sm text-ink-55">Henüz mesaj yok.</p> : threads.map((thread) => <button key={thread.userId} onClick={() => openChat(thread)} className={`flex w-full items-center gap-2 rounded-lg p-2 text-left ${activeChat?.userId === thread.userId ? "bg-fill-placeholder" : ""}`}><Avatar name={thread.displayName} url={thread.avatarUrl} /><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{thread.displayName}</span><span className="block truncate text-xs text-ink-50">{thread.lastBody}</span></span>{thread.unreadCount ? <span className="rounded-full bg-fill-inverse px-2 py-0.5 text-xs text-on-inverse">{thread.unreadCount}</span> : null}</button>)}</aside>
+    <section className="flex min-h-[28rem] flex-col rounded-xl border border-line-10">{activeChat ? <><header className="border-b border-line-10 p-3"><p className="font-semibold">{activeChat.displayName}</p><p className="text-xs text-ink-55">@{activeChat.username}</p></header><div className="flex max-h-[28rem] flex-1 flex-col gap-2 overflow-y-auto p-3">{messages.map((message) => <div key={message.id} className={`max-w-[85%] rounded-xl px-3 py-2 text-sm ${message.isMine ? "ml-auto bg-fill-inverse text-on-inverse" : "bg-fill-placeholder"}`}><p className="whitespace-pre-wrap break-words">{message.body}</p><time className="mt-1 block text-[10px] opacity-60">{new Date(message.createdAt).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}</time></div>)}</div><div className="flex gap-2 border-t border-line-10 p-3"><textarea value={body} onChange={(e) => setBody(e.target.value)} onKeyDown={key} maxLength={2000} rows={2} className="min-w-0 flex-1 resize-none rounded-lg border border-line-20 bg-transparent p-2" placeholder="Mesaj yaz…" /><button disabled={busy || !body.trim()} onClick={() => void send()} className="rounded-lg bg-fill-inverse px-4 text-sm font-semibold text-on-inverse disabled:opacity-50">Gönder</button></div></> : <p className="m-auto p-6 text-center text-sm text-ink-55">Bir sohbet seçin veya Arkadaşlar bölümünden mesaj başlatın.</p>}</section>
   </div>;
 }
 
@@ -260,7 +260,7 @@ function Avatar({ name, url, size = "small" }: { name: string; url: string | nul
 }
 
 function TabButton({ selected, onClick, children }: { selected: boolean; onClick: () => void; children: React.ReactNode }) {
-  return <button type="button" onClick={onClick} className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold ${selected ? "bg-black text-white dark:bg-white dark:text-black" : "border border-black/15 dark:border-white/20"}`}>{children}</button>;
+  return <button type="button" onClick={onClick} className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold ${selected ? "bg-fill-inverse text-on-inverse" : "border border-line-15"}`}>{children}</button>;
 }
 
 function messageFor(error: unknown): string {

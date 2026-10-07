@@ -203,7 +203,7 @@ export function MovieDetailModal({
 
         if (closes) onClose();
       }}
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center sm:p-6"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-scrim backdrop-blur-sm sm:items-center sm:p-6"
     >
       <div
         ref={dialogRef}
@@ -234,7 +234,7 @@ export function MovieDetailModal({
               </h2>
 
               {originalTitle ? (
-                <p className="mt-1 text-sm break-words text-black/60 dark:text-white/60">
+                <p className="mt-1 text-sm break-words text-ink-60">
                   {originalTitle}
                 </p>
               ) : null}
@@ -250,7 +250,7 @@ export function MovieDetailModal({
                   {details.genres.map((genre) => (
                     <li
                       key={genre}
-                      className="rounded-full border border-black/15 px-2 py-0.5 text-xs dark:border-white/20"
+                      className="rounded-full border border-line-15 px-2 py-0.5 text-xs"
                     >
                       {genre}
                     </li>
@@ -260,7 +260,7 @@ export function MovieDetailModal({
 
               {details?.director ? (
                 <p className="mt-3 text-sm">
-                  <span className="text-black/50 dark:text-white/50">
+                  <span className="text-ink-50">
                     Yönetmen:{" "}
                   </span>
                   <span className="font-medium">{details.director}</span>
@@ -271,7 +271,7 @@ export function MovieDetailModal({
 
           <p
             id={descriptionId}
-            className="text-sm leading-relaxed text-black/75 dark:text-white/75"
+            className="text-sm leading-relaxed text-ink-75"
           >
             {overview ?? "Bu film için TMDb üzerinde özet bulunmuyor."}
           </p>
@@ -282,15 +282,15 @@ export function MovieDetailModal({
             </StatusMessage>
           ) : null}
 
-          <div className="border-t border-black/10 pt-5 dark:border-white/15">
+          <div className="border-t border-line-10 pt-5">
             <LibraryActions movie={details ?? movie} />
           </div>
 
           <section
             aria-live="polite"
-            className="border-t border-black/10 pt-5 dark:border-white/15"
+            className="border-t border-line-10 pt-5"
           >
-            <h3 className="text-xs font-semibold tracking-wide text-black/50 uppercase dark:text-white/50">
+            <h3 className="text-xs font-semibold tracking-wide text-ink-50 uppercase">
               Türkiye&apos;de abonelik durumu
             </h3>
             <div className="mt-3">
@@ -337,7 +337,7 @@ function BackdropArea({
       ) : (
         <div
           aria-hidden="true"
-          className="flex h-full w-full items-center justify-center text-xs text-black/40 dark:text-white/40"
+          className="flex h-full w-full items-center justify-center text-xs text-ink-40"
         >
           {loading ? "Yükleniyor…" : "Görsel yok"}
         </div>
@@ -354,7 +354,7 @@ function BackdropArea({
         type="button"
         onClick={onClose}
         aria-label={`${title} detaylarını kapat`}
-        className="absolute top-3 right-3 flex h-11 w-11 items-center justify-center rounded-full bg-black/60 text-lg leading-none text-white backdrop-blur-sm transition-colors hover:bg-black/80 focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
+        className="absolute top-3 right-3 flex h-11 w-11 items-center justify-center rounded-full bg-scrim-control text-lg leading-none text-white backdrop-blur-sm transition-colors hover:bg-black/80 focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
       >
         <span aria-hidden="true">✕</span>
       </button>
@@ -377,7 +377,7 @@ function PosterArea({ url, title }: { url: string | null; title: string }) {
       ) : (
         <div
           aria-hidden="true"
-          className="flex h-full w-full items-center justify-center text-center text-[10px] leading-tight text-black/50 dark:text-white/50"
+          className="flex h-full w-full items-center justify-center text-center text-[10px] leading-tight text-ink-50"
         >
           Afiş
           <br />
@@ -404,7 +404,7 @@ function MetadataRow({
   ].filter((part): part is string => part !== null);
 
   return (
-    <p className="mt-2 text-sm text-black/60 dark:text-white/60">
+    <p className="mt-2 text-sm text-ink-60">
       {parts.join(" · ")}
     </p>
   );

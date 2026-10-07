@@ -36,7 +36,7 @@ function PendingButton({
 }
 
 const buttonClass =
-  "min-h-11 rounded-lg border border-black/20 px-3 py-2 text-sm hover:bg-black/[0.04] disabled:opacity-60 dark:border-white/25 dark:hover:bg-white/10";
+  "min-h-11 rounded-lg border border-line-20 px-3 py-2 text-sm hover:bg-fill-hover disabled:opacity-60";
 
 export function LibraryItemCard({ item }: { item: LibraryItem }) {
   const [updateState, updateAction] = useActionState(
@@ -73,7 +73,7 @@ export function LibraryItemCard({ item }: { item: LibraryItem }) {
   const isWatched = item.status === "watched";
 
   return (
-    <li className="flex flex-col gap-3 rounded-xl border border-black/10 p-3 dark:border-white/15">
+    <li className="flex flex-col gap-3 rounded-xl border border-line-10 p-3">
       <div className="flex items-start gap-3">
         {item.posterUrl ? (
           <Image
@@ -81,12 +81,12 @@ export function LibraryItemCard({ item }: { item: LibraryItem }) {
             alt={`${item.movieTitle} afişi`}
             width={56}
             height={84}
-            className="h-[84px] w-14 shrink-0 rounded object-cover bg-black/5 dark:bg-white/10"
+            className="h-[84px] w-14 shrink-0 rounded object-cover bg-fill-placeholder"
           />
         ) : (
           <div
             aria-hidden="true"
-            className="flex h-[84px] w-14 shrink-0 items-center justify-center rounded bg-black/5 text-center text-[10px] leading-tight text-black/50 dark:bg-white/10 dark:text-white/50"
+            className="flex h-[84px] w-14 shrink-0 items-center justify-center rounded bg-fill-placeholder text-center text-[10px] leading-tight text-ink-50"
           >
             Afiş
             <br />
@@ -96,7 +96,7 @@ export function LibraryItemCard({ item }: { item: LibraryItem }) {
 
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold break-words">{item.movieTitle}</p>
-          <p className="mt-0.5 text-xs text-black/60 dark:text-white/60">
+          <p className="mt-0.5 text-xs text-ink-60">
             {isWatched ? "İzlendi" : "İzlenecek"}
             {item.rating !== null ? ` · Puanınız: ${item.rating}/10` : ""}
           </p>
@@ -120,7 +120,7 @@ export function LibraryItemCard({ item }: { item: LibraryItem }) {
           <div>
             <label
               htmlFor={`status-${item.id}`}
-              className="block text-xs text-black/60 dark:text-white/60"
+              className="block text-xs text-ink-60"
             >
               Durum
             </label>
@@ -128,7 +128,7 @@ export function LibraryItemCard({ item }: { item: LibraryItem }) {
               id={`status-${item.id}`}
               name="status"
               defaultValue={item.status}
-              className="mt-1 min-h-11 rounded-lg border border-black/20 bg-transparent px-2 py-2 text-sm dark:border-white/25"
+              className="mt-1 min-h-11 rounded-lg border border-line-20 bg-transparent px-2 py-2 text-sm"
             >
               <option value="watchlist">İzlenecek</option>
               <option value="watched">İzledim</option>
@@ -138,7 +138,7 @@ export function LibraryItemCard({ item }: { item: LibraryItem }) {
           <div>
             <label
               htmlFor={`rating-${item.id}`}
-              className="block text-xs text-black/60 dark:text-white/60"
+              className="block text-xs text-ink-60"
             >
               Puan ({RATING_MIN}–{RATING_MAX})
             </label>
@@ -146,7 +146,7 @@ export function LibraryItemCard({ item }: { item: LibraryItem }) {
               id={`rating-${item.id}`}
               name="rating"
               defaultValue={item.rating === null ? "" : String(item.rating)}
-              className="mt-1 min-h-11 rounded-lg border border-black/20 bg-transparent px-2 py-2 text-sm dark:border-white/25"
+              className="mt-1 min-h-11 rounded-lg border border-line-20 bg-transparent px-2 py-2 text-sm"
             >
               <option value="">—</option>
               {Array.from({ length: RATING_MAX }, (_, index) => index + 1).map(
@@ -157,7 +157,7 @@ export function LibraryItemCard({ item }: { item: LibraryItem }) {
                 ),
               )}
             </select>
-            <p className="mt-1 text-xs text-black/50 dark:text-white/50">
+            <p className="mt-1 text-xs text-ink-50">
               Yalnızca izlenen filmlerde
             </p>
           </div>
@@ -166,7 +166,7 @@ export function LibraryItemCard({ item }: { item: LibraryItem }) {
         <div>
           <label
             htmlFor={`note-${item.id}`}
-            className="block text-xs text-black/60 dark:text-white/60"
+            className="block text-xs text-ink-60"
           >
             Not
           </label>
@@ -176,7 +176,7 @@ export function LibraryItemCard({ item }: { item: LibraryItem }) {
             rows={3}
             maxLength={NOTE_MAX_LENGTH}
             defaultValue={item.note ?? ""}
-            className="mt-1 w-full rounded-lg border border-black/20 bg-transparent px-3 py-2 text-sm dark:border-white/25"
+            className="mt-1 w-full rounded-lg border border-line-20 bg-transparent px-3 py-2 text-sm"
           />
         </div>
 
@@ -192,7 +192,7 @@ export function LibraryItemCard({ item }: { item: LibraryItem }) {
         <PendingButton
           label="Kütüphaneden kaldır"
           pendingLabel="Kaldırılıyor…"
-          className={`${buttonClass} text-black/70 dark:text-white/70`}
+          className={`${buttonClass} text-ink-70`}
         />
       </form>
     </li>

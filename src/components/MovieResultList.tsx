@@ -34,8 +34,8 @@ export function MovieResultList({
               aria-expanded={isSelected}
               className={`flex w-full min-h-11 items-start gap-3 rounded-lg border p-2 text-left transition-colors ${
                 isSelected
-                  ? "border-black/40 bg-black/[0.04] dark:border-white/50 dark:bg-white/10"
-                  : "border-black/10 hover:bg-black/[0.03] dark:border-white/15 dark:hover:bg-white/5"
+                  ? "border-line-selected bg-fill-selected"
+                  : "border-line-10 hover:bg-fill-subtle"
               }`}
             >
               <MoviePoster movie={movie} />
@@ -45,7 +45,7 @@ export function MovieResultList({
                   {movie.title}
                 </span>
 
-                <span className="mt-0.5 block text-xs text-black/60 dark:text-white/60">
+                <span className="mt-0.5 block text-xs text-ink-60">
                   {movie.releaseYear ?? "Yıl bilgisi yok"}
                   {movie.voteAverage !== null
                     ? ` · TMDb ${movie.voteAverage.toFixed(1)}`
@@ -53,7 +53,7 @@ export function MovieResultList({
                 </span>
 
                 {movie.originalTitle ? (
-                  <span className="mt-0.5 block text-xs break-words text-black/50 dark:text-white/50">
+                  <span className="mt-0.5 block text-xs break-words text-ink-50">
                     {movie.originalTitle}
                   </span>
                 ) : null}
