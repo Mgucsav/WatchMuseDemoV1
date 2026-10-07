@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 
 import { UserMenu } from "@/components/auth/UserMenu";
+import { Logo } from "@/components/brand/Logo";
 
 /**
  * Üst menü.
@@ -18,8 +19,14 @@ export function SiteHeader() {
         aria-label="Ana gezinme"
         className="mx-auto flex w-full max-w-2xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3"
       >
-        <Link href="/" className="text-base font-bold tracking-tight">
-          WatchMuse
+        <Link
+          href="/"
+          aria-label="WatchMuse ana sayfa"
+          // globals.css'teki `a` kuralı katman dışında olduğu için Tailwind
+          // sınıflarını (`no-underline`, `text-*`) ezer; logo için burada ayarlanır.
+          style={{ textDecoration: "none", color: "var(--wm-foreground)" }}
+        >
+          <Logo />
         </Link>
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">

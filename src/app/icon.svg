@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <rect width="48" height="48" rx="10" fill="#000000"/>
+  <g transform="translate(5 5) scale(0.7917)" fill="none" stroke="#ffffff">
+    <rect x="4.5" y="6.5" width="39" height="35" rx="5" stroke-width="3"/>
+    <g fill="#ffffff" stroke="none">
+      <rect x="9.5" y="10.5" width="3" height="3" rx="0.6"/>
+      <rect x="16" y="10.5" width="3" height="3" rx="0.6"/>
+      <rect x="22.5" y="10.5" width="3" height="3" rx="0.6"/>
+      <rect x="29" y="10.5" width="3" height="3" rx="0.6"/>
+      <rect x="35.5" y="10.5" width="3" height="3" rx="0.6"/>
+      <rect x="9.5" y="34.5" width="3" height="3" rx="0.6"/>
+      <rect x="16" y="34.5" width="3" height="3" rx="0.6"/>
+      <rect x="22.5" y="34.5" width="3" height="3" rx="0.6"/>
+      <rect x="29" y="34.5" width="3" height="3" rx="0.6"/>
+      <rect x="35.5" y="34.5" width="3" height="3" rx="0.6"/>
+    </g>
+    <polyline points="12.5,18 17.5,31 24,21.5 30.5,31 35.5,18" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round"/>
+  </g>
+</svg>

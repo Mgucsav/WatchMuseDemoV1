@@ -227,6 +227,15 @@ yalnızca bir durumu (hata, uyarı, platform uygunluğu) anlatırken kullanılı
 Tema işletim sisteminin açık/koyu tercihini (`prefers-color-scheme`) izler; elle
 değiştirme düğmesi yoktur.
 
+### Logo
+
+Logo, makara delikli bir film karesinin içindeki "W" işareti ile "WatchMuse"
+yazısından oluşur. [src/components/brand/Logo.tsx](src/components/brand/Logo.tsx)
+iki bileşen sunar: yalnız işaret için `LogoMark`, işaret ve yazı için `Logo`.
+İşaret `currentColor` ile çizildiği için rengini çevresinden alır ve iki temaya
+da uyar. Tarayıcı sekmesi simgesi aynı çizimin siyah zemin üzerindeki kopyasıdır:
+[src/app/icon.svg](src/app/icon.svg).
+
 ### Renk token'ları
 
 Bütün renkler [src/app/globals.css](src/app/globals.css) içinde CSS değişkeni
