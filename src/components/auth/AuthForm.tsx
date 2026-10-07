@@ -22,7 +22,7 @@ function SubmitButton({ label }: { label: string }) {
     <button
       type="submit"
       disabled={pending}
-      className="min-h-11 w-full rounded-lg border border-line-20 px-4 py-2 text-sm font-medium hover:bg-fill-hover disabled:opacity-60"
+      className="min-h-11 w-full rounded-lg bg-fill-inverse px-4 py-2 text-sm font-semibold text-on-inverse disabled:opacity-60"
     >
       {pending ? "Gönderiliyor…" : label}
     </button>

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
+import { HeaderVisibility } from "@/components/HeaderVisibility";
 import { SiteHeader } from "@/components/SiteHeader";
 import { AnonymousSessionBootstrap } from "@/components/auth/AnonymousSessionBootstrap";
 import "./globals.css";
@@ -29,7 +30,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       >
       <body className="flex min-h-full flex-col watchmuse-retro film-grain">
         <AnonymousSessionBootstrap />
-        <SiteHeader />
+        <HeaderVisibility>
+          <SiteHeader />
+        </HeaderVisibility>
         {children}
       </body>
     </html>
