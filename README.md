@@ -106,7 +106,7 @@ film topluluğudur.
 - Next.js 16.3 App Router
 - React 19
 - TypeScript
-- Tailwind CSS
+- Tailwind CSS 4 (renk token'larıyla)
 - Supabase Auth ve PostgreSQL
 - Vercel
 - TMDb API
@@ -219,6 +219,57 @@ anahtardır; tek başına yetki sağlamaz. Yetkiyi RLS ve güvenli RPC'ler belir
 
 `.env.local` Git tarafından yok sayılır.
 
+## Tasarım sistemi
+
+Arayüz bilinçli olarak sade, yüksek kontrastlı bir **retro siyah-beyaz**
+temadır: tek sütun, ince çizgiler, gölgesiz yüzeyler ve marka rengi yok. Renk
+yalnızca bir durumu (hata, uyarı, platform uygunluğu) anlatırken kullanılır.
+Tema işletim sisteminin açık/koyu tercihini (`prefers-color-scheme`) izler; elle
+değiştirme düğmesi yoktur.
+
+### Renk token'ları
+
+Bütün renkler [src/app/globals.css](src/app/globals.css) içinde CSS değişkeni
+olarak tanımlıdır: açık tema değerleri `:root` içinde, koyu tema değerleri
+`@media (prefers-color-scheme: dark)` içindedir. `@theme inline` bloğu her
+token'ı Tailwind'e `--color-<isim>` olarak tanıtır; böylece token'lar normal
+renk sınıfı gibi kullanılır ve tema değişince kendiliğinden güncellenir.
+
+```tsx
+// Önce
+<p className="text-black/60 dark:text-white/60">…</p>
+<button className="bg-black text-white dark:bg-white dark:text-black">Paylaş</button>
+
+// Sonra
+<p className="text-ink-60">…</p>
+<button className="bg-fill-inverse text-on-inverse">Paylaş</button>
+```
+
+| Grup | Sınıf örneği | Token'lar ve kullanım |
+| --- | --- | --- |
+| Sayfa | `bg-wm-background`, `text-wm-foreground` | `wm-background`, `wm-foreground`, `wm-accent` (bağlantılar), `wm-muted` |
+| Metin | `text-ink-60` | `ink-75` … `ink-40`. Hiyerarşi renkle değil saydamlıkla kurulur: `ink-60` açıklama ve meta, `ink-55` zaman damgası, `ink-50` etiket ve ipucu |
+| Çizgi | `border-line-10` | `line-10` kart ve bölüm, `line-15` tür etiketi, `line-20` kontrol kenarı, `line-30` güçlü çerçeve, `line-focus` odaklı input (`focus:border-line-focus`), `line-selected` seçili satır |
+| Dolgu | `hover:bg-fill-hover` | `fill-subtle`, `fill-hover`, `fill-selected`, `fill-placeholder` (afiş yer tutucu), `fill-badge` |
+| Ana düğme | `bg-fill-inverse text-on-inverse` | Açık temada siyah, koyu temada beyaz. Her görünümde tek dolgulu düğme bulunur |
+| Örtü | `bg-scrim` | `scrim` modal arkası, `scrim-control` görsel üstündeki kapatma düğmesi (iki temada aynı) |
+| Hata | `text-error-ink` | `error-ink` satır içi hata ve silme düğmesi, `error-line`, StatusMessage için `error-surface`, `error-border`, `error-text` |
+| Uyarı | `bg-warning-surface` | `warning-surface`, `warning-border`, `warning-text` |
+| Platform rozetleri | `bg-success-badge text-success-badge-text` | `success-badge` “Aboneliğe dahil”, `unknown-badge` “Bilgi mevcut değil”, `fill-badge` + `ink-70` “Bulunamadı”. Rozetler her zaman kelimeyle birlikte gösterilir; anlam yalnız renge bırakılmaz |
+
+Kurallar:
+
+- Yeni kodda `black`/`white` + `dark:` çifti yazmayın; karşılık gelen token
+  sınıfını kullanın.
+- Gereken renk listede yoksa token'ı üç yere ekleyin: `:root` (açık değer),
+  `@media (prefers-color-scheme: dark)` (koyu değer, iki temada aynıysa
+  gerekmez) ve `@theme inline` (`--color-<isim>: var(--<isim>);`).
+- Boşluk, köşe yarıçapı ve yazı boyutları Tailwind'in varsayılan ölçeğini
+  kullanır; bunlar için ayrı token yoktur.
+- Tek seferlik değerler bilinçli olarak sınıf olarak kalır: oda çarkının
+  halkaları, afiş üstündeki gradyan, avatar yer tutucusu, seçili oda seçeneği
+  ve abonelik seçicisindeki vurgu.
+
 ## Proje yapısı
 
 ```text
@@ -230,6 +281,7 @@ src/
 │   ├── ara/                  film arama ekranı
 │   ├── kutuphanem/           kişisel kütüphane
 │   ├── rooms/                oda listesi, oluşturma ve oda ekranı
+│   ├── globals.css           renk token'ları ve global stiller
 │   └── page.tsx              ana sosyal akış
 ├── components/
 │   ├── social/               sosyal akış ve gönderi oluşturucu
@@ -269,6 +321,9 @@ iş kuralları veri kaynağına en yakın katmanda tekrar doğrulanır.
   otomatiktir.
 - TMDb araması yalnız ilk sonuç sayfasını getirir.
 - Yerel oda deposu geliştirme içindir ve süreç yeniden başlayınca silinir.
+- Film platformu satırlarındaki marka renkli sol çizgi koyu temada görünmez:
+  `dark:border-white/15` bu çizginin rengini ezer. Görünümü değiştirmemek için
+  bu satır henüz token sınıfına çevrilmedi.
 
 ## Test durumu
 
