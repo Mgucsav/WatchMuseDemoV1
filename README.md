@@ -10,7 +10,8 @@ film topluluğudur.
 
 | Bölüm | Adres |
 | --- | --- |
-| Sosyal akış | [watch-muse-demo-v1.vercel.app](https://watch-muse-demo-v1.vercel.app/) |
+| Tanıtım | [watch-muse-demo-v1.vercel.app](https://watch-muse-demo-v1.vercel.app/) |
+| Sosyal akış | [/akis](https://watch-muse-demo-v1.vercel.app/akis) |
 | Film arama | [/ara](https://watch-muse-demo-v1.vercel.app/ara) |
 | Kişisel kütüphane | [/kutuphanem](https://watch-muse-demo-v1.vercel.app/kutuphanem) |
 | Film karar odaları | [/rooms](https://watch-muse-demo-v1.vercel.app/rooms) |
@@ -221,28 +222,45 @@ anahtardır; tek başına yetki sağlamaz. Yetkiyi RLS ve güvenli RPC'ler belir
 
 ## Tasarım sistemi
 
-Arayüz bilinçli olarak sade, yüksek kontrastlı bir **retro siyah-beyaz**
-temadır: tek sütun, ince çizgiler, gölgesiz yüzeyler ve marka rengi yok. Renk
-yalnızca bir durumu (hata, uyarı, platform uygunluğu) anlatırken kullanılır.
-Tema işletim sisteminin açık/koyu tercihini (`prefers-color-scheme`) izler; elle
-değiştirme düğmesi yoktur.
+Arayüz **retro siyah** bir temadır: siyah zemin, ince çizgiler, gölgesiz
+yüzeyler ve iki marka rengi, **yeşil** ve **kırmızı**. Yeşil ana eylemleri ve
+seçili durumu (ana düğme, sol paneldeki açık bölüm), kırmızı vurguyu (logodaki
+"W" ve "MUSE", başlıklardaki vurgu kelimeleri) taşır. Hata, uyarı ve platform
+uygunluğu kendi durum renklerini kullanmaya devam eder.
+
+Site her zaman koyu temada açılır: `<html class="dark">` ve globals.css'teki
+`@custom-variant dark` sayesinde `dark:` sınıfları işletim sistemi tercihinden
+bağımsız uygulanır. Sınıf kaldırılırsa açık tema değerleri hâlâ tanımlıdır.
+
+### Düzen
+
+- **Tanıtım sayfası (`/`):** Siteye girenler önce WatchMuse'un ne olduğunu ve
+  dört bölümü özetleyen kısa bir ekran görür; "Akışa gir" ile `/akis`'e geçer.
+- **Sol panel:** Logo, bölümler (Akış, Ara, Kütüphanem, Odalar, Hesabım) ve
+  hesap alanı. Açık bölüm yeşil çizgiyle işaretlenir. Hesap alanından profil
+  fotoğrafı, görünen ad, kullanıcı adı ve açıklama `/hesabim` sayfasında
+  düzenlenir. Telefonda panel üstte yatay bir çubuğa dönüşür.
+- Tanıtım ve giriş sayfaları kendi tam ekran düzenlerini kullanır; sol panel
+  orada gösterilmez ([SidebarVisibility.tsx](src/components/SidebarVisibility.tsx)).
+- Girişten sonra varsayılan hedef `/akis`'tir.
 
 ### Logo
 
-Logo, makara delikli bir film karesinin içindeki "W" işareti ile "WatchMuse"
-yazısından oluşur. [src/components/brand/Logo.tsx](src/components/brand/Logo.tsx)
-iki bileşen sunar: yalnız işaret için `LogoMark`, işaret ve yazı için `Logo`.
-İşaret `currentColor` ile çizildiği için rengini çevresinden alır ve iki temaya
-da uyar. Tarayıcı sekmesi simgesi aynı çizimin siyah zemin üzerindeki kopyasıdır:
-[src/app/icon.svg](src/app/icon.svg).
+Logo, yeşil, makara delikli bir film karesinin içindeki kırmızı "W" işareti ile
+sinema afişi yazı tipiyle (Bebas Neue) yazılmış "WATCHMUSE" ve altındaki
+kırmızı-yeşil retro şeritlerden oluşur.
+[src/components/brand/Logo.tsx](src/components/brand/Logo.tsx) iki bileşen
+sunar: yalnız işaret için `LogoMark`, işaret ve yazı için `Logo`
+(`size="sm" | "md" | "lg"`). Tarayıcı sekmesi simgesi aynı çizimin siyah zemin
+üzerindeki kopyasıdır: [src/app/icon.svg](src/app/icon.svg).
 
 ### Renk token'ları
 
 Bütün renkler [src/app/globals.css](src/app/globals.css) içinde CSS değişkeni
 olarak tanımlıdır: açık tema değerleri `:root` içinde, koyu tema değerleri
-`@media (prefers-color-scheme: dark)` içindedir. `@theme inline` bloğu her
-token'ı Tailwind'e `--color-<isim>` olarak tanıtır; böylece token'lar normal
-renk sınıfı gibi kullanılır ve tema değişince kendiliğinden güncellenir.
+`.dark` içindedir. `@theme inline` bloğu her token'ı Tailwind'e
+`--color-<isim>` olarak tanıtır; böylece token'lar normal renk sınıfı gibi
+kullanılır. Retro başlıklar için `font-display` (Bebas Neue) sınıfı vardır.
 
 ```tsx
 // Önce
@@ -256,11 +274,12 @@ renk sınıfı gibi kullanılır ve tema değişince kendiliğinden güncellenir
 
 | Grup | Sınıf örneği | Token'lar ve kullanım |
 | --- | --- | --- |
+| Marka | `text-brand-green`, `bg-brand-red` | `brand-green` (#3ccf6e, siyah zeminde 9.7:1), `brand-red` (#e8423f, 4.9:1). İki temada aynı |
 | Sayfa | `bg-wm-background`, `text-wm-foreground` | `wm-background`, `wm-foreground`, `wm-accent` (bağlantılar), `wm-muted` |
 | Metin | `text-ink-60` | `ink-75` … `ink-40`. Hiyerarşi renkle değil saydamlıkla kurulur: `ink-60` açıklama ve meta, `ink-55` zaman damgası, `ink-50` etiket ve ipucu |
 | Çizgi | `border-line-10` | `line-10` kart ve bölüm, `line-15` tür etiketi, `line-20` kontrol kenarı, `line-30` güçlü çerçeve, `line-focus` odaklı input (`focus:border-line-focus`), `line-selected` seçili satır |
 | Dolgu | `hover:bg-fill-hover` | `fill-subtle`, `fill-hover`, `fill-selected`, `fill-placeholder` (afiş yer tutucu), `fill-badge` |
-| Ana düğme | `bg-fill-inverse text-on-inverse` | Açık temada siyah, koyu temada beyaz. Her görünümde tek dolgulu düğme bulunur |
+| Ana düğme | `bg-fill-inverse text-on-inverse` | Koyu temada marka yeşili üzerine siyah yazı (açık temada siyah). Her görünümde tek dolgulu düğme bulunur |
 | Örtü | `bg-scrim` | `scrim` modal arkası, `scrim-control` görsel üstündeki kapatma düğmesi (iki temada aynı) |
 | Hata | `text-error-ink` | `error-ink` satır içi hata ve silme düğmesi, `error-line`, StatusMessage için `error-surface`, `error-border`, `error-text` |
 | Uyarı | `bg-warning-surface` | `warning-surface`, `warning-border`, `warning-text` |
@@ -271,8 +290,10 @@ Kurallar:
 - Yeni kodda `black`/`white` + `dark:` çifti yazmayın; karşılık gelen token
   sınıfını kullanın.
 - Gereken renk listede yoksa token'ı üç yere ekleyin: `:root` (açık değer),
-  `@media (prefers-color-scheme: dark)` (koyu değer, iki temada aynıysa
-  gerekmez) ve `@theme inline` (`--color-<isim>: var(--<isim>);`).
+  `.dark` (koyu değer, iki temada aynıysa gerekmez) ve `@theme inline`
+  (`--color-<isim>: var(--<isim>);`).
+- Bağlantılar için global `a` kuralı Tailwind'in `base` katmanındadır; bir
+  bağlantıda `no-underline` veya `text-*` sınıfları bu kuralı ezer.
 - Boşluk, köşe yarıçapı ve yazı boyutları Tailwind'in varsayılan ölçeğini
   kullanır; bunlar için ayrı token yoktur.
 - Tek seferlik değerler bilinçli olarak sınıf olarak kalır: oda çarkının
@@ -290,13 +311,17 @@ src/
 │   ├── ara/                  film arama ekranı
 │   ├── kutuphanem/           kişisel kütüphane
 │   ├── rooms/                oda listesi, oluşturma ve oda ekranı
+│   ├── akis/                 ana sosyal akış
+│   ├── giris/                giriş sayfası
 │   ├── globals.css           renk token'ları ve global stiller
-│   └── page.tsx              ana sosyal akış
+│   └── page.tsx              tanıtım sayfası
 ├── components/
 │   ├── social/               sosyal akış ve gönderi oluşturucu
 │   ├── rooms/                oda, sohbet, tur ve Teleparty arayüzleri
 │   ├── library/              kütüphane bileşenleri
-│   └── auth/                 oturum ve hesap bileşenleri
+│   ├── auth/                 oturum ve hesap bileşenleri
+│   ├── brand/                logo
+│   └── SiteSidebar.tsx       sol panel
 ├── lib/
 │   ├── social/               sosyal servis, doğrulama ve tipler
 │   ├── rooms/                oda alan mantığı ve güvenli servisler
