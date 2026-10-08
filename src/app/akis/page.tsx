@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+
 import { SocialFeed } from "@/components/social/SocialFeed";
 import { getCurrentActor } from "@/lib/auth/dal";
 
@@ -7,7 +9,10 @@ export default async function FeedPage() {
   const actor = await getCurrentActor();
   return (
     <main className="flex-1">
-      <SocialFeed isRegistered={Boolean(actor && !actor.isAnonymous)} />
+      {/* SocialFeed seçili sekmeyi adres çubuğundan (useSearchParams) okur. */}
+      <Suspense>
+        <SocialFeed isRegistered={Boolean(actor && !actor.isAnonymous)} />
+      </Suspense>
     </main>
   );
 }

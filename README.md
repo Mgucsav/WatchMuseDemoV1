@@ -25,13 +25,36 @@ film topluluğudur.
 - Gönderiye TMDb aramasıyla film ve afiş eklenebilir.
 - Gönderilere tek seviyeli cevap yazılabilir.
 - Gönderiler ve cevaplar beğenilebilir veya repost edilebilir.
+- Akış iki sekmedir: **Genel** ve **Takip ettiklerin** (takip edilenlerin
+  gönderileri, onların repostları ve kendi gönderilerin).
+- Her sekme üç şekilde sıralanır:
+  - **Hot:** Reddit'in sıralaması. `log10(etkileşim) + paylaşım zamanı / 45000 sn`;
+    etkileşim = beğeni + 2 × repost + cevap. Yeni ve ilgi gören gönderiler üstte.
+  - **Popüler:** Son 30 günün en çok etkileşim alan gönderileri.
+  - **Yeni:** Kronolojik; repost edilen gönderi yeniden üste çıkar.
+- Seçili sekme adres çubuğunda tutulur (`/akis?kapsam=takip&sirala=top`).
+
+### Takip ve profil sayfaları
+
+- Kayıtlı üyeler birbirini tek yönlü takip edebilir; takip, arkadaşlıktan
+  bağımsızdır.
+- Her kullanıcı adının herkese açık bir profili vardır: `/u/<kullanıcı adı>`.
+  Kapak fotoğrafı, profil fotoğrafı, görünen ad, bio, katılma tarihi, takip /
+  takipçi / paylaşım sayıları ve "Seni takip ediyor" etiketi gösterilir.
+- Profil sekmeleri: Paylaşımlar, Takipçiler, Takip edilenler. **Beğeniler**
+  sekmesi yalnız profilin sahibine görünür; başkalarının beğenileri gizlidir.
+- Akıştaki yazar adları ve arkadaş listesindeki isimler profile bağlanır.
+- **Hesabım** (`/hesabim`) sekmeleri: Profilim (kendi profil görünümün),
+  Profili düzenle, Arkadaşlar, Mesajlar. `?sekme=duzenle|arkadaslar|mesajlar`
+  ile doğrudan açılabilir.
 
 ### Sosyal hesaplar
 
 - Her kayıtlı üye benzersiz bir kullanıcı adı, görünen ad ve 300 karakterlik
   profil açıklaması belirleyebilir.
-- JPG, PNG veya WebP profil fotoğrafları en fazla 5 MB olacak şekilde Supabase
-  Storage'a yüklenir.
+- JPG, PNG veya WebP profil ve kapak fotoğrafları en fazla 5 MB olacak şekilde
+  Supabase Storage'a yüklenir (`profile-avatars`, `profile-banners`). Kapak
+  3:1 oranında gösterilir; en iyi sonuç için 1500×500.
 - Üyeler kullanıcı adı veya görünen adla birbirini arayabilir; arkadaşlık isteği
   gönderebilir, kabul/reddedebilir ve bağlantıyı kaldırabilir.
 - Özel mesajlar sohbet geçmişi ve okunmamış mesaj sayısıyla birlikte gösterilir.
@@ -207,6 +230,9 @@ npm run build
 | Oda yazmaları doğrudan tabloya yapılmaz | Yetki, kapasite ve rol kontrolleri `SECURITY DEFINER` RPC'lerde uygulanır |
 | Sosyal yazmalar üyelik gerektirir | PostgreSQL, `auth.users.is_anonymous` değerini her yazmada kontrol eder |
 | Sosyal akış kimlik sızdırmaz | Okuma RPC'si e-posta ve `user_id` döndürmez |
+| Profiller kullanıcı adıyla açılır | Profil, takip ve takipçi RPC'leri `user_id` döndürmez; anonim hesapların profili yoktur |
+| Beğeniler gizlidir | `list_profile_posts` beğenileri yalnız profil sahibine döndürür |
+| Takip yalnız üyelere açıktır | `toggle_follow` kalıcı üyeliği ve kendini takip etmemeyi veritabanında doğrular |
 | DM gizliliği istemcide aşılamaz | Alıcının tercihi ve arkadaşlık durumu mesaj RPC'sinde yeniden doğrulanır |
 | Avatar yüklemeleri sınırlandırılır | Sunucu dosya boyutunu, MIME türünü ve dosya imzasını doğrular |
 | Beğeni ve repost tekildir | `primary key (post_id, user_id)` ile garanti edilir |
@@ -316,11 +342,14 @@ src/
 │   ├── kutuphanem/           kişisel kütüphane
 │   ├── rooms/                oda listesi, oluşturma ve oda ekranı
 │   ├── akis/                 ana sosyal akış
+│   ├── api/profiles/         profil, paylaşım/beğeni, takip ve takipçi uçları
 │   ├── giris/                giriş sayfası
+│   ├── u/[username]/         herkese açık profil sayfası
 │   ├── globals.css           renk token'ları ve global stiller
 │   └── page.tsx              tanıtım sayfası
 ├── components/
-│   ├── social/               sosyal akış ve gönderi oluşturucu
+│   ├── social/               sosyal akış, gönderi listesi ve gönderi oluşturucu
+│   ├── profile/              profil görünümü ve takipçi listeleri
 │   ├── rooms/                oda, sohbet, tur ve Teleparty arayüzleri
 │   ├── library/              kütüphane bileşenleri
 │   ├── auth/                 oturum ve hesap bileşenleri
@@ -350,7 +379,10 @@ iş kuralları veri kaynağına en yakın katmanda tekrar doğrulanır.
 ## Bilinen sınırlamalar
 
 - Sosyal cevaplar şu anda tek seviyelidir.
-- Sosyal akış ilk 30, cevaplar ilk 50 kayıtla sınırlıdır; sonsuz kaydırma yoktur.
+- Sosyal akış ve profil listeleri ilk 30, cevaplar ve takipçi listeleri ilk 50
+  kayıtla sınırlıdır; sonsuz kaydırma yoktur.
+- Hot ve Popüler sıralaması sorgu anında hesaplanır; gönderi sayısı çok
+  büyürse önceden hesaplanmış bir puan sütununa geçmek gerekir.
 - Kullanıcı engelleme, içerik raporlama ve moderasyon paneli henüz yoktur.
 - DM'lerde dosya/görsel gönderimi, mesaj silme ve uçtan uca şifreleme henüz yoktur.
 - Oda ve sohbet güncellemeleri Supabase Realtime yerine kontrollü polling

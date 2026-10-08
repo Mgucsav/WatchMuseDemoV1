@@ -1,15 +1,19 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
 
+import { UserAvatar as Avatar } from "@/components/UserAvatar";
+import { ProfileView } from "@/components/profile/ProfileView";
 import { ApiError, fetchJson } from "@/lib/api/fetch-json";
 import type { DirectMessage, DmPrivacy, DmThread, SocialPerson, SocialProfile } from "@/lib/account/types";
+import type { PublicProfile } from "@/lib/social/types";
 
-type Tab = "profile" | "people" | "messages";
+export type AccountTab = "profile" | "edit" | "people" | "messages";
 type ChatPeer = Pick<SocialPerson, "userId" | "username" | "displayName" | "avatarUrl">;
 
-export function AccountCenter() {
-  const [tab, setTab] = useState<Tab>("profile");
+export function AccountCenter({ initialTab = "profile" }: { initialTab?: AccountTab }) {
+  const [tab, setTab] = useState<AccountTab>(initialTab);
   const [profile, setProfile] = useState<SocialProfile | null>(null);
   const [connections, setConnections] = useState<SocialPerson[]>([]);
   const [threads, setThreads] = useState<DmThread[]>([]);
@@ -111,15 +115,22 @@ export function AccountCenter() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex gap-2 overflow-x-auto border-b border-line-10 pb-3">
+      <div role="tablist" aria-label="Hesabım" className="flex overflow-x-auto border-b border-line-10">
         <TabButton selected={tab === "profile"} onClick={() => setTab("profile")}>Profilim</TabButton>
+        <TabButton selected={tab === "edit"} onClick={() => setTab("edit")}>Profili düzenle</TabButton>
         <TabButton selected={tab === "people"} onClick={() => setTab("people")}>Arkadaşlar</TabButton>
         <TabButton selected={tab === "messages"} onClick={() => setTab("messages")}>Mesajlar{threads.some((item) => item.unreadCount > 0) ? " •" : ""}</TabButton>
       </div>
 
       {error ? <p role="alert" className="rounded-xl border border-red-500/40 bg-red-500/10 p-3 text-sm">{error}</p> : null}
-      {!profile ? <p className="text-sm text-ink-60">Hesabınız yükleniyor…</p> : null}
-      {profile && tab === "profile" ? <ProfileEditor profile={profile} onChange={setProfile} /> : null}
+      {tab === "profile" ? <ProfileView username={null} isRegistered onEdit={() => setTab("edit")} /> : null}
+      {!profile && tab !== "profile" ? <p className="text-sm text-ink-60">Hesabınız yükleniyor…</p> : null}
+      {profile && tab === "edit" ? (
+        <div className="grid gap-5">
+          <BannerEditor />
+          <ProfileEditor profile={profile} onChange={setProfile} />
+        </div>
+      ) : null}
       {profile && tab === "people" ? (
         <PeoplePanel
           query={query} setQuery={setQuery} search={search} people={people}
@@ -133,6 +144,64 @@ export function AccountCenter() {
         />
       ) : null}
     </div>
+  );
+}
+
+/** Profilin üstündeki kapak fotoğrafı (3:1). */
+function BannerEditor() {
+  const [bannerUrl, setBannerUrl] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchJson<{ profile: PublicProfile }>("/api/profiles/me")
+      .then((result) => { if (!cancelled) setBannerUrl(result.profile.bannerUrl); })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, []);
+
+  async function upload(file: File | undefined) {
+    if (!file) return;
+    setBusy(true); setNotice(null);
+    try {
+      const form = new FormData(); form.set("banner", file);
+      const response = await fetch("/api/account/banner", { method: "POST", body: form });
+      const payload = await response.json() as { bannerUrl?: string; error?: { message?: string } };
+      if (!response.ok || !payload.bannerUrl) throw new Error(payload.error?.message || "Kapak fotoğrafı yüklenemedi.");
+      setBannerUrl(payload.bannerUrl); setNotice("Kapak fotoğrafı güncellendi.");
+    } catch (caught) { setNotice(messageFor(caught)); }
+    finally { setBusy(false); if (inputRef.current) inputRef.current.value = ""; }
+  }
+
+  async function remove() {
+    setBusy(true); setNotice(null);
+    try {
+      await fetchJson("/api/account/banner", undefined, { method: "DELETE" });
+      setBannerUrl(null); setNotice("Kapak fotoğrafı kaldırıldı.");
+    } catch (caught) { setNotice(messageFor(caught)); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <section className="grid gap-3 rounded-xl border border-line-10 p-4">
+      <h2 className="text-sm font-semibold">Kapak fotoğrafı</h2>
+      <div className="aspect-[3/1] w-full overflow-hidden rounded-lg bg-fill-placeholder">
+        {bannerUrl ? (
+          // Public Supabase URL'si kullanıcıya göre dinamik host taşır.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={bannerUrl} alt="" className="h-full w-full object-cover" />
+        ) : null}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(event) => void upload(event.target.files?.[0])} />
+        <button type="button" disabled={busy} onClick={() => inputRef.current?.click()} className="rounded-lg border border-line-20 px-4 py-2 text-sm hover:bg-fill-hover">Kapak yükle</button>
+        {bannerUrl ? <button type="button" disabled={busy} onClick={() => void remove()} className="rounded-lg border border-line-20 px-4 py-2 text-sm hover:bg-fill-hover">Kaldır</button> : null}
+      </div>
+      <p className="text-xs text-ink-55">JPG, PNG veya WebP · en fazla 5 MB · en iyi görünüm için 1500×500</p>
+      {notice ? <p role="status" className="text-sm">{notice}</p> : null}
+    </section>
   );
 }
 
@@ -181,7 +250,7 @@ function ProfileEditor({ profile, onChange }: { profile: SocialProfile; onChange
   return (
     <form onSubmit={save} className="grid gap-5">
       <section className="flex flex-wrap items-center gap-4 rounded-xl border border-line-10 p-4">
-        <Avatar name={displayName || username || "W"} url={profile.avatarUrl} size="large" />
+        <Avatar name={displayName || username || "W"} url={profile.avatarUrl} size="lg" />
         <div className="flex flex-wrap gap-2">
           <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(event) => void upload(event.target.files?.[0])} />
           <button type="button" disabled={busy} onClick={() => inputRef.current?.click()} className="rounded-lg bg-fill-inverse px-4 py-2 text-sm font-semibold text-on-inverse">Fotoğraf yükle</button>
@@ -225,7 +294,7 @@ function PeoplePanel(props: {
 function PersonList({ title, people, busy, act, openChat }: { title: string; people: SocialPerson[]; busy: boolean; act: PeoplePanelParameters["act"]; openChat: (peer: ChatPeer) => void }) {
   return <section><h2 className="mb-3 font-bold">{title}</h2><div className="grid gap-2">
     {people.length === 0 ? <p className="rounded-xl border border-dashed border-line-20 p-4 text-sm text-ink-55">Henüz burada kimse yok.</p> : people.map((person) => <article key={person.userId} className="flex flex-wrap items-center gap-3 rounded-xl border border-line-10 p-3">
-      <Avatar name={person.displayName} url={person.avatarUrl} /><div className="min-w-0 flex-1"><p className="truncate font-semibold">{person.displayName}</p><p className="truncate text-xs text-ink-55">@{person.username}{person.bio ? ` · ${person.bio}` : ""}</p></div>
+      <Avatar name={person.displayName} url={person.avatarUrl} /><div className="min-w-0 flex-1"><Link href={`/u/${person.username}`} className="block truncate font-semibold text-wm-foreground no-underline hover:underline">{person.displayName}</Link><p className="truncate text-xs text-ink-55">@{person.username}{person.bio ? ` · ${person.bio}` : ""}</p></div>
       <div className="flex flex-wrap gap-2 text-sm">
         {person.relationship === "none" ? <button disabled={busy} onClick={() => void act("POST", person.userId)} className="rounded-lg border px-3 py-2">Arkadaş ekle</button> : null}
         {person.relationship === "incoming" ? <><button disabled={busy} onClick={() => void act("PATCH", person.userId, true)} className="rounded-lg bg-fill-inverse px-3 py-2 text-on-inverse">Kabul et</button><button disabled={busy} onClick={() => void act("PATCH", person.userId, false)} className="rounded-lg border px-3 py-2">Reddet</button></> : null}
@@ -250,17 +319,8 @@ function MessagesPanel({ threads, activeChat, openChat, messages, body, setBody,
   </div>;
 }
 
-function Avatar({ name, url, size = "small" }: { name: string; url: string | null; size?: "small" | "large" }) {
-  const classes = size === "large" ? "h-24 w-24 text-2xl" : "h-10 w-10 text-sm";
-  return <span className={`${classes} inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-black/10 font-bold dark:bg-white/15`}>{url ? (
-    // Public Supabase avatar URL'si kullanıcıya göre dinamik host taşır.
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={url} alt="" className="h-full w-full object-cover" />
-  ) : name.slice(0, 2).toUpperCase()}</span>;
-}
-
 function TabButton({ selected, onClick, children }: { selected: boolean; onClick: () => void; children: React.ReactNode }) {
-  return <button type="button" onClick={onClick} className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold ${selected ? "bg-fill-inverse text-on-inverse" : "border border-line-15"}`}>{children}</button>;
+  return <button type="button" role="tab" aria-selected={selected} onClick={onClick} className={`-mb-px min-h-11 shrink-0 whitespace-nowrap border-b-2 px-4 text-sm transition-colors hover:bg-fill-hover ${selected ? "border-brand-green font-semibold" : "border-transparent text-ink-60"}`}>{children}</button>;
 }
 
 function messageFor(error: unknown): string {

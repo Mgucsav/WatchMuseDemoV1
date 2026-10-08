@@ -1,13 +1,29 @@
 import { redirect } from "next/navigation";
 
-import { AccountCenter } from "@/components/account/AccountCenter";
+import { AccountCenter, type AccountTab } from "@/components/account/AccountCenter";
 import { getCurrentActor } from "@/lib/auth/dal";
 
 export const metadata = { title: "WatchMuse — Hesabım" };
 export const dynamic = "force-dynamic";
 
-export default async function AccountPage() {
+/** `?sekme=duzenle|arkadaslar|mesajlar` ile belirli sekme açılır. */
+const TABS: Record<string, AccountTab> = {
+  duzenle: "edit",
+  arkadaslar: "people",
+  mesajlar: "messages",
+};
+
+export default async function AccountPage({ searchParams }: PageProps<"/hesabim">) {
   const actor = await getCurrentActor();
   if (!actor || actor.isAnonymous) redirect("/hesabini-kaydet?next=/hesabim");
-  return <main className="flex-1"><div className="mx-auto w-full max-w-3xl px-4 py-6"><header className="mb-5"><h1 className="text-2xl font-bold">Hesabım</h1><p className="mt-1 text-sm text-ink-65">Profilinizi kişiselleştirin, arkadaşlarınızı yönetin ve özel mesajlaşın.</p></header><AccountCenter /></div></main>;
+  const sekme = (await searchParams).sekme;
+  const initialTab = (typeof sekme === "string" && TABS[sekme]) || "profile";
+
+  return (
+    <main className="flex-1">
+      <div className="mx-auto w-full max-w-3xl px-4 py-6">
+        <AccountCenter initialTab={initialTab} />
+      </div>
+    </main>
+  );
 }

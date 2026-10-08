@@ -1,132 +1,54 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useState } from "react";
 
-import { MoviePoster } from "@/components/MoviePoster";
 import { StatusMessage } from "@/components/StatusMessage";
-import { ApiError, fetchJson } from "@/lib/api/fetch-json";
-import type {
-  SocialFeedResponse,
-  SocialPost,
-  SocialToggleResponse,
-} from "@/lib/social/types";
-import { MAX_SOCIAL_POST_LENGTH } from "@/lib/social/validation";
-import { ensureAnonymousSession } from "@/lib/supabase/browser";
-import {
-  SEARCH_DEBOUNCE_MS,
-  SEARCH_MIN_QUERY_LENGTH,
-} from "@/lib/constants";
-import type { MovieSearchResult, MovieSummary } from "@/lib/tmdb/types";
+import { PostList } from "@/components/social/PostList";
+import { SocialComposer } from "@/components/social/SocialComposer";
+import type { FeedScope, FeedSort } from "@/lib/social/types";
+import { normalizeFeedSort } from "@/lib/social/validation";
+
+const SCOPES: { value: FeedScope; label: string }[] = [
+  { value: "all", label: "Genel" },
+  { value: "following", label: "Takip ettiklerin" },
+];
+
+const SORTS: { value: FeedSort; label: string; hint: string }[] = [
+  { value: "hot", label: "Hot", hint: "Etkileşim ve yeniliğe göre" },
+  { value: "top", label: "Popüler", hint: "Son 30 günün en çok etkileşim alanları" },
+  { value: "new", label: "Yeni", hint: "En yeni paylaşımlar önce" },
+];
+
+const EMPTY_TEXT: Record<FeedScope, string> = {
+  all: "Akış henüz boş. İlk film sohbetini başlatabilirsiniz.",
+  following: "Takip ettiğin hesaplar henüz bir şey paylaşmadı. Profillerden yeni hesaplar takip edebilirsin.",
+};
 
 export function SocialFeed({ isRegistered }: { isRegistered: boolean }) {
-  const [posts, setPosts] = useState<SocialPost[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  // Adres çubuğunda Türkçe: ?kapsam=takip&sirala=top|new (varsayılan: Genel, Hot).
+  const scope: FeedScope = searchParams.get("kapsam") === "takip" ? "following" : "all";
+  const sort = normalizeFeedSort(searchParams.get("sirala")) ?? "hot";
+  const [refreshKey, setRefreshKey] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
-  const [actingOn, setActingOn] = useState<string | null>(null);
 
-  const loadFeed = useCallback(async () => {
-    await ensureAnonymousSession();
-    const result = await fetchJson<SocialFeedResponse>("/api/feed");
-    setPosts(result.posts);
-    setError(null);
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    ensureAnonymousSession()
-      .then(() => fetchJson<SocialFeedResponse>("/api/feed"))
-      .then((result) => {
-        if (!cancelled) setPosts(result.posts);
-      })
-      .catch((caught: unknown) => {
-        if (!cancelled) {
-          setError(caught instanceof ApiError ? caught.message : "Akış yüklenemedi.");
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  async function react(post: SocialPost, reaction: "like" | "repost") {
-    if (!isRegistered) {
-      setNotice("Beğenmek, cevaplamak veya repost etmek için hesabınızı kaydedin.");
-      return;
-    }
-    const actionKey = `${post.id}:${reaction}`;
-    if (actingOn) return;
-    setActingOn(actionKey);
-    setError(null);
-    try {
-      const result = await fetchJson<SocialToggleResponse>(
-        `/api/feed/${encodeURIComponent(post.id)}/${reaction}`,
-        undefined,
-        { method: "POST" },
-      );
-      setPosts((current) =>
-        current.map((entry) =>
-          entry.id !== post.id
-            ? entry
-            : {
-                ...entry,
-                ...(reaction === "like"
-                  ? {
-                      likedByMe: result.active,
-                      likeCount: Math.max(
-                        0,
-                        entry.likeCount + (result.active ? 1 : -1),
-                      ),
-                    }
-                  : {
-                      repostedByMe: result.active,
-                      repostCount: Math.max(
-                        0,
-                        entry.repostCount + (result.active ? 1 : -1),
-                      ),
-                    }),
-              },
-        ),
-      );
-      if (reaction === "repost" && result.active) void loadFeed();
-    } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : "İşlem tamamlanamadı.");
-    } finally {
-      setActingOn(null);
-    }
+  function choose(next: { scope?: FeedScope; sort?: FeedSort }) {
+    const params = new URLSearchParams(searchParams.toString());
+    const nextScope = next.scope ?? scope;
+    const nextSort = next.sort ?? sort;
+    if (nextScope === "following") params.set("kapsam", "takip");
+    else params.delete("kapsam");
+    if (nextSort === "hot") params.delete("sirala");
+    else params.set("sirala", nextSort);
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
   }
 
-  async function requestDelete(post: SocialPost): Promise<boolean> {
-    if (!post.isMine || actingOn) return false;
-    if (!window.confirm("Bu paylaşımı kalıcı olarak silmek istediğinize emin misiniz?")) {
-      return false;
-    }
-
-    setActingOn(`${post.id}:delete`);
-    setError(null);
-    try {
-      await fetchJson<{ ok: true }>(
-        `/api/feed/${encodeURIComponent(post.id)}`,
-        undefined,
-        { method: "DELETE" },
-      );
-      return true;
-    } catch (caught) {
-      setError(
-        caught instanceof ApiError
-          ? caught.message
-          : "Paylaşım silinemedi.",
-      );
-      return false;
-    } finally {
-      setActingOn(null);
-    }
-  }
+  const showFollowingSignup = scope === "following" && !isRegistered;
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 px-4 py-6">
@@ -138,452 +60,96 @@ export function SocialFeed({ isRegistered }: { isRegistered: boolean }) {
       </header>
 
       {isRegistered ? (
-        <SocialComposer
-          onCreated={async () => {
-            setLoading(true);
-            await loadFeed().finally(() => setLoading(false));
-          }}
-        />
+        <SocialComposer onCreated={() => setRefreshKey((key) => key + 1)} />
       ) : (
         <StatusMessage tone="warning" title="Akışı okuyabilirsiniz">
-          Paylaşım, cevap, beğeni ve repost için{" "}
-          <Link href="/hesabini-kaydet?next=/" className="font-semibold underline">
+          Paylaşım, cevap, beğeni, repost ve takip için{" "}
+          <Link href="/hesabini-kaydet?next=/akis" className="font-semibold underline">
             anonim hesabınızı kaydedin
           </Link>{" "}
-          veya <Link href="/giris?next=/" className="font-semibold underline">giriş yapın</Link>.
+          veya <Link href="/giris?next=/akis" className="font-semibold underline">giriş yapın</Link>.
         </StatusMessage>
       )}
 
       {notice ? (
         <StatusMessage tone="warning" title="Üyelik gerekli">
           {notice}{" "}
-          <Link href="/hesabini-kaydet?next=/" className="font-semibold underline">
+          <Link href="/hesabini-kaydet?next=/akis" className="font-semibold underline">
             Hesabımı kaydet
           </Link>
         </StatusMessage>
       ) : null}
 
-      {error ? (
-        <StatusMessage tone="error" title="Akış kullanılamadı">
-          {error}
-        </StatusMessage>
-      ) : null}
+      <div className="flex flex-col gap-3">
+        <div role="tablist" aria-label="Akış" className="flex border-b border-line-10">
+          {SCOPES.map((item) => {
+            const selected = item.value === scope;
+            return (
+              <button
+                key={item.value}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                onClick={() => choose({ scope: item.value })}
+                className={`-mb-px min-h-11 flex-1 border-b-2 px-3 text-sm transition-colors hover:bg-fill-hover ${
+                  selected ? "border-brand-green font-semibold" : "border-transparent text-ink-60"
+                }`}
+              >
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
 
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-bold">Son paylaşımlar</h2>
-        <button
-          type="button"
-          onClick={() => {
-            setLoading(true);
-            void loadFeed().finally(() => setLoading(false));
-          }}
-          disabled={loading}
-          className="min-h-10 rounded-lg border border-line-20 px-3 text-sm"
-        >
-          {loading ? "Yenileniyor…" : "Yenile"}
-        </button>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div role="group" aria-label="Sıralama" className="flex flex-wrap gap-1">
+            {SORTS.map((item) => {
+              const selected = item.value === sort;
+              return (
+                <button
+                  key={item.value}
+                  type="button"
+                  title={item.hint}
+                  aria-pressed={selected}
+                  onClick={() => choose({ sort: item.value })}
+                  className={`min-h-9 rounded-full border px-4 text-sm transition-colors ${
+                    selected
+                      ? "border-brand-green bg-fill-hover font-semibold"
+                      : "border-line-20 text-ink-70 hover:bg-fill-hover"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
+          <button
+            type="button"
+            onClick={() => setRefreshKey((key) => key + 1)}
+            className="min-h-9 rounded-lg border border-line-20 px-3 text-sm hover:bg-fill-hover"
+          >
+            Yenile
+          </button>
+        </div>
       </div>
 
-      {!loading && posts.length === 0 ? (
+      {showFollowingSignup ? (
         <p className="rounded-xl border border-dashed border-line-20 p-5 text-center text-sm text-ink-60">
-          Akış henüz boş. İlk film sohbetini başlatabilirsiniz.
+          Hesapları takip etmek ve onların paylaşımlarını burada görmek için{" "}
+          <Link href="/hesabini-kaydet?next=/akis" className="underline">
+            hesabınızı kaydedin
+          </Link>
+          .
         </p>
-      ) : null}
-
-      <div className="grid gap-3">
-        {posts.map((post) => (
-          <PostCard
-            key={post.id}
-            post={post}
-            isRegistered={isRegistered}
-            actingOn={actingOn}
-            onReact={react}
-            requestDelete={requestDelete}
-            onDeleted={() =>
-              setPosts((current) => current.filter((entry) => entry.id !== post.id))
-            }
-            onRepliesChanged={() => void loadFeed()}
-            onMembershipNeeded={() =>
-              setNotice("Cevap vermek için hesabınızı kaydetmeniz gerekiyor.")
-            }
-          />
-        ))}
-      </div>
+      ) : (
+        <PostList
+          source={`/api/feed?scope=${scope}&sort=${sort}`}
+          isRegistered={isRegistered}
+          emptyText={EMPTY_TEXT[scope]}
+          refreshKey={refreshKey}
+          onMembershipNeeded={setNotice}
+        />
+      )}
     </div>
   );
-}
-
-function SocialComposer({
-  parentPostId = null,
-  compact = false,
-  onCreated,
-}: {
-  parentPostId?: string | null;
-  compact?: boolean;
-  onCreated: () => void | Promise<void>;
-}) {
-  const [body, setBody] = useState("");
-  const [movieQuery, setMovieQuery] = useState("");
-  const [movieResults, setMovieResults] = useState<MovieSummary[]>([]);
-  const [selectedMovie, setSelectedMovie] = useState<MovieSummary | null>(null);
-  const [searchingMovies, setSearchingMovies] = useState(false);
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const trimmedMovieQuery = movieQuery.trim();
-
-  useEffect(() => {
-    if (compact || selectedMovie || trimmedMovieQuery.length < SEARCH_MIN_QUERY_LENGTH) {
-      return;
-    }
-    const controller = new AbortController();
-    const timer = setTimeout(() => {
-      fetchJson<MovieSearchResult>(
-        `/api/movies/search?q=${encodeURIComponent(trimmedMovieQuery)}`,
-        controller.signal,
-      )
-        .then((result) => {
-          setMovieResults(result.results.slice(0, 5));
-          setSearchingMovies(false);
-        })
-        .catch((caught: unknown) => {
-          if (controller.signal.aborted) return;
-          setError(caught instanceof ApiError ? caught.message : "Film aranamadı.");
-          setSearchingMovies(false);
-        });
-    }, SEARCH_DEBOUNCE_MS);
-    return () => {
-      clearTimeout(timer);
-      controller.abort();
-    };
-  }, [compact, selectedMovie, trimmedMovieQuery]);
-
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!body.trim() || sending) return;
-    setSending(true);
-    setError(null);
-    try {
-      await fetchJson<{ postId: string }>("/api/feed", undefined, {
-        method: "POST",
-        body: {
-          body,
-          parentPostId,
-          movie: selectedMovie
-            ? {
-                id: selectedMovie.id,
-                title: selectedMovie.title,
-                posterPath: selectedMovie.posterPath,
-              }
-            : null,
-        },
-      });
-      setBody("");
-      setMovieQuery("");
-      setMovieResults([]);
-      setSelectedMovie(null);
-      await onCreated();
-    } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : "Gönderi paylaşılamadı.");
-    } finally {
-      setSending(false);
-    }
-  }
-
-  return (
-    <form
-      onSubmit={submit}
-      className={compact ? "grid gap-2" : "grid gap-3 rounded-xl border border-line-15 p-4"}
-    >
-      {!compact ? <h2 className="font-semibold">Bir film konuşması başlat</h2> : null}
-      <textarea
-        value={body}
-        onChange={(event) => setBody(event.target.value)}
-        maxLength={MAX_SOCIAL_POST_LENGTH}
-        rows={compact ? 2 : 3}
-        placeholder={compact ? "Bu yoruma cevap ver…" : "Bir film hakkında ne düşünüyorsun?"}
-        className="w-full resize-y rounded-lg border border-line-20 bg-transparent px-3 py-2 text-sm outline-none"
-      />
-
-      {!compact ? (
-        <div className="grid gap-2">
-          {selectedMovie ? (
-            <div className="flex items-center justify-between gap-3 rounded-lg border border-line-10 p-2">
-              <div className="flex min-w-0 items-center gap-3">
-                <MoviePoster movie={selectedMovie} size="sm" />
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold">{selectedMovie.title}</p>
-                  <p className="text-xs text-ink-55">Gönderiye eklendi</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedMovie(null);
-                  setMovieQuery("");
-                  setMovieResults([]);
-                }}
-                className="min-h-9 px-2 text-xs underline"
-              >
-                Kaldır
-              </button>
-            </div>
-          ) : (
-            <label className="text-xs font-medium">
-              Film ekle <span className="font-normal text-ink-50">(isteğe bağlı)</span>
-              <input
-                type="search"
-                value={movieQuery}
-                onChange={(event) => {
-                  const value = event.target.value;
-                  setMovieQuery(value);
-                  setMovieResults([]);
-                  setSearchingMovies(value.trim().length >= SEARCH_MIN_QUERY_LENGTH);
-                }}
-                placeholder="Film adı ara…"
-                className="mt-1 min-h-10 w-full rounded-lg border border-line-20 bg-transparent px-3 text-sm"
-              />
-            </label>
-          )}
-
-          {!selectedMovie && searchingMovies ? (
-            <p className="text-xs text-ink-50">Film aranıyor…</p>
-          ) : null}
-
-          {!selectedMovie && movieResults.length > 0 ? (
-            <div className="grid gap-1 rounded-lg border border-line-10 p-2">
-              {movieResults.map((movie) => (
-                <button
-                  key={movie.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedMovie(movie);
-                    setMovieResults([]);
-                    setSearchingMovies(false);
-                  }}
-                  className="flex items-center gap-3 rounded-md p-2 text-left hover:bg-fill-hover"
-                >
-                  <MoviePoster movie={movie} size="sm" />
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-semibold">{movie.title}</span>
-                    <span className="text-xs text-ink-50">
-                      {movie.releaseYear ?? "Yıl bilinmiyor"}
-                    </span>
-                  </span>
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-xs text-ink-45">
-          {body.length}/{MAX_SOCIAL_POST_LENGTH}
-        </span>
-        <button
-          type="submit"
-          disabled={sending || body.trim() === ""}
-          className="min-h-10 rounded-lg bg-fill-inverse px-4 text-sm font-semibold text-on-inverse disabled:opacity-50"
-        >
-          {sending ? "Paylaşılıyor…" : compact ? "Cevapla" : "Paylaş"}
-        </button>
-      </div>
-      {error ? <p className="text-sm text-error-ink">{error}</p> : null}
-    </form>
-  );
-}
-
-function PostCard({
-  post,
-  isRegistered,
-  actingOn,
-  onReact,
-  requestDelete,
-  onDeleted,
-  onRepliesChanged,
-  onMembershipNeeded,
-  reply = false,
-}: {
-  post: SocialPost;
-  isRegistered: boolean;
-  actingOn: string | null;
-  onReact: (post: SocialPost, reaction: "like" | "repost") => void | Promise<void>;
-  requestDelete: (post: SocialPost) => Promise<boolean>;
-  onDeleted: () => void;
-  onRepliesChanged: () => void;
-  onMembershipNeeded: () => void;
-  reply?: boolean;
-}) {
-  const [repliesOpen, setRepliesOpen] = useState(false);
-  const [replies, setReplies] = useState<SocialPost[]>([]);
-  const [loadingReplies, setLoadingReplies] = useState(false);
-  const [replyError, setReplyError] = useState<string | null>(null);
-
-  async function loadReplies() {
-    setLoadingReplies(true);
-    setReplyError(null);
-    try {
-      const result = await fetchJson<SocialFeedResponse>(
-        `/api/feed/${encodeURIComponent(post.id)}/replies`,
-      );
-      setReplies(result.posts);
-    } catch (caught) {
-      setReplyError(caught instanceof ApiError ? caught.message : "Cevaplar yüklenemedi.");
-    } finally {
-      setLoadingReplies(false);
-    }
-  }
-
-  function toggleReplies() {
-    if (reply) return;
-    const next = !repliesOpen;
-    setRepliesOpen(next);
-    if (next) void loadReplies();
-  }
-
-  return (
-    <article className={reply ? "rounded-lg border border-line-10 p-3" : "rounded-xl border border-line-15 p-4"}>
-      {post.latestReposterDisplayName && !reply ? (
-        <p className="mb-2 text-xs text-ink-50">
-          ↻ {post.latestReposterDisplayName} repostladı
-        </p>
-      ) : null}
-
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-semibold">{post.authorDisplayName}</p>
-          <time className="text-xs text-ink-45">
-            {formatSocialTime(post.createdAt)}
-          </time>
-        </div>
-        {post.isMine ? (
-          <button
-            type="button"
-            onClick={async () => {
-              if (await requestDelete(post)) onDeleted();
-            }}
-            disabled={actingOn !== null}
-            className="min-h-9 rounded-lg border border-red-700/40 px-3 text-xs font-semibold text-error-ink disabled:opacity-50"
-          >
-            {actingOn === `${post.id}:delete` ? "Siliniyor…" : "Sil"}
-          </button>
-        ) : null}
-      </div>
-
-      <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed">{post.body}</p>
-
-      {post.movie ? (
-        <div className="mt-3 flex items-center gap-3 rounded-lg border border-line-10 p-3">
-          {post.movie.posterUrl ? (
-            <Image
-              src={post.movie.posterUrl}
-              alt={`${post.movie.title} afişi`}
-              width={56}
-              height={84}
-              className="h-[84px] w-14 shrink-0 rounded object-cover"
-            />
-          ) : (
-            <div className="flex h-[84px] w-14 shrink-0 items-center justify-center rounded bg-fill-placeholder text-center text-[10px]">
-              Afiş yok
-            </div>
-          )}
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold">{post.movie.title}</p>
-            <p className="mt-1 text-xs text-ink-50">TMDb #{post.movie.id}</p>
-          </div>
-        </div>
-      ) : null}
-
-      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line-10 pt-3 text-xs">
-        {!reply ? (
-          <button
-            type="button"
-            onClick={() => {
-              if (!isRegistered) onMembershipNeeded();
-              toggleReplies();
-            }}
-            className="min-h-9 rounded-lg px-3 hover:bg-fill-hover"
-          >
-            ↩ {post.replyCount} cevap
-          </button>
-        ) : null}
-        <button
-          type="button"
-          onClick={() => onReact(post, "like")}
-          disabled={actingOn === `${post.id}:like`}
-          aria-pressed={post.likedByMe}
-          className={`min-h-9 rounded-lg px-3 hover:bg-fill-hover disabled:opacity-50 ${
-            post.likedByMe ? "font-semibold" : ""
-          }`}
-        >
-          {post.likedByMe ? "♥" : "♡"} {post.likeCount}
-        </button>
-        <button
-          type="button"
-          onClick={() => onReact(post, "repost")}
-          disabled={actingOn === `${post.id}:repost`}
-          aria-pressed={post.repostedByMe}
-          className={`min-h-9 rounded-lg px-3 hover:bg-fill-hover disabled:opacity-50 ${
-            post.repostedByMe ? "font-semibold" : ""
-          }`}
-        >
-          ↻ {post.repostCount}
-        </button>
-      </div>
-
-      {repliesOpen && !reply ? (
-        <div className="mt-3 grid gap-3 border-t border-line-10 pt-3">
-          {isRegistered ? (
-            <SocialComposer
-              compact
-              parentPostId={post.id}
-              onCreated={async () => {
-                await loadReplies();
-                onRepliesChanged();
-              }}
-            />
-          ) : (
-            <p className="text-xs text-ink-55">
-              Cevap yazmak için üyelik gerekir; mevcut cevapları okuyabilirsiniz.
-            </p>
-          )}
-          {loadingReplies ? (
-            <p className="text-xs text-ink-50">Cevaplar yükleniyor…</p>
-          ) : null}
-          {replyError ? <p className="text-sm text-error-ink">{replyError}</p> : null}
-          {replies.map((entry) => (
-            <PostCard
-              key={entry.id}
-              post={entry}
-              reply
-              isRegistered={isRegistered}
-              actingOn={actingOn}
-              onReact={async (target, reaction) => {
-                await onReact(target, reaction);
-                await loadReplies();
-              }}
-              requestDelete={requestDelete}
-              onDeleted={() => {
-                setReplies((current) =>
-                  current.filter((replyPost) => replyPost.id !== entry.id),
-                );
-                onRepliesChanged();
-              }}
-              onRepliesChanged={onRepliesChanged}
-              onMembershipNeeded={onMembershipNeeded}
-            />
-          ))}
-        </div>
-      ) : null}
-    </article>
-  );
-}
-
-function formatSocialTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return new Intl.DateTimeFormat("tr-TR", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
 }
