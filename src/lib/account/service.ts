@@ -1,13 +1,12 @@
 import "server-only";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { AVATAR_BUCKET, publicStorageUrl } from "@/lib/supabase/storage-url";
 import { accountError, normalizeAccountError } from "./errors";
 import type {
   DirectMessage, DmPrivacy, DmThread, SocialPerson, SocialProfile,
   SocialRelationship,
 } from "./types";
-
-const AVATAR_BUCKET = "profile-avatars";
 
 async function client() {
   return createSupabaseServerClient().catch(() => {
@@ -16,11 +15,7 @@ async function client() {
 }
 
 function avatarUrl(path: unknown): string | null {
-  if (typeof path !== "string" || path === "") return null;
-  const configured = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "");
-  return configured
-    ? `${configured}/storage/v1/object/public/${AVATAR_BUCKET}/${path}`
-    : null;
+  return publicStorageUrl(AVATAR_BUCKET, path);
 }
 
 function row(value: unknown): Record<string, unknown> {
@@ -93,6 +88,12 @@ export async function setMyAvatarPath(path: string | null): Promise<void> {
   if (error) throw normalizeAccountError(error);
 }
 
+export async function setMyBannerPath(path: string | null): Promise<void> {
+  const supabase = await client();
+  const { error } = await supabase.rpc("set_my_banner_path", { p_banner_path: path });
+  if (error) throw normalizeAccountError(error);
+}
+
 export async function searchPeople(query: string): Promise<SocialPerson[]> {
   const supabase = await client();
   const { data, error } = await supabase.rpc("search_social_profiles", { p_query: query, p_limit: 20 });
@@ -152,3 +153,4 @@ export async function listThreads(): Promise<DmThread[]> {
 }
 
 export { AVATAR_BUCKET };
+export { BANNER_BUCKET } from "@/lib/supabase/storage-url";

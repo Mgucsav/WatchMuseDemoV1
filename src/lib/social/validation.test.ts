@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  normalizeFeedScope,
+  normalizeFeedSort,
+  normalizeFollowListKind,
   normalizeOptionalUuid,
+  normalizeProfilePostKind,
+  normalizeProfileUsername,
   normalizeSocialBody,
   normalizeSocialMovie,
 } from "./validation";
@@ -29,5 +34,26 @@ describe("sosyal akış girdi doğrulaması", () => {
       normalizeSocialMovie({ id: 42, title: "Film", posterPath: "https://evil.test/x" }),
     ).toBeUndefined();
     expect(normalizeSocialMovie(null)).toBeNull();
+  });
+
+  it("akış kapsamı ve sıralamasında varsayılanı kullanır, bilinmeyeni reddeder", () => {
+    expect(normalizeFeedScope(null)).toBe("all");
+    expect(normalizeFeedScope("following")).toBe("following");
+    expect(normalizeFeedScope("everyone")).toBeUndefined();
+    expect(normalizeFeedSort(undefined)).toBe("hot");
+    expect(normalizeFeedSort("top")).toBe("top");
+    expect(normalizeFeedSort("rising")).toBeUndefined();
+    expect(normalizeProfilePostKind("likes")).toBe("likes");
+    expect(normalizeProfilePostKind("replies")).toBeUndefined();
+    expect(normalizeFollowListKind(null)).toBe("followers");
+    expect(normalizeFollowListKind("following")).toBe("following");
+  });
+
+  it("profil adresindeki kullanıcı adını doğrular; `me` kendi profilidir", () => {
+    expect(normalizeProfileUsername("me")).toBeNull();
+    expect(normalizeProfileUsername(" Film_Sever ")).toBe("film_sever");
+    expect(normalizeProfileUsername("ab")).toBeUndefined();
+    expect(normalizeProfileUsername("../admin")).toBeUndefined();
+    expect(normalizeProfileUsername(42)).toBeUndefined();
   });
 });

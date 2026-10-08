@@ -1,26 +1,25 @@
 import type { NextRequest } from "next/server";
 
-import { errorResponse } from "@/lib/api/responses";
+import { socialCodeResponse, socialErrorResponse } from "@/lib/social/http";
+import { createSocialPost, listSocialFeed } from "@/lib/social/service";
 import {
-  normalizeSocialError,
-  socialError,
-} from "@/lib/social/errors";
-import {
-  createSocialPost,
-  listSocialPosts,
-  SocialServiceError,
-} from "@/lib/social/service";
-import {
+  normalizeFeedScope,
+  normalizeFeedSort,
   normalizeOptionalUuid,
   normalizeSocialBody,
   normalizeSocialMovie,
 } from "@/lib/social/validation";
 
-export async function GET(): Promise<Response> {
+/** `?scope=all|following&sort=hot|top|new` */
+export async function GET(request: NextRequest): Promise<Response> {
+  const params = request.nextUrl.searchParams;
+  const scope = normalizeFeedScope(params.get("scope"));
+  const sort = normalizeFeedSort(params.get("sort"));
+  if (!scope || !sort) return socialCodeResponse("invalid_feed_option");
   try {
-    return Response.json({ posts: await listSocialPosts(null) });
+    return Response.json({ posts: await listSocialFeed(scope, sort) });
   } catch (error) {
-    return socialApiError(error);
+    return socialErrorResponse(error);
   }
 }
 
@@ -43,32 +42,10 @@ export async function POST(request: NextRequest): Promise<Response> {
     const postId = await createSocialPost({ body: postBody, parentPostId, movie });
     return Response.json({ postId }, { status: 201 });
   } catch (error) {
-    return socialApiError(error);
+    return socialErrorResponse(error);
   }
 }
 
 function invalidPost(): Response {
-  const error = socialError("invalid_social_post");
-  return errorResponse(error.code, error.message, 400);
-}
-
-function socialApiError(error: unknown): Response {
-  const normalized =
-    error instanceof SocialServiceError
-      ? error.socialError
-      : normalizeSocialError(error);
-  const status =
-    normalized.code === "unauthenticated"
-      ? 401
-      : normalized.code === "registration_required"
-        ? 403
-        : normalized.code === "social_post_not_found" ||
-            normalized.code === "invalid_parent_post"
-          ? 404
-          : normalized.code === "social_post_rate_limited"
-            ? 429
-            : normalized.code === "not_configured"
-              ? 503
-              : 400;
-  return errorResponse(normalized.code, normalized.message, status);
+  return socialCodeResponse("invalid_social_post");
 }

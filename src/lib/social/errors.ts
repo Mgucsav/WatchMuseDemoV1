@@ -6,6 +6,10 @@ export type SocialErrorCode =
   | "invalid_parent_post"
   | "social_post_not_found"
   | "social_post_rate_limited"
+  | "profile_not_found"
+  | "invalid_follow_target"
+  | "invalid_feed_option"
+  | "likes_private"
   | "not_configured"
   | "network"
   | "unexpected";
@@ -18,6 +22,10 @@ const MESSAGES: Record<SocialErrorCode, string> = {
   invalid_parent_post: "Yanıtlanacak gönderi bulunamadı.",
   social_post_not_found: "Gönderi bulunamadı.",
   social_post_rate_limited: "Çok hızlı gönderi paylaşıyorsunuz. Lütfen kısa bir süre bekleyin.",
+  profile_not_found: "Bu kullanıcı bulunamadı.",
+  invalid_follow_target: "Bu hesabı takip edemezsiniz.",
+  invalid_feed_option: "Geçersiz akış seçeneği.",
+  likes_private: "Beğeniler yalnız hesabın sahibine görünür.",
   not_configured: "Sosyal akış henüz yapılandırılmamış.",
   network: "Sunucuya ulaşılamadı. Bağlantınızı kontrol edin.",
   unexpected: "Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.",

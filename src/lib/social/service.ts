@@ -10,8 +10,21 @@ import {
   socialError,
   type SocialError,
 } from "./errors";
+import {
+  AVATAR_BUCKET,
+  BANNER_BUCKET,
+  publicStorageUrl,
+} from "@/lib/supabase/storage-url";
 import type { SocialMovieInput } from "./validation";
-import type { SocialPost } from "./types";
+import type {
+  FeedScope,
+  FeedSort,
+  FollowListKind,
+  FollowPerson,
+  ProfilePostKind,
+  PublicProfile,
+  SocialPost,
+} from "./types";
 
 export class SocialServiceError extends Error {
   readonly socialError: SocialError;
@@ -34,15 +47,106 @@ async function authenticatedClient() {
   return supabase;
 }
 
-export async function listSocialPosts(parentPostId: string | null): Promise<SocialPost[]> {
+async function rpcRows(name: string, args: Record<string, unknown>): Promise<unknown[]> {
   const supabase = await authenticatedClient();
-  const { data, error } = await supabase.rpc("list_social_posts_v2", {
-    p_parent_post_id: parentPostId,
-    p_limit: parentPostId ? 50 : 30,
-  });
+  const { data, error } = await supabase.rpc(name, args);
   if (error) fail(normalizeSocialError(error));
   if (!Array.isArray(data)) fail(socialError("unexpected"));
-  return data.map(parsePost);
+  return data;
+}
+
+export async function listSocialFeed(scope: FeedScope, sort: FeedSort): Promise<SocialPost[]> {
+  const rows = await rpcRows("list_social_feed", { p_scope: scope, p_sort: sort, p_limit: 30 });
+  return rows.map(parsePost);
+}
+
+export async function listSocialReplies(parentPostId: string): Promise<SocialPost[]> {
+  const rows = await rpcRows("list_social_replies", { p_parent_post_id: parentPostId, p_limit: 50 });
+  return rows.map(parsePost);
+}
+
+/** `username` null ise çağıranın kendi profili. */
+export async function getPublicProfile(username: string | null): Promise<PublicProfile> {
+  const rows = await rpcRows("get_social_profile", { p_username: username });
+  if (rows.length === 0) fail(socialError("profile_not_found"));
+  const item = record(rows[0]);
+  const counts = [item.follower_count, item.following_count, item.post_count];
+  if (
+    typeof item.display_name !== "string" ||
+    typeof item.created_at !== "string" ||
+    counts.some((value) => typeof value !== "number") ||
+    typeof item.is_me !== "boolean" ||
+    typeof item.followed_by_me !== "boolean" ||
+    typeof item.follows_me !== "boolean"
+  ) {
+    fail(socialError("unexpected"));
+  }
+  return {
+    username: optionalText(item.username),
+    displayName: item.display_name,
+    bio: optionalText(item.bio),
+    avatarUrl: publicStorageUrl(AVATAR_BUCKET, item.avatar_path),
+    bannerUrl: publicStorageUrl(BANNER_BUCKET, item.banner_path),
+    createdAt: item.created_at,
+    followerCount: item.follower_count as number,
+    followingCount: item.following_count as number,
+    postCount: item.post_count as number,
+    isMe: item.is_me,
+    followedByMe: item.followed_by_me,
+    followsMe: item.follows_me,
+  };
+}
+
+export async function listProfilePosts(
+  username: string | null,
+  kind: ProfilePostKind,
+): Promise<SocialPost[]> {
+  const rows = await rpcRows("list_profile_posts", { p_username: username, p_kind: kind, p_limit: 30 });
+  return rows.map(parsePost);
+}
+
+export async function listFollows(
+  username: string | null,
+  kind: FollowListKind,
+): Promise<FollowPerson[]> {
+  const rows = await rpcRows("list_follows", { p_username: username, p_kind: kind, p_limit: 50 });
+  return rows.map((row) => {
+    const item = record(row);
+    if (
+      typeof item.username !== "string" ||
+      typeof item.display_name !== "string" ||
+      typeof item.followed_by_me !== "boolean" ||
+      typeof item.is_me !== "boolean"
+    ) {
+      fail(socialError("unexpected"));
+    }
+    return {
+      username: item.username,
+      displayName: item.display_name,
+      bio: optionalText(item.bio),
+      avatarUrl: publicStorageUrl(AVATAR_BUCKET, item.avatar_path),
+      followedByMe: item.followed_by_me,
+      isMe: item.is_me,
+    };
+  });
+}
+
+/** Takip et / takibi bırak. Yeni durumda takip ediliyorsa true döner. */
+export async function toggleFollow(username: string): Promise<boolean> {
+  const supabase = await authenticatedClient();
+  const { data, error } = await supabase.rpc("toggle_follow", { p_username: username });
+  if (error) fail(normalizeSocialError(error));
+  if (typeof data !== "boolean") fail(socialError("unexpected"));
+  return data;
+}
+
+function record(row: unknown): Record<string, unknown> {
+  if (!row || typeof row !== "object") fail(socialError("unexpected"));
+  return row as Record<string, unknown>;
+}
+
+function optionalText(value: unknown): string | null {
+  return typeof value === "string" && value !== "" ? value : null;
 }
 
 export async function deleteSocialPost(postId: string): Promise<void> {
@@ -106,7 +210,9 @@ function parsePost(row: unknown): SocialPost {
     typeof record.tmdb_movie_id === "number" && typeof record.movie_title === "string";
   return {
     id: record.id,
+    authorUsername: optionalText(record.author_username),
     authorDisplayName: record.author_display_name,
+    authorAvatarUrl: publicStorageUrl(AVATAR_BUCKET, record.author_avatar_path),
     body: record.body,
     movie: hasMovie
       ? {

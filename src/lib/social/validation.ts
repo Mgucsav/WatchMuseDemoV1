@@ -1,4 +1,43 @@
+import type { FeedScope, FeedSort, FollowListKind, ProfilePostKind } from "./types";
+
 export const MAX_SOCIAL_POST_LENGTH = 1000;
+
+/** Kendi profilin için kullanılan takma ad; gerçek kullanıcı adları en az 3 karakterdir. */
+export const OWN_PROFILE_ALIAS = "me";
+
+function oneOf<T extends string>(
+  value: unknown,
+  allowed: readonly T[],
+  fallback: T,
+): T | undefined {
+  if (value === null || value === undefined || value === "") return fallback;
+  return typeof value === "string" && (allowed as readonly string[]).includes(value)
+    ? (value as T)
+    : undefined;
+}
+
+export const normalizeFeedScope = (value: unknown): FeedScope | undefined =>
+  oneOf(value, ["all", "following"] as const, "all");
+
+export const normalizeFeedSort = (value: unknown): FeedSort | undefined =>
+  oneOf(value, ["hot", "top", "new"] as const, "hot");
+
+export const normalizeProfilePostKind = (value: unknown): ProfilePostKind | undefined =>
+  oneOf(value, ["posts", "likes"] as const, "posts");
+
+export const normalizeFollowListKind = (value: unknown): FollowListKind | undefined =>
+  oneOf(value, ["followers", "following"] as const, "followers");
+
+/**
+ * Profil adresindeki kullanıcı adı. `me` çağıranın kendisi için null döner;
+ * geçersiz biçim undefined döner.
+ */
+export function normalizeProfileUsername(value: unknown): string | null | undefined {
+  if (typeof value !== "string") return undefined;
+  const username = value.trim().toLowerCase();
+  if (username === OWN_PROFILE_ALIAS) return null;
+  return /^[a-z0-9_]{3,24}$/.test(username) ? username : undefined;
+}
 
 export function normalizeSocialBody(value: unknown): string | null {
   if (typeof value !== "string") return null;

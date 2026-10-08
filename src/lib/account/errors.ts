@@ -8,6 +8,8 @@ export type AccountErrorCode =
   | "username_taken"
   | "invalid_avatar"
   | "avatar_too_large"
+  | "invalid_banner"
+  | "banner_too_large"
   | "invalid_user_search"
   | "invalid_friend_target"
   | "friendship_exists"
@@ -29,6 +31,8 @@ const messages: Record<AccountErrorCode, string> = {
   username_taken: "Bu kullanıcı adı daha önce alınmış.",
   invalid_avatar: "Yalnızca JPG, PNG veya WebP profil fotoğrafı yükleyebilirsiniz.",
   avatar_too_large: "Profil fotoğrafı en fazla 5 MB olabilir.",
+  invalid_banner: "Yalnızca JPG, PNG veya WebP kapak fotoğrafı yükleyebilirsiniz.",
+  banner_too_large: "Kapak fotoğrafı en fazla 5 MB olabilir.",
   invalid_user_search: "Kullanıcı aramak için en az 2 karakter yazın.",
   invalid_friend_target: "Bu kullanıcıya arkadaşlık isteği gönderilemez.",
   friendship_exists: "Bu kullanıcıyla zaten bir arkadaşlık bağlantınız var.",
