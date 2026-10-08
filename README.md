@@ -223,9 +223,9 @@ anahtardır; tek başına yetki sağlamaz. Yetkiyi RLS ve güvenli RPC'ler belir
 ## Tasarım sistemi
 
 Arayüz **retro siyah** bir temadır: siyah zemin, ince çizgiler, gölgesiz
-yüzeyler ve iki marka rengi, **yeşil** ve **kırmızı**. Yeşil ana eylemleri ve
-seçili durumu (ana düğme, sol paneldeki açık bölüm), kırmızı vurguyu (logodaki
-"W" ve "MUSE", başlıklardaki vurgu kelimeleri) taşır. Hata, uyarı ve platform
+yüzeyler ve iki marka rengi, **kırmızı** ve **yeşil**. Kırmızı markayı (logodaki
+"W", "MUSE" ve şeritler) ve başlıklardaki vurgu kelimelerini, yeşil ana
+eylemleri ve seçili durumu (ana düğme, sol paneldeki açık bölüm) taşır. Hata, uyarı ve platform
 uygunluğu kendi durum renklerini kullanmaya devam eder.
 
 Site her zaman koyu temada açılır: `<html class="dark">` ve globals.css'teki
@@ -246,13 +246,17 @@ bağımsız uygulanır. Sınıf kaldırılırsa açık tema değerleri hâlâ ta
 
 ### Logo
 
-Logo, yeşil, makara delikli bir film karesinin içindeki kırmızı "W" işareti ile
-sinema afişi yazı tipiyle (Bebas Neue) yazılmış "WATCHMUSE" ve altındaki
-kırmızı-yeşil retro şeritlerden oluşur.
+Marka yalnız kırmızı ve beyaz kullanır; yeşil logoda yer almaz.
 [src/components/brand/Logo.tsx](src/components/brand/Logo.tsx) iki bileşen
-sunar: yalnız işaret için `LogoMark`, işaret ve yazı için `Logo`
-(`size="sm" | "md" | "lg"`). Tarayıcı sekmesi simgesi aynı çizimin siyah zemin
-üzerindeki kopyasıdır: [src/app/icon.svg](src/app/icon.svg).
+sunar:
+
+- `LogoMark`: logo, beyaz gölgeli büyük kırmızı bir "W". Sol panelin
+  üstünde durur; tarayıcı sekmesi simgesi aynı çizimin siyah zemin üzerindeki
+  kopyasıdır: [src/app/icon.svg](src/app/icon.svg).
+- `Wordmark`: sinema afişi yazı tipiyle (Bebas Neue) "WATCHMUSE"; WATCH beyaz,
+  MUSE kırmızı, altında kırmızı-beyaz retro şeritler
+  (`size="sm" | "md" | "lg"`). Tanıtım ve giriş sayfalarının sol üstünde
+  durur; bu sayfalarda "W" gösterilmez.
 
 ### Renk token'ları
 

@@ -3,7 +3,7 @@ import { Suspense } from "react";
 
 import { SiteNav } from "@/components/SiteNav";
 import { UserMenu } from "@/components/auth/UserMenu";
-import { Logo } from "@/components/brand/Logo";
+import { LogoMark } from "@/components/brand/Logo";
 
 /**
  * Sol panel: logo, bölümler ve hesap alanı.
@@ -18,8 +18,8 @@ export function SiteSidebar() {
   return (
     <aside className="border-b border-line-10 lg:sticky lg:top-0 lg:h-screen lg:w-64 lg:shrink-0 lg:border-r lg:border-b-0">
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3 lg:h-full lg:flex-col lg:flex-nowrap lg:items-stretch lg:gap-8 lg:px-4 lg:py-6">
-        <Link href="/" aria-label="WatchMuse tanıtım sayfası" className="self-center no-underline lg:self-start lg:px-3">
-          <Logo />
+        <Link href="/" aria-label="WatchMuse tanıtım sayfası" className="self-center no-underline lg:self-start lg:px-2">
+          <LogoMark size={44} />
         </Link>
 
         <SiteNav />

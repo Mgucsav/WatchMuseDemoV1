@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { AuthForm } from "@/components/auth/AuthForm";
-import { Logo } from "@/components/brand/Logo";
+import { Wordmark } from "@/components/brand/Logo";
 import { StatusMessage } from "@/components/StatusMessage";
 import { signInAction } from "@/lib/auth/actions";
 import { getCurrentActor, getCurrentUser } from "@/lib/auth/dal";
@@ -34,7 +34,7 @@ export default async function SignInPage({
     <main className="flex flex-1 flex-col lg:flex-row">
       <aside className="flex flex-col gap-8 border-b border-line-10 px-4 pt-5 pb-8 sm:px-8 lg:w-1/2 lg:justify-between lg:gap-14 lg:border-r lg:border-b-0 lg:px-16 lg:pt-10 lg:pb-12">
         <Link href="/" aria-label="WatchMuse tanıtım sayfası" className="self-start no-underline">
-          <Logo size="md" />
+          <Wordmark size="md" />
         </Link>
 
         <div className="flex max-w-lg flex-col gap-8">

@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { Logo } from "@/components/brand/Logo";
+import { Wordmark } from "@/components/brand/Logo";
 
 const SECTIONS = [
   {
@@ -31,12 +31,12 @@ export default function LandingPage() {
     <main className="flex flex-1 flex-col">
       <div aria-hidden="true" className="flex flex-col gap-1">
         <span className="h-1 bg-brand-red" />
-        <span className="h-1 bg-brand-green" />
+        <span className="h-1 bg-wm-foreground" />
       </div>
 
       <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-12 px-4 py-8 sm:px-8 lg:gap-14 lg:py-12">
         <header className="flex flex-wrap items-center justify-between gap-4">
-          <Logo size="md" />
+          <Wordmark size="md" />
           <Link href="/giris" className="text-sm font-medium">
             Giriş yap
           </Link>
