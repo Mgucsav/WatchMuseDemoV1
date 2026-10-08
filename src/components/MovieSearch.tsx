@@ -128,34 +128,6 @@ export function MovieSearch() {
         // Yeniden kurmak, kaydırma kilidini ve odağı gereksiz yere sıfırlardı.
         <MovieDetailModal movie={selectedMovie} onClose={closeDetail} />
       ) : null}
-
-      <footer className="border-t border-line-10 pt-4 text-xs leading-relaxed text-ink-50">
-        <p>
-          Film verileri{" "}
-          <a
-            href="https://www.themoviedb.org/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline underline-offset-2"
-          >
-            TMDb
-          </a>{" "}
-          API&apos;si ile sağlanmaktadır. Bu ürün TMDb tarafından onaylanmamış
-          veya sertifikalandırılmamıştır.
-        </p>
-        <p className="mt-1">
-          Yayın platformu bilgileri TMDb aracılığıyla{" "}
-          <a
-            href="https://www.justwatch.com/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline underline-offset-2"
-          >
-            JustWatch
-          </a>{" "}
-          kaynağından gelir ve platformlarla tamamen eşzamanlı olmayabilir.
-        </p>
-      </footer>
     </div>
   );
 }
