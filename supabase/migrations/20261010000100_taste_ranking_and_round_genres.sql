@@ -7,9 +7,11 @@
 --    (p_candidates sırası). Önceki sürüm adayları md5(seed) ile kendi içinde
 --    rastgele sıralıyor, sunucunun zevk sıralamasını yok sayıyordu. Varsayılan
 --    sıralayıcı (seeded-random) zaten seed'li rastgele sıra gönderdiği için
---    eski davranış korunur. Fonksiyonun geri kalanı 20260814000100 ile
---    birebir aynıdır; uygunluk kuralları (hard suppression, en az 1 yeni keşif,
---    en fazla 9 tekrar) değişmez.
+--    eski davranış korunur. Fonksiyonun geri kalanı, 20260814000100 tanımına
+--    20260902000100 migration'ının iki yaması uygulanmış hâliyle (en az 2
+--    katılımcı; geçmişten geri dönüşte "herkes istedi") birebir aynıdır;
+--    uygunluk kuralları (hard suppression, en az 1 yeni keşif, en fazla 9
+--    tekrar) değişmez.
 -- =============================================================================
 
 alter table public.space_rounds
@@ -76,7 +78,7 @@ begin
     raise exception 'invalid_invitation' using errcode = 'P0001';
   end if;
 
-  if (select count(*) from public.participants p where p.space_id = p_space_id) <> 2 then
+  if (select count(*) from public.participants p where p.space_id = p_space_id) < 2 then
     raise exception 'round_not_ready' using errcode = 'P0001';
   end if;
 
@@ -183,7 +185,7 @@ begin
           where v.round_id = r.id
             and v.candidate_id = c.id
             and v.choice = 'want'::public.space_round_vote
-        ) = 2
+        ) = (select count(*) from public.participants current_member where current_member.space_id = p_space_id)
       order by c.tmdb_movie_id, r.round_number desc
     )
     select q.*

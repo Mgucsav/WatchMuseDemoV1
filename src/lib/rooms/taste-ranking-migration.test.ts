@@ -22,13 +22,31 @@ describe("zevk sıralaması migration sözleşmesi", () => {
     expect(next).not.toMatch(/md5\(p_selection_seed/);
   });
 
-  it("sıra satırı dışında önceki fonksiyonla birebir aynıdır", () => {
+  it("sıra satırı dışında, çok kişili oda yamaları uygulanmış önceki fonksiyonla aynıdır", () => {
+    // 20260902000100 fonksiyonu çalışma anında iki yerden yamalar; karşılaştırma
+    // o yamalı hâlle yapılmalıdır, aksi halde çok kişili odalar geri bozulur.
+    const multiRoom = readFileSync(join(migrations, "20260902000100_public_multi_rooms.sql"), "utf8");
+    const patches = [...multiRoom.matchAll(/pg_catalog\.replace\(\s*v_definition,\s*'([\s\S]*?)',\s*'([\s\S]*?)'\s*\)/g)];
+    expect(patches).toHaveLength(2);
+    const patchedPrevious = patches.reduce(
+      (body, [, from, to]) => body.replace(from, to),
+      roundFunction(previous),
+    );
+    expect(patchedPrevious).not.toBe(roundFunction(previous));
+
     const strip = (body: string) =>
       body
         .split("\n")
         .filter((line) => !/^\s*--/.test(line) && !/^\s*order by (pg_catalog\.md5|v\.ordinal_position)/.test(line))
         .join("\n");
-    expect(strip(roundFunction(sql))).toBe(strip(roundFunction(previous)));
+    expect(strip(roundFunction(sql))).toBe(strip(patchedPrevious));
+  });
+
+  it("çok kişili odalarda tur başlatmayı engellemez", () => {
+    const next = roundFunction(sql);
+    expect(next).toMatch(/where p\.space_id = p_space_id\) < 2 then/);
+    expect(next).not.toMatch(/<> 2 then/);
+    expect(next).not.toMatch(/\) = 2\s*\n\s*order by c\.tmdb_movie_id/);
   });
 
   it("tur fonksiyonunu yalnız service role'a açık tutar", () => {
