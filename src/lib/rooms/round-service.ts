@@ -140,6 +140,12 @@ export async function startNextRoomRound(
   });
 
   if (error) throw new RoomServiceError(normalizeRoomError(error));
+
+  try {
+    await saveCandidateGenres(admin, plan.candidates);
+  } catch {
+    // Tür önbelleği yalnızca gösterim içindir; tur zaten başladı.
+  }
 }
 
 /**
@@ -253,10 +259,10 @@ export async function getRoomRoundState(
     throw new RoomServiceError(normalizeRoomError(telepartyResult.error));
   }
 
-  return {
+  return withCandidateGenres(supabase, {
     ...parseRoomRoundState(roundResult.data),
     telepartyStates: parseRoomTelepartyStates(telepartyResult.data),
-  };
+  });
 }
 
 /** Tur ve aday gövdesini taşımadan yalnız ortak Teleparty durumunu okur. */
@@ -490,7 +496,72 @@ function parseCandidate(value: unknown): RoomCandidate {
     overview,
     releaseYear,
     voteAverage,
+    // Türler tur kaydında değil, `movie_genres` önbelleğinde tutulur; okuma
+    // sonrasında `withCandidateGenres` doldurur.
+    genres: [],
   };
+}
+
+type RpcClient = Awaited<ReturnType<typeof getRpcClient>>;
+
+/**
+ * Adayların Türkçe tür etiketlerini önbellekten ekler. Önbellek okunamazsa
+ * tur türsüz döner; tür bilgisi seçimi engellememelidir.
+ */
+async function withCandidateGenres(
+  supabase: RpcClient,
+  state: RoomRoundState,
+): Promise<RoomRoundState> {
+  const round = state.round;
+  if (!round) return state;
+  const ids = [...new Set(round.candidates.map((candidate) => candidate.tmdbMovieId))];
+  if (ids.length === 0) return state;
+
+  const { data, error } = await supabase
+    .from("movie_genres")
+    .select("tmdb_movie_id, genres")
+    .in("tmdb_movie_id", ids);
+  if (error || !Array.isArray(data)) return state;
+
+  const byMovie = new Map<number, string[]>();
+  for (const row of data) {
+    if (typeof row.tmdb_movie_id === "number" && Array.isArray(row.genres)) {
+      byMovie.set(
+        row.tmdb_movie_id,
+        row.genres.filter((genre: unknown): genre is string => typeof genre === "string"),
+      );
+    }
+  }
+  const attach = (candidate: RoomCandidate): RoomCandidate => ({
+    ...candidate,
+    genres: byMovie.get(candidate.tmdbMovieId) ?? [],
+  });
+
+  return {
+    ...state,
+    round: {
+      ...round,
+      candidates: round.candidates.map(attach),
+      matchedCandidates: round.matchedCandidates.map(attach),
+      winnerCandidate: round.winnerCandidate ? attach(round.winnerCandidate) : null,
+    },
+  };
+}
+
+/** Tur adaylarının türlerini önbelleğe yazar; hata turu bozmaz. */
+async function saveCandidateGenres(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  candidates: readonly MovieSummary[],
+): Promise<void> {
+  const rows = candidates
+    .filter((movie) => movie.genres.length > 0)
+    .map((movie) => ({
+      tmdb_movie_id: movie.id,
+      genres: movie.genres.slice(0, 10),
+      updated_at: new Date().toISOString(),
+    }));
+  if (rows.length === 0) return;
+  await admin.from("movie_genres").upsert(rows, { onConflict: "tmdb_movie_id" });
 }
 
 function parseMyVotes(

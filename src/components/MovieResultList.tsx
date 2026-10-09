@@ -1,5 +1,6 @@
 "use client";
 
+import { GenreChips } from "@/components/GenreChips";
 import { MoviePoster } from "@/components/MoviePoster";
 import type { MovieSummary } from "@/lib/tmdb/types";
 
@@ -57,6 +58,8 @@ export function MovieResultList({
                     {movie.originalTitle}
                   </span>
                 ) : null}
+
+                <GenreChips genres={movie.genres} className="mt-1.5" />
               </span>
             </button>
           </li>

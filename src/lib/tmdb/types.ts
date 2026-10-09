@@ -42,6 +42,8 @@ export interface MovieSummary {
   overview: string | null;
   /** TMDb puanı (0-10). Puanlanmamış filmlerde `null`. */
   voteAverage: number | null;
+  /** Türkçe tür etiketleri ("Korku", "Anime", "Romantik komedi"…); bilinmiyorsa boş. */
+  genres: string[];
 }
 
 /**

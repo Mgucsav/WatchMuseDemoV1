@@ -10,7 +10,18 @@ import { MAX_ROOM_MESSAGE_LENGTH } from "@/lib/rooms/validation";
 
 const CHAT_POLL_INTERVAL_MS = 2500;
 
-export function RoomChat({ spaceId }: { spaceId: string }) {
+/**
+ * Oda sohbeti. `panel` görünümü film seçim penceresinin yan panelinde kalan
+ * yüksekliği doldurur; `page` oda sayfasındaki sabit yükseklikli hâlidir.
+ */
+export function RoomChat({
+  spaceId,
+  variant = "page",
+}: {
+  spaceId: string;
+  variant?: "page" | "panel";
+}) {
+  const panel = variant === "panel";
   const [chat, setChat] = useState<RoomChatResponse>({ messages: [] });
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(true);
@@ -96,7 +107,7 @@ export function RoomChat({ spaceId }: { spaceId: string }) {
   }
 
   return (
-    <section className="border-t border-line-10 pt-3">
+    <section className={panel ? "flex h-full min-h-0 flex-col" : "border-t border-line-10 pt-3"}>
       <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold">Oda sohbeti</h2>
@@ -112,7 +123,9 @@ export function RoomChat({ spaceId }: { spaceId: string }) {
       <div
         ref={messageListRef}
         aria-live="polite"
-        className="mt-3 h-[22rem] space-y-2 overflow-y-auto overscroll-contain rounded-lg border border-line-10 p-3"
+        className={`mt-3 space-y-2 overflow-y-auto overscroll-contain rounded-lg border border-line-10 p-3 ${
+          panel ? "min-h-40 flex-1" : "h-[22rem]"
+        }`}
       >
         {!loading && chat.messages.length === 0 ? (
           <p className="py-6 text-center text-sm text-ink-50">

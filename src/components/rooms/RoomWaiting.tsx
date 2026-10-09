@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { StatusMessage } from "@/components/StatusMessage";
 import { SubscriptionPicker } from "@/components/rooms/SubscriptionPicker";
 import { ApiError, fetchJson } from "@/lib/api/fetch-json";
+import { ROOM_INACTIVITY_MINUTES } from "@/lib/constants";
 import { subscriptionLabel } from "@/lib/rooms/subscriptions";
 import type { RoomState } from "@/lib/rooms/types";
 import { ensureAnonymousSession } from "@/lib/supabase/browser";
@@ -32,6 +33,8 @@ export function RoomWaiting({ spaceId }: { spaceId: string }) {
   const [state, setState] = useState<State>({ status: "loading" });
   const [departing, setDeparting] = useState(false);
   const [departureError, setDepartureError] = useState<string | null>(null);
+  // Film seçim penceresi açıkken sohbet pencerenin içinde; sayfadaki kopya gizlenir.
+  const [sessionOpen, setSessionOpen] = useState(false);
   const departureStarted = useRef(false);
 
   useEffect(() => {
@@ -185,11 +188,27 @@ export function RoomWaiting({ spaceId }: { spaceId: string }) {
         </StatusMessage>
       ) : null}
 
+      {room.status === "closed" ? (
+        <StatusMessage title="Bu oda kapandı">
+          Oda sahibi odayı kapattı ya da {ROOM_INACTIVITY_MINUTES} dakika boyunca
+          hiçbir işlem yapılmadı. Yeni bir film seçimi için{" "}
+          <Link href="/rooms" className="font-semibold underline underline-offset-4">
+            yeni bir oda açabilirsiniz
+          </Link>
+          .
+        </StatusMessage>
+      ) : null}
+
       <dl className="flex flex-col gap-2 text-sm">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <dt className="text-ink-60">Oda durumu</dt>
           <dd className="font-medium">
             {room.status === "active" ? "Açık" : "Kapalı"}
+            {room.status === "active" ? (
+              <span className="ml-2 text-xs font-normal text-ink-55">
+                {ROOM_INACTIVITY_MINUTES} dk işlem olmazsa kapanır
+              </span>
+            ) : null}
           </dd>
         </div>
 
@@ -229,7 +248,7 @@ export function RoomWaiting({ spaceId }: { spaceId: string }) {
         onUpdated={(updated) => setState({ status: "ready", room: updated })}
       />
 
-      <RoomChat spaceId={spaceId} />
+      {sessionOpen ? null : <RoomChat spaceId={spaceId} />}
 
       <SubscriptionSummary
         spaceId={spaceId}
@@ -240,6 +259,8 @@ export function RoomWaiting({ spaceId }: { spaceId: string }) {
       {inRoom ? (
         <RoomRound
           spaceId={spaceId}
+          roomName={room.name}
+          onSessionOpenChange={setSessionOpen}
           isHost={room.myRole === "host"}
           canStartRound={room.sharedSubscriptions.length > 0}
           sharedSubscriptions={room.sharedSubscriptions}

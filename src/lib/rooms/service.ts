@@ -149,6 +149,23 @@ export async function createRoom(
   };
 }
 
+/**
+ * 30 dakikadır (ROOM_INACTIVITY_MINUTES) hareketsiz odaları kapatır (`spaceId` verilirse yalnız onu).
+ * Asıl kapatma veritabanındaki zamanlanmış görevdir; bu çağrı görev gecikse
+ * bile odanın açıldığı anda doğru durumu göstermesini sağlar. Başarısız olursa
+ * oda okunmaya devam eder.
+ */
+async function closeInactiveRooms(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  spaceId: string | null,
+): Promise<void> {
+  try {
+    await supabase.rpc("close_inactive_spaces", { p_space_id: spaceId });
+  } catch {
+    // Oda okuma yolu bu kontrol yüzünden kesilmez.
+  }
+}
+
 /** Hassas davet veya kullanıcı kimliği taşımayan public oda vitrini. */
 export async function listPublicRooms(): Promise<PublicRoomSummary[]> {
   if (isLocalRoomsBackend()) return listPublicRoomsLocal();
@@ -159,6 +176,7 @@ export async function listPublicRooms(): Promise<PublicRoomSummary[]> {
   const userId = await getAuthenticatedUserId(supabase);
   if (!userId) fail(roomError("unauthenticated"));
 
+  await closeInactiveRooms(supabase, null);
   const { data, error } = await supabase.rpc("list_discoverable_spaces");
   if (error) fail(normalizeRoomError(error));
   if (!Array.isArray(data)) fail(roomError("unexpected"));
@@ -494,6 +512,7 @@ export async function getRoomState(
   const userId = await getAuthenticatedUserId(supabase);
   if (!userId) fail(roomError("unauthenticated"));
 
+  await closeInactiveRooms(supabase, spaceId);
   const { data: space, error: spaceError } = await supabase
     .from("spaces")
     .select("id, name, visibility, selection_mode, capacity, status")

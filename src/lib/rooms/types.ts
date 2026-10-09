@@ -118,6 +118,8 @@ export interface RoomCandidate {
   overview: string | null;
   releaseYear: number | null;
   voteAverage: number | null;
+  /** Türkçe tür etiketleri; tür önbelleğinde kaydı olmayan adaylarda boş. */
+  genres: string[];
 }
 
 /** Gizli seçim turunun istemciye güvenle sunulabilen özeti. */

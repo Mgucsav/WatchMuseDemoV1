@@ -16,3 +16,9 @@ export const SEARCH_MAX_QUERY_LENGTH = 100;
 
 /** Arama alanındaki tuş vuruşları için bekleme süresi (ms). */
 export const SEARCH_DEBOUNCE_MS = 375;
+
+/**
+ * Oda bu kadar dakika hiçbir işlem (katılım, mesaj, oy, seçim) görmezse
+ * kapanır. Değer veritabanındaki `close_inactive_spaces` ile aynıdır.
+ */
+export const ROOM_INACTIVITY_MINUTES = 30;

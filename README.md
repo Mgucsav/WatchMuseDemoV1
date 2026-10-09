@@ -71,6 +71,10 @@ film topluluğudur.
 
 - TMDb üzerinden Türkçe film araması yapılır.
 - Türkçe ve orijinal başlık, afiş, yıl, özet ve puan gösterilir.
+- Arama sonuçlarında ve oda adaylarında film türleri etiket olarak görünür
+  (Korku, Aksiyon, Animasyon, Romantik…). TMDb'de ayrı tür olmayan iki etiket
+  türetilir: Japon yapımı animasyon **Anime**, romantik + komedi **Romantik
+  komedi** ([src/lib/tmdb/genres.ts](src/lib/tmdb/genres.ts)).
 - Türkiye için Netflix, Prime Video, Apple TV+, Disney+, BluTV ve MUBI
   uygunluğu kontrol edilir.
 - Platform bilgileri TMDb aracılığıyla JustWatch verisinden gelir.
@@ -80,6 +84,10 @@ film topluluğudur.
 - Anonim kullanıcılar hesap açmadan film kaydetmeye başlayabilir.
 - Filmler `İzlenecek` veya `İzlendi` olarak işaretlenebilir.
 - İzlenen filmlere 1–10 puan ve kişisel not eklenebilir.
+- İzlenecekler ve İzlediklerim ayrı sekmelerdir (`/kutuphanem?liste=izlendi`).
+  Her film tek satırlık bir karttır; düzenleme "Düzenle" ile açılır. Arama,
+  sıralama (son eklenen/izlenen, puan, ad) ve 20'şer film gösterimi uzun
+  listeleri yönetilebilir tutar.
 - Anonim kimlik daha sonra e-posta/şifre hesabına bağlanır; mevcut veriler
   taşınmadan aynı kullanıcı kimliğinde kalır.
 
@@ -97,6 +105,12 @@ film topluluğudur.
 - Misafir odadan çıkabilir; oda sayfasını kapattığında veya sayfadan ayrıldığında
   otomatik olarak odadan çıkar. Film/Teleparty için başka sekmeye geçmek üyeliği
   sonlandırmaz.
+- **30 dakika hiçbir işlem yapılmayan oda otomatik kapanır.** Katılım, mesaj,
+  tur, oy, seçim, kabul ve Teleparty bağlantısı işlem sayılır; sayfayı açık
+  tutmak sayılmaz. Veritabanı her odanın son işlem zamanını tetikleyicilerle
+  tutar; `pg_cron` her 5 dakikada `close_inactive_spaces()` çalıştırır. Ayrıca
+  oda veya oda listesi açıldığında da kontrol edilir, böylece zamanlayıcı
+  gecikse bile kapanmış oda açık görünmez.
 
 ### Oda sohbeti ve ortak film seçimi
 
@@ -115,6 +129,10 @@ film topluluğudur.
   bulunmalıdır.
 - Doğrudan seçilen film de mevcut hazır olma, kişisel kütüphane ve Teleparty
   akışını kullanır.
+- Film seçim oturumu (açık tur ya da belirlenmiş film) arka planı bulanık, tam
+  ekran bir pencerede açılır. Sonuçta "Bu filmi seç · Şimdi izlemek istiyorum"
+  ve "Yeni 10 film" seçenekleri, yanda açılıp kapanabilen oda sohbeti vardır.
+  "Odaya dön" pencereyi küçültür; yeni tur başlayınca pencere yeniden açılır.
 
 ### Teleparty köprüsü
 

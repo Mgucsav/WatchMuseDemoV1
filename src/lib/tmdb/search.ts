@@ -8,6 +8,7 @@ import {
   TMDB_LANGUAGE,
   TMDB_REGION,
 } from "./constants";
+import { genreLabels } from "./genres";
 import {
   asArray,
   asFiniteNumber,
@@ -112,6 +113,10 @@ export function normalizeMovie(raw: unknown): MovieSummary | null {
     overview: asNonEmptyString(raw.overview),
     // TMDb puanlanmamış filmler için 0 döndürüyor; bunu "puan yok" sayıyoruz.
     voteAverage: voteAverage !== null && voteAverage > 0 ? voteAverage : null,
+    genres: genreLabels(
+      asArray(raw.genre_ids).filter((value): value is number => Number.isInteger(value)),
+      asNonEmptyString(raw.original_language),
+    ),
   };
 }
 

@@ -3,7 +3,10 @@
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { GenreChips } from "@/components/GenreChips";
 import { StatusMessage } from "@/components/StatusMessage";
+import { RoomChat } from "@/components/rooms/RoomChat";
+import { RoomSessionOverlay } from "@/components/rooms/RoomSessionOverlay";
 import { ApiError, fetchJson } from "@/lib/api/fetch-json";
 import {
   SEARCH_DEBOUNCE_MS,
@@ -57,12 +60,18 @@ type ViewState =
  */
 export function RoomRound({
   spaceId,
+  roomName,
   isHost,
   canStartRound,
   sharedSubscriptions,
   selectionMode,
+  onSessionOpenChange,
 }: {
   spaceId: string;
+  /** Film seçim penceresinin başlığı. */
+  roomName: string;
+  /** Pencere açılıp kapandıkça bildirilir; oda sayfası kendi sohbetini gizler. */
+  onSessionOpenChange?: (open: boolean) => void;
   isHost: boolean;
   /**
    * Ortak abonelik var mı? Yoksa YENİ tur açılamaz — ama açık olan tur
@@ -211,6 +220,27 @@ export function RoomRound({
     return () => window.clearInterval(timer);
   }, [hasPendingSelections]);
 
+  // Film seçim oturumu: çark modunda açık tur, belirlenmiş film modunda süresi
+  // dolmamış seçim. Oturum varken tam ekran pencere açılır; kullanıcı küçültürse
+  // aynı oturum için kapalı kalır, yeni tur veya seçim gelince yeniden açılır.
+  const sessionKey =
+    view.kind !== "ready"
+      ? null
+      : selectionMode === "direct"
+        ? (view.state.pendingSelections.find(
+            (selection) =>
+              !isSelectionExpired(selection.responseDeadline, new Date(selectionNow)),
+          )?.id ?? null)
+        : (view.state.round?.id ?? null);
+  const [minimizedKey, setMinimizedKey] = useState<string | null>(null);
+  const overlayOpen = sessionKey !== null && minimizedKey !== sessionKey;
+  const minimize = useCallback(() => setMinimizedKey(sessionKey), [sessionKey]);
+
+  useEffect(() => {
+    onSessionOpenChange?.(overlayOpen);
+    return () => onSessionOpenChange?.(false);
+  }, [onSessionOpenChange, overlayOpen]);
+
   const submitVote = async (candidateId: string, choice: RoomVoteChoice) => {
     setPendingChoice(choice);
     try {
@@ -335,10 +365,14 @@ export function RoomRound({
         onTelepartyStates={applyTelepartyStates}
         actionError={actionError}
         now={selectionNow}
+        primarySelectionId={
+          round?.status === "result" ? winnerSelection(round, pendingSelections, selectionNow)?.id : undefined
+        }
       />
     </>
   );
 
+  const body = (() => {
   if (selectionMode === "direct") {
     return (
       <div className="space-y-4">
@@ -418,20 +452,88 @@ export function RoomRound({
   }
 
   if (round.status === "result") {
+    const selection = winnerSelection(round, pendingSelections, selectionNow);
     return (
       <div className="space-y-4">
-        {pendingArea}
         <WheelStage round={round} />
-        <NewRoundButton
-          pending={resetting}
-          disabled={!canStartRound}
-          onStart={startNextRound}
-        />
+        <section className="grid gap-2 sm:grid-cols-2">
+          {selection && !selection.myAccepted ? (
+            <button
+              type="button"
+              onClick={() => void acceptSelection(selection.id)}
+              disabled={acceptingSelectionId !== null}
+              className="min-h-12 rounded-lg bg-fill-inverse px-4 text-sm font-semibold text-on-inverse disabled:opacity-60"
+            >
+              {acceptingSelectionId === selection.id
+                ? "Kaydediliyor…"
+                : "Bu filmi seç · Şimdi izlemek istiyorum"}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => void startNextRound()}
+            disabled={resetting || !canStartRound}
+            className={`min-h-12 rounded-lg border border-line-30 px-4 text-sm font-semibold hover:bg-fill-hover disabled:opacity-60 ${
+              selection && !selection.myAccepted ? "" : "sm:col-span-2"
+            }`}
+          >
+            {resetting ? "Yeni tur hazırlanıyor…" : "Yeni 10 film"}
+          </button>
+          {!canStartRound ? (
+            <p className="text-xs text-ink-60 sm:col-span-2">
+              Yeni tur için ortak bir abonelik gerekiyor.
+            </p>
+          ) : null}
+        </section>
+        {pendingArea}
       </div>
     );
   }
 
   return <div className="space-y-4">{pendingArea}<WheelStage round={round} /></div>;
+  })();
+
+  if (!overlayOpen) {
+    return (
+      <div className="space-y-3">
+        {sessionKey !== null ? (
+          <button
+            type="button"
+            onClick={() => setMinimizedKey(null)}
+            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-brand-green px-4 text-sm font-semibold hover:bg-fill-hover"
+          >
+            Film seçimine dön
+          </button>
+        ) : null}
+        {sessionKey === null ? body : null}
+      </div>
+    );
+  }
+
+  return (
+    <RoomSessionOverlay
+      roomName={roomName}
+      onMinimize={minimize}
+      chat={<RoomChat spaceId={spaceId} variant="panel" />}
+    >
+      {body}
+    </RoomSessionOverlay>
+  );
+}
+
+/** Çarkın kazananı için açılmış, süresi dolmamış seçim. */
+function winnerSelection(
+  round: RoomRound,
+  selections: RoomSelection[],
+  now: number,
+): RoomSelection | undefined {
+  const winnerMovieId = round.winnerCandidate?.tmdbMovieId;
+  if (winnerMovieId === undefined) return undefined;
+  return selections.find(
+    (selection) =>
+      selection.tmdbMovieId === winnerMovieId &&
+      !isSelectionExpired(selection.responseDeadline, new Date(now)),
+  );
 }
 
 function DirectMovieSession({
@@ -602,6 +704,7 @@ function DirectMovieSession({
                 <p className="text-xs text-ink-60">
                   {movie.releaseYear ?? "Yıl bilinmiyor"}
                 </p>
+                <GenreChips genres={movie.genres} className="mt-1" />
               </div>
               <button
                 type="button"
@@ -636,7 +739,10 @@ function PendingSelectionArea({
   onTelepartyStates,
   actionError,
   now,
+  primarySelectionId,
 }: {
+  /** Sonuç ekranında büyük düğmeyle kabul edilen seçim; burada tekrar düğme çıkmaz. */
+  primarySelectionId?: string;
   spaceId: string;
   isHost: boolean;
   sharedSubscriptions: RoomSubscriptions;
@@ -707,7 +813,7 @@ function PendingSelectionArea({
                   <p className="text-sm text-ink-60">
                     Süresi doldu
                   </p>
-                ) : (
+                ) : selection.id === primarySelectionId ? null : (
                   <button
                     type="button"
                     className="rounded-md border border-line-30 px-3 py-2 text-sm font-medium disabled:opacity-60"
@@ -938,35 +1044,6 @@ function TelepartyBridge({
   );
 }
 
-function NewRoundButton({
-  pending,
-  disabled,
-  onStart,
-}: {
-  pending: boolean;
-  /** Ortak abonelik yokken yeni tur açılamaz. */
-  disabled: boolean;
-  onStart: () => Promise<void>;
-}) {
-  return (
-    <div>
-      <button
-        type="button"
-        className="w-full rounded-md border border-line-30 px-3 py-3 text-sm font-semibold disabled:opacity-60"
-        onClick={() => void onStart()}
-        disabled={pending || disabled}
-      >
-        {pending ? "Yeni tur hazırlanıyor…" : "Yeni 10 filmle devam et"}
-      </button>
-      {disabled ? (
-        <p className="mt-2 text-xs text-ink-60">
-          Yeni tur için ortak bir abonelik gerekiyor.
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
 function VotingCard({
   candidate,
   completed,
@@ -1017,6 +1094,7 @@ function VotingCard({
                 .filter(Boolean)
                 .join(" · ")}
             </p>
+            <GenreChips genres={candidate.genres} max={4} className="mt-2" />
             {candidate.overview ? <p className="mt-3 text-sm leading-6 text-ink-75">{candidate.overview}</p> : null}
           </div>
         </div>
@@ -1081,6 +1159,7 @@ function MatchStage({
             <div className="min-w-0">
               <p className="font-medium">{candidate.title}</p>
               {candidate.releaseYear ? <p className="text-sm text-ink-60">{candidate.releaseYear}</p> : null}
+              <GenreChips genres={candidate.genres} max={2} className="mt-1" />
             </div>
           </article>
         ))}
@@ -1142,6 +1221,7 @@ function WheelStage({ round }: { round: RoomRound }) {
         <div className="mt-5">
           <h2 className="text-2xl font-bold">{result.title}</h2>
           {result.originalTitle ? <p className="mt-1 text-sm text-ink-60">{result.originalTitle}</p> : null}
+          <GenreChips genres={result.genres} max={4} className="mt-2 justify-center" />
           <p className="mt-3 text-sm text-ink-70">Bütün katılımcıların “izlemek isterim” dediği filmler arasından seçildi.</p>
         </div>
       ) : (

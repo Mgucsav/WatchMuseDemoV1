@@ -24,6 +24,7 @@ function movie(id: number): MovieSummary {
     posterUrl: null,
     overview: null,
     voteAverage: 7,
+    genres: [],
   };
 }
 
