@@ -83,7 +83,9 @@ film topluluğudur.
 
 - Anonim kullanıcılar hesap açmadan film kaydetmeye başlayabilir.
 - Filmler `İzlenecek` veya `İzlendi` olarak işaretlenebilir.
-- İzlenen filmlere 1–10 puan ve kişisel not eklenebilir.
+- İzlenen filmlere 1–10 puan ve kişisel not eklenebilir. Puan renkle de
+  okunur: 1–4 kırmızı (1 en koyu), 5–7 sarı (5 kahveye yakın, 7 sarıya yakın),
+  8–10 yeşil ([src/lib/library/rating-colors.ts](src/lib/library/rating-colors.ts)).
 - İzlenecekler ve İzlediklerim ayrı sekmelerdir (`/kutuphanem?liste=izlendi`).
   Her film tek satırlık bir karttır; düzenleme "Düzenle" ile açılır. Arama,
   sıralama (son eklenen/izlenen, puan, ad) ve 20'şer film gösterimi uzun
@@ -120,6 +122,23 @@ film topluluğudur.
 - Oda oluştururken `Rastgele seçim (çark)` veya `Belirlenmiş film oturumu`
   yöntemi seçilir ve bu tercih oda boyunca korunur.
 - Film adayları bütün katılımcıların ortak aboneliklerinden üretilir.
+- Oda sahibi ilk turu, isterse en fazla 5 tür seçerek (Komedi, Anime,
+  Romantik komedi…) "10 film getir" ile başlatır; sonraki turlarda da "Yeni
+  10 film" öncesinde tür seçilebilir. Seçilen türler turla birlikte saklanır
+  ve oylama kartında herkese görünür.
+- **Kişisel zevk modeli** ([src/lib/rooms/taste.ts](src/lib/rooms/taste.ts)):
+  her katılımcı için kütüphane puanlarından (1–4 olumsuz, 8–10 olumlu),
+  izleneceklerden ve geçmiş oda oylarından (İsterim olumlu, İstemiyorum
+  olumsuz) tür yakınlığı çıkarılır; az sinyalli türler sıfıra çekilir. Aday
+  havuzu (~80 film) grubun ortak puanına göre sıralanır: ortalama ile "en az
+  mutsuzluk" karışımı, yani birinin sevmeyeceği film geriye düşer. Listenin
+  başında aynı ana türden en fazla 3 film olur ve ilk 10'un 2 yeri rastgele
+  keşfe ayrılır. Profil yoksa seed'li rastgele sıralama kullanılır. Oylar ve
+  puanlar yalnız sunucuda işlenir, hiçbir katılımcıya gösterilmez. Turun
+  hangi sıralayıcıyla üretildiği `ranker_version` olarak saklanır
+  (`taste-v1` / `seeded-random-v1`).
+- Son 30 günde bütün katılımcıların "İstemiyorum" dediği filmler ve daha
+  önce kabul edilmiş filmler yeniden önerilmez.
 - Her katılımcının `Geç`, `Belki` ve `İsterim` oyu gizlidir.
 - Herkes tamamladığında ortak adaylar açılır.
 - Çark kazananı sunucuda bir kez belirlenir ve bütün ekranlarda aynı sonuç

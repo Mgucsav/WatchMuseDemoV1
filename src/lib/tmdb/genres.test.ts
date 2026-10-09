@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { genreLabels } from "./genres";
+import {
+  discoverGenreQuery,
+  genreLabels,
+  isRoomGenre,
+  matchesGenreFilter,
+} from "./genres";
 import { normalizeMovie } from "./search";
 
 describe("film türü etiketleri", () => {
@@ -35,5 +40,32 @@ describe("film türü etiketleri", () => {
     });
     expect(movie?.genres).toEqual(["Anime", "Aile", "Fantastik"]);
     expect(normalizeMovie({ id: 2, title: "Türsüz" })?.genres).toEqual([]);
+  });
+});
+
+describe("oda tür filtresi", () => {
+  it("seçilen türleri TMDb kimliklerine VEYA olarak çevirir", () => {
+    expect(discoverGenreQuery(["Korku", "Komedi"])).toEqual({
+      genreIds: [27, 35],
+      originalLanguage: null,
+    });
+    expect(discoverGenreQuery(["Romantik komedi"]).genreIds).toEqual([10749, 35]);
+    expect(discoverGenreQuery(["Anime"])).toEqual({ genreIds: [16], originalLanguage: "ja" });
+    expect(discoverGenreQuery([])).toEqual({ genreIds: [], originalLanguage: null });
+  });
+
+  it("türetilmiş etiketleri doğru eşler", () => {
+    expect(matchesGenreFilter(["Romantik komedi"], ["Romantik"])).toBe(true);
+    expect(matchesGenreFilter(["Romantik komedi"], ["Komedi"])).toBe(true);
+    expect(matchesGenreFilter(["Anime"], ["Animasyon"])).toBe(true);
+    expect(matchesGenreFilter(["Animasyon"], ["Anime"])).toBe(false);
+    expect(matchesGenreFilter(["Komedi"], ["Romantik komedi"])).toBe(false);
+    expect(matchesGenreFilter(["Dram"], [])).toBe(true);
+  });
+
+  it("yalnız listedeki türleri kabul eder", () => {
+    expect(isRoomGenre("Korku")).toBe(true);
+    expect(isRoomGenre("TV filmi")).toBe(false);
+    expect(isRoomGenre("korku")).toBe(false);
   });
 });

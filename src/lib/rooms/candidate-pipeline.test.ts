@@ -167,6 +167,49 @@ describe("candidate pipeline", () => {
     expect(JSON.stringify(plan)).not.toContain("selection_reason");
   });
 
+  it("tür seçildiyse yalnız uyan filmleri havuza alır ve seçimi plana yazar", async () => {
+    const plans: RoundCandidatePlan[] = [];
+    await sourceAndPersistRoundCandidates(
+      async (plan) => {
+        plans.push(plan);
+      },
+      {
+        providerKeys: ["netflix"],
+        seed: "genre-filter-seed-123456",
+        genreFilter: ["Romantik"],
+        fetchPage: async (page) =>
+          Array.from({ length: 12 }, (_, index) => ({
+            ...movie(page * 100 + index),
+            genres: index % 2 === 0 ? ["Romantik komedi"] : ["Korku"],
+          })),
+      },
+    );
+
+    const plan = plans.at(-1);
+    expect(plan?.genreFilter).toEqual(["Romantik"]);
+    expect(plan?.candidates.every((entry) => entry.genres.includes("Romantik komedi"))).toBe(true);
+  });
+
+  it("verilen sıralayıcının sırasını ve sürümünü kullanır", async () => {
+    const plans: RoundCandidatePlan[] = [];
+    await sourceAndPersistRoundCandidates(
+      async (plan) => {
+        plans.push(plan);
+      },
+      {
+        providerKeys: ["netflix"],
+        seed: "custom-ranker-seed-123456",
+        ranker: { version: "test-ranker", rank: (source) => [...source].reverse() },
+        fetchPage: async (page) =>
+          Array.from({ length: 10 }, (_, index) => movie(page * 100 + index)),
+      },
+    );
+
+    const plan = plans.at(-1)!;
+    expect(plan.rankerVersion).toBe("test-ranker");
+    expect(plan.candidates[0].id).toBeGreaterThan(plan.candidates.at(-1)!.id);
+  });
+
   it("ortak abonelik yoksa hiç TMDb isteği atmadan reddeder", async () => {
     let fetched = 0;
     await expect(

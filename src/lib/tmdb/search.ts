@@ -8,7 +8,9 @@ import {
   TMDB_LANGUAGE,
   TMDB_REGION,
 } from "./constants";
-import { genreLabels } from "./genres";
+import { genreLabels, type discoverGenreQuery } from "./genres";
+
+type DiscoverGenreQuery = ReturnType<typeof discoverGenreQuery>;
 import {
   asArray,
   asFiniteNumber,
@@ -139,6 +141,7 @@ export function normalizeMovie(raw: unknown): MovieSummary | null {
 export async function discoverRoomCandidatePage(
   page: number,
   providerIds: readonly number[],
+  genreQuery: DiscoverGenreQuery = { genreIds: [], originalLanguage: null },
 ): Promise<MovieSummary[]> {
   if (!Number.isInteger(page) || page < 1 || page > 500) {
     throw new Error("invalid_discover_page");
@@ -148,7 +151,7 @@ export async function discoverRoomCandidatePage(
     throw new Error("room_requires_shared_providers");
   }
 
-  const response = await requestRoomCandidatePage(page, providerIds);
+  const response = await requestRoomCandidatePage(page, providerIds, genreQuery);
 
   // Dar bir ortak katalogda (ör. tek platform) toplam sayfa sayısı, seed'li
   // sayfa sırasının üst sınırından küçük olabilir. Aralık dışındaki sayfa boş
@@ -160,7 +163,7 @@ export async function discoverRoomCandidatePage(
   ) {
     const wrappedPage = ((page - 1) % response.totalPages) + 1;
     if (wrappedPage !== page) {
-      return (await requestRoomCandidatePage(wrappedPage, providerIds)).movies;
+      return (await requestRoomCandidatePage(wrappedPage, providerIds, genreQuery)).movies;
     }
   }
 
@@ -174,6 +177,7 @@ export async function discoverRoomCandidatePage(
 async function requestRoomCandidatePage(
   page: number,
   providerIds: readonly number[],
+  genreQuery: DiscoverGenreQuery,
 ): Promise<{ movies: MovieSummary[]; totalPages: number }> {
   const raw = await tmdbRequest("/discover/movie", {
     language: TMDB_LANGUAGE,
@@ -184,6 +188,11 @@ async function requestRoomCandidatePage(
     watch_region: TMDB_REGION,
     with_watch_providers: providerIds.join("|"),
     with_watch_monetization_types: "flatrate",
+    // Seçilen türlerden herhangi biri (VEYA); boşsa tür kısıtı yok.
+    ...(genreQuery.genreIds.length > 0 ? { with_genres: genreQuery.genreIds.join("|") } : {}),
+    ...(genreQuery.originalLanguage
+      ? { with_original_language: genreQuery.originalLanguage }
+      : {}),
     page: String(page),
   });
 

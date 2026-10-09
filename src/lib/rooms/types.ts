@@ -140,6 +140,8 @@ export interface RoomRound {
   winnerCandidate: RoomCandidate | null;
   spinStartedAt: string | null;
   spinDurationMs: number;
+  /** Turu başlatanın seçtiği türler ("Komedi", "Anime"…); boşsa tür kısıtı yok. */
+  genreFilter: string[];
 }
 
 /** Çarkın seçtiği, yedi günlük kişisel izleme-listesi penceresindeki film. */

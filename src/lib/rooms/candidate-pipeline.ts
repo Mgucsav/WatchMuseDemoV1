@@ -2,6 +2,11 @@ import "server-only";
 
 import { randomBytes } from "node:crypto";
 
+import {
+  discoverGenreQuery,
+  matchesGenreFilter,
+  type RoomGenre,
+} from "@/lib/tmdb/genres";
 import { discoverRoomCandidatePage } from "@/lib/tmdb/search";
 import type { MovieSummary, TargetProviderKey } from "@/lib/tmdb/types";
 import { roomError } from "./errors";
@@ -29,7 +34,23 @@ export interface RoundCandidatePlan {
    * platform kümesinin bugünün ortak kümesinin alt kümesi olması aranır.
    */
   providerKeys: TargetProviderKey[];
+  /** Turu başlatanın seçtiği türler; boşsa tür kısıtı yok. */
+  genreFilter: RoomGenre[];
 }
+
+/**
+ * Havuzu sıralayan strateji. Kaynak kümeye film ekleyemez, yalnız sıralar
+ * (`assertRankerBoundary`); veritabanı bu sırayla uygun ilk 10 filmi alır.
+ */
+export interface CandidateRanker {
+  version: string;
+  rank(source: readonly MovieSummary[], seed: string): MovieSummary[];
+}
+
+export const SEEDED_RANDOM_RANKER: CandidateRanker = {
+  version: RANKER_VERSION,
+  rank: (source, seed) => rankCandidateSource(source, seed),
+};
 
 export type CandidatePageFetcher = (page: number) => Promise<MovieSummary[]>;
 export type CandidatePlanPersister = (plan: RoundCandidatePlan) => Promise<void>;
@@ -103,6 +124,12 @@ export async function sourceAndPersistRoundCandidates(
     providerKeys: readonly TargetProviderKey[];
     seed?: string;
     fetchPage?: CandidatePageFetcher;
+    /** Seçilen türler; havuz yalnız bunlardan en az birine uyan filmlerden oluşur. */
+    genreFilter?: readonly RoomGenre[];
+    /** Varsayılan: seed'li rastgele sıralama. */
+    ranker?: CandidateRanker;
+    /** Kaydetmeden önce en az kaç sayfa toplanacağı (zevk sıralaması geniş havuz ister). */
+    minPages?: number;
   },
 ): Promise<RoundCandidatePlan> {
   const providerKeys = [...options.providerKeys];
@@ -111,31 +138,51 @@ export async function sourceAndPersistRoundCandidates(
   }
 
   const seed = options.seed ?? createSelectionSeed();
+  const genreFilter = [...(options.genreFilter ?? [])];
+  const ranker = options.ranker ?? SEEDED_RANDOM_RANKER;
+  const minPages = Math.min(
+    Math.max(options.minPages ?? MIN_PAGES_BEFORE_PERSIST, 1),
+    MAX_DISCOVER_PAGE_ATTEMPTS,
+  );
   const providerIds = tmdbProviderIdsFor(providerKeys);
+  const genreQuery = discoverGenreQuery(genreFilter);
   const fetchPage =
-    options.fetchPage ?? ((page: number) => discoverRoomCandidatePage(page, providerIds));
+    options.fetchPage ??
+    ((page: number) => discoverRoomCandidatePage(page, providerIds, genreQuery));
   const unique = new Map<number, MovieSummary>();
 
   for (const [index, page] of discoverPageOrder(seed).entries()) {
-    const movies = await fetchPage(page);
+    let movies: MovieSummary[];
+    try {
+      movies = await fetchPage(page);
+    } catch (error) {
+      // Dar bir tür + platform kesişiminde katalog tamamen boş olabilir.
+      if (error instanceof Error && error.message === "room_candidate_pool_incomplete") break;
+      throw error;
+    }
     for (const movie of movies) {
-      if (!unique.has(movie.id)) unique.set(movie.id, movie);
+      // "Anime", "Romantik komedi" gibi türetilmiş etiketler TMDb'de ayrı
+      // filtre olmadığından burada süzülür.
+      if (!unique.has(movie.id) && matchesGenreFilter(movie.genres, genreFilter)) {
+        unique.set(movie.id, movie);
+      }
     }
 
-    if (index + 1 < MIN_PAGES_BEFORE_PERSIST || unique.size < ROUND_CANDIDATE_COUNT) {
+    if (index + 1 < minPages || unique.size < ROUND_CANDIDATE_COUNT) {
       continue;
     }
 
     const source = [...unique.values()];
-    const ranked = rankCandidateSource(source, seed);
+    const ranked = ranker.rank(source, seed);
     assertRankerBoundary(source, ranked);
     const plan: RoundCandidatePlan = {
       seed,
       candidates: ranked,
       selectionPolicyVersion: SELECTION_POLICY_VERSION,
-      rankerVersion: RANKER_VERSION,
+      rankerVersion: ranker.version,
       allowEligibleRepeats: index + 1 === MAX_DISCOVER_PAGE_ATTEMPTS,
       providerKeys,
+      genreFilter,
     };
 
     try {

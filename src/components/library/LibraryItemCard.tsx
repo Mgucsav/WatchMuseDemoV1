@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useActionState, useState } from "react";
+import { useActionState, useState, type CSSProperties } from "react";
 import { useFormStatus } from "react-dom";
 
 import { StatusMessage } from "@/components/StatusMessage";
@@ -13,6 +13,7 @@ import {
   EMPTY_LIBRARY_STATE,
   type LibraryActionState,
 } from "@/lib/library/form-state";
+import { ratingColor } from "@/lib/library/rating-colors";
 import { ensureSupabaseAnonymousSession } from "@/lib/supabase/browser";
 import { NOTE_MAX_LENGTH, RATING_MAX, RATING_MIN } from "@/lib/library/validation";
 import type { LibraryItem, LibraryStatus } from "@/lib/library/types";
@@ -50,6 +51,7 @@ function ChoicePill({
   checked,
   onSelect,
   size = "md",
+  color = null,
 }: {
   name: string;
   value: string;
@@ -57,6 +59,8 @@ function ChoicePill({
   checked: boolean;
   onSelect?: () => void;
   size?: "sm" | "md";
+  /** Puan düğmeleri: rakam bu renkte yazılır, seçilince bu renkle dolar. */
+  color?: string | null;
 }) {
   return (
     <label className="cursor-pointer">
@@ -69,9 +73,12 @@ function ChoicePill({
         className="peer sr-only"
       />
       <span
-        className={`flex items-center justify-center rounded-lg border border-line-20 text-sm transition-colors peer-checked:border-transparent peer-checked:bg-fill-inverse peer-checked:font-semibold peer-checked:text-on-inverse peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-wm-foreground hover:bg-fill-hover ${
-          size === "sm" ? "h-10 min-w-10 px-2" : "min-h-10 px-4"
-        }`}
+        style={color ? ({ "--pill": color } as CSSProperties) : undefined}
+        className={`flex items-center justify-center rounded-lg border border-line-20 text-sm transition-colors peer-checked:border-transparent peer-checked:font-semibold peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-wm-foreground hover:bg-fill-hover ${
+          color
+            ? "font-semibold text-(--pill) peer-checked:bg-(--pill) peer-checked:text-black"
+            : "peer-checked:bg-fill-inverse peer-checked:text-on-inverse"
+        } ${size === "sm" ? "h-10 min-w-10 px-2" : "min-h-10 px-4"}`}
       >
         {label}
       </span>
@@ -158,8 +165,9 @@ export function LibraryItemCard({ item }: { item: LibraryItem }) {
 
         {isWatched ? (
           <span
+            style={item.rating !== null ? { color: ratingColor(item.rating) ?? undefined } : undefined}
             className={`shrink-0 text-right font-display leading-none ${
-              item.rating !== null ? "text-[28px] text-brand-red" : "text-sm text-ink-45"
+              item.rating !== null ? "text-[28px]" : "text-sm text-ink-45"
             }`}
             aria-label={item.rating !== null ? `Puanınız ${item.rating}/10` : "Puan verilmedi"}
           >
@@ -223,6 +231,7 @@ export function LibraryItemCard({ item }: { item: LibraryItem }) {
                       label={String(value)}
                       checked={item.rating === value}
                       size="sm"
+                      color={ratingColor(value)}
                     />
                   ))}
                   <ChoicePill

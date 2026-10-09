@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { GenreChips } from "@/components/GenreChips";
 import { StatusMessage } from "@/components/StatusMessage";
+import { GenrePicker } from "@/components/rooms/GenrePicker";
 import { RoomChat } from "@/components/rooms/RoomChat";
 import { RoomSessionOverlay } from "@/components/rooms/RoomSessionOverlay";
 import { ApiError, fetchJson } from "@/lib/api/fetch-json";
@@ -38,6 +39,7 @@ import {
   WAITING_POLL_INTERVAL_MS,
 } from "@/lib/rooms/polling-policy";
 import { ensureAnonymousSession } from "@/lib/supabase/browser";
+import type { RoomGenre } from "@/lib/tmdb/genres";
 import type {
   MovieDetailsResult,
   MovieSearchResult,
@@ -93,6 +95,8 @@ export function RoomRound({
   const [pendingChoice, setPendingChoice] = useState<RoomVoteChoice | null>(null);
   const [startingWheel, setStartingWheel] = useState(false);
   const [resetting, setResetting] = useState(false);
+  // Bir sonraki tur için seçilen türler; boşsa tür kısıtı yok.
+  const [nextGenres, setNextGenres] = useState<RoomGenre[]>([]);
   const [acceptingSelectionId, setAcceptingSelectionId] = useState<string | null>(null);
 
   const applyTelepartyStates = useCallback(
@@ -111,29 +115,15 @@ export function RoomRound({
 
   const refresh = useCallback(async (signal?: AbortSignal) => {
     await ensureAnonymousSession();
-    let data = await fetchJson<RoomRoundState>(`/api/rooms/${spaceId}/round`, signal);
+    const data = await fetchJson<RoomRoundState>(`/api/rooms/${spaceId}/round`, signal);
 
-    // Aday listesi yalnızca ilk kez, oda sahibi tarafından başlatılır. Sunucu
-    // aynı anda gelen istekleri kilitlediği için çift başlangıç güvenlidir.
-    // Ortak abonelik yokken hiç denenmez: sunucu zaten reddeder ve tekrarlanan
-    // istek kullanıcıya anlamsız bir hata döngüsü gösterirdi.
-    if (
-      selectionMode === "wheel" &&
-      !data.round &&
-      isHost &&
-      canStartRound
-    ) {
-      data = await fetchJson<RoomRoundState>(`/api/rooms/${spaceId}/round`, signal, {
-        method: "POST",
-        body: {},
-      });
-    }
-
+    // İlk tur artık kendiliğinden açılmaz: oda sahibi isterse tür seçip
+    // "10 film getir" ile başlatır (bkz. StartRoundPanel).
     if (data.round || selectionMode === "direct") {
       setView({ kind: "ready", state: data });
     } else setView({ kind: "waiting-for-host" });
     return data.round;
-  }, [canStartRound, isHost, selectionMode, spaceId]);
+  }, [selectionMode, spaceId]);
 
   const pollInterval =
     view.kind === "loading" || view.kind === "waiting-for-host"
@@ -284,7 +274,7 @@ export function RoomRound({
     try {
       await fetchJson(`/api/rooms/${spaceId}/round`, undefined, {
         method: "POST",
-        body: {},
+        body: { genres: nextGenres },
       });
       await refresh();
       setActionError(null);
@@ -331,9 +321,32 @@ export function RoomRound({
     // zaten yazıyor, burada ikinci bir mesaj tekrar olurdu.
     if (!canStartRound) return null;
 
+    if (isHost) {
+      return (
+        <section className="flex flex-col gap-4 rounded-xl border border-line-10 p-4">
+          <div>
+            <h2 className="font-semibold">Film turunu başlat</h2>
+            <p className="mt-1 text-sm text-ink-65">
+              Ortak platformlarınızdan, odadakilerin zevkine göre 10 film gelir. İsterseniz önce tür seçin.
+            </p>
+          </div>
+          <GenrePicker value={nextGenres} onChange={setNextGenres} disabled={resetting} />
+          <button
+            type="button"
+            onClick={() => void startNextRound()}
+            disabled={resetting}
+            className="min-h-12 rounded-lg bg-fill-inverse px-4 text-sm font-semibold text-on-inverse disabled:opacity-60"
+          >
+            {resetting ? "Filmler hazırlanıyor…" : "10 film getir"}
+          </button>
+          {actionError ? <StatusMessage tone="error">{actionError}</StatusMessage> : null}
+        </section>
+      );
+    }
+
     return (
       <StatusMessage title="Film turu hazırlanıyor">
-        Oda sahibinin ortak aday listesini başlatması bekleniyor.
+        Oda sahibi türleri seçip turu başlattığında filmler burada açılacak.
       </StatusMessage>
     );
   }
@@ -400,6 +413,7 @@ export function RoomRound({
     if (nextCandidate) {
       return <div className="space-y-4">{pendingArea}
         <VotingCard
+          genreFilter={round.genreFilter}
           candidate={nextCandidate}
           completed={round.myVoteCount}
           total={round.candidateCount}
@@ -424,14 +438,18 @@ export function RoomRound({
         <p className="mt-1 text-sm text-ink-70">
           Yeni ve farklı 10 filmle tekrar deneyebilirsiniz. Eski oylar yeni tura taşınmaz.
         </p>
+        <div className="mt-4">
+          <NextRoundGenres value={nextGenres} onChange={setNextGenres} disabled={resetting} />
+        </div>
         <button
           type="button"
-          className="mt-4 rounded-md border border-line-30 px-3 py-2 text-sm font-medium disabled:opacity-60"
+          className="mt-4 min-h-11 rounded-lg border border-line-30 px-4 text-sm font-semibold hover:bg-fill-hover disabled:opacity-60"
           onClick={() => void startNextRound()}
           disabled={resetting || !canStartRound}
         >
           {resetting ? "Yeni tur hazırlanıyor…" : "Yeni 10 film getir"}
         </button>
+        {actionError ? <div className="mt-3"><StatusMessage tone="error">{actionError}</StatusMessage></div> : null}
         {!canStartRound ? (
           <p className="mt-2 text-xs text-ink-60">
             Yeni tur için ortak bir abonelik gerekiyor.
@@ -456,6 +474,7 @@ export function RoomRound({
     return (
       <div className="space-y-4">
         <WheelStage round={round} />
+        <NextRoundGenres value={nextGenres} onChange={setNextGenres} disabled={resetting} />
         <section className="grid gap-2 sm:grid-cols-2">
           {selection && !selection.myAccepted ? (
             <button
@@ -518,6 +537,20 @@ export function RoomRound({
     >
       {body}
     </RoomSessionOverlay>
+  );
+}
+
+/** "Yeni 10 film" öncesi açılıp kapanan tür seçimi. */
+function NextRoundGenres(props: { value: RoomGenre[]; onChange: (next: RoomGenre[]) => void; disabled: boolean }) {
+  return (
+    <details className="rounded-xl border border-line-10 p-3">
+      <summary className="cursor-pointer text-sm font-semibold">
+        Yeni tur için tür seç{props.value.length > 0 ? ` · ${props.value.join(", ")}` : ""}
+      </summary>
+      <div className="mt-3">
+        <GenrePicker {...props} />
+      </div>
+    </details>
   );
 }
 
@@ -1045,12 +1078,15 @@ function TelepartyBridge({
 }
 
 function VotingCard({
+  genreFilter,
   candidate,
   completed,
   total,
   pendingChoice,
   onChoose,
 }: {
+  /** Turu başlatanın seçtiği türler; boşsa gösterilmez. */
+  genreFilter: string[];
   candidate: RoomCandidate;
   completed: number;
   total: number;
@@ -1078,6 +1114,9 @@ function VotingCard({
         <p className="font-semibold">Gizli seçim · {completed + 1} / {total}</p>
         <p className="text-ink-60">Sola geç · Sağa iste</p>
       </div>
+      {genreFilter.length > 0 ? (
+        <p className="mt-1 text-xs text-ink-60">Bu tur: {genreFilter.join(" · ")}</p>
+      ) : null}
 
       <article
         className="mt-4 touch-pan-y rounded-xl border border-dashed border-black/25 p-4 select-none dark:border-white/30"

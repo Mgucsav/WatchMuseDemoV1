@@ -128,7 +128,7 @@ export async function startNextRoomRound(
     throw error;
   }
 
-  const { error } = await admin.rpc("start_next_space_round", {
+  const { data: roundId, error } = await admin.rpc("start_next_space_round", {
     p_space_id: spaceId,
     p_actor_id: actorId,
     p_candidates: serializedCandidates(plan.candidates),
@@ -143,8 +143,33 @@ export async function startNextRoomRound(
 
   try {
     await saveCandidateGenres(admin, plan.candidates);
+    if (plan.genreFilter.length > 0 && typeof roundId === "string") {
+      await admin.from("space_rounds").update({ genre_filter: plan.genreFilter }).eq("id", roundId);
+    }
   } catch {
-    // Tür önbelleği yalnızca gösterim içindir; tur zaten başladı.
+    // Tür önbelleği ve tur türleri yalnızca gösterim içindir; tur zaten başladı.
+  }
+}
+
+/**
+ * Turu başlatanın seçtiği türleri ekler. Oda üyeliği `get_space_round_state`
+ * ile zaten doğrulandığı için yalnız bu turun satırı service role ile okunur.
+ */
+async function withGenreFilter(state: RoomRoundState): Promise<RoomRoundState> {
+  if (!state.round) return state;
+  try {
+    const admin = createSupabaseAdminClient();
+    const { data } = await admin
+      .from("space_rounds")
+      .select("genre_filter")
+      .eq("id", state.round.id)
+      .maybeSingle();
+    const genreFilter = Array.isArray(data?.genre_filter)
+      ? data.genre_filter.filter((genre: unknown): genre is string => typeof genre === "string")
+      : [];
+    return { ...state, round: { ...state.round, genreFilter } };
+  } catch {
+    return state;
   }
 }
 
@@ -259,10 +284,12 @@ export async function getRoomRoundState(
     throw new RoomServiceError(normalizeRoomError(telepartyResult.error));
   }
 
-  return withCandidateGenres(supabase, {
-    ...parseRoomRoundState(roundResult.data),
-    telepartyStates: parseRoomTelepartyStates(telepartyResult.data),
-  });
+  return withGenreFilter(
+    await withCandidateGenres(supabase, {
+      ...parseRoomRoundState(roundResult.data),
+      telepartyStates: parseRoomTelepartyStates(telepartyResult.data),
+    }),
+  );
 }
 
 /** Tur ve aday gövdesini taşımadan yalnız ortak Teleparty durumunu okur. */
@@ -348,6 +375,8 @@ export function parseRoomRoundState(value: unknown): RoomRoundState {
       winnerCandidate,
       spinStartedAt,
       spinDurationMs,
+      // Tur türleri ayrı okunur (withGenreFilter).
+      genreFilter: [],
     },
     pendingSelections,
     telepartyStates: [],

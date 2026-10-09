@@ -80,7 +80,7 @@ const MESSAGES: Record<RoomErrorCode, string> = {
   round_creation_moved:
     "Bu sürüm artık yeni tur başlatamıyor. Sayfayı yenileyin; sorun sürerse kısa bir bakım yapılıyor olabilir.",
   candidate_pool_incomplete:
-    "Yeterli sayıda uygun film bulunamadı. Lütfen biraz sonra tekrar deneyin.",
+    "Yeterli sayıda uygun film bulunamadı. Tür seçtiyseniz birkaç tür daha ekleyip tekrar deneyin.",
   invalid_selection: "Seçilen oda filmi bulunamadı.",
   selection_expired: "Bu filmi listeye ekleme süresi dolmuş.",
   invalid_teleparty_link: "Panoda geçerli bir Teleparty davet bağlantısı bulunamadı.",

@@ -27,6 +27,7 @@ function round(patch: Partial<RoomRound> = {}): RoomRound {
     winnerCandidate: null,
     spinStartedAt: null,
     spinDurationMs: 7000,
+    genreFilter: [],
     ...patch,
   };
 }

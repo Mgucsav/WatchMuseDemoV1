@@ -6,9 +6,14 @@ import {
 } from "@/lib/rooms/round-service";
 import { sourceAndPersistRoundCandidates } from "@/lib/rooms/candidate-pipeline";
 import { RoomServiceError, getRoomState } from "@/lib/rooms/service";
+import { loadRoomTasteRanker } from "@/lib/rooms/taste-data";
 import { isRoomUuid } from "@/lib/rooms/validation";
+import { isRoomGenre, MAX_ROOM_GENRES, type RoomGenre } from "@/lib/tmdb/genres";
 
 type RouteContext = { params: Promise<{ spaceId: string }> };
+
+/** Zevk sıralamasında toplanan sayfa sayısı (sayfa başına ~20 film). */
+const TASTE_POOL_PAGES = 4;
 
 /** GET /api/rooms/<spaceId>/round — gizli seçim turunun güvenli özeti. */
 export async function GET(_request: Request, context: RouteContext): Promise<Response> {
@@ -33,8 +38,18 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
   const { spaceId } = await context.params;
   if (!isRoomUuid(spaceId)) return errorResponse("invalid_invitation", "Davet geçersiz.", 400);
 
+  // Gövdesiz istek de geçerlidir (tür kısıtı olmadan). `genres` verilirse
+  // yalnız bilinen tür etiketleri, en fazla MAX_ROOM_GENRES tane kabul edilir.
+  let genreFilter: RoomGenre[] = [];
   try {
-    await request.json();
+    const body: unknown = await request.json();
+    const raw = body && typeof body === "object" ? (body as Record<string, unknown>).genres : undefined;
+    if (raw !== undefined) {
+      if (!Array.isArray(raw) || raw.length > MAX_ROOM_GENRES || !raw.every(isRoomGenre)) {
+        return errorResponse("invalid_genres", "Geçersiz tür seçimi.", 400);
+      }
+      genreFilter = [...new Set(raw)];
+    }
   } catch {
     // Gövdesiz istek ilk tur için geçerlidir.
   }
@@ -61,9 +76,16 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
       throw new RoomServiceError(roomError("no_shared_subscriptions"));
     }
 
+    // Katılımcıların zevk profili varsa geniş bir havuz toplanıp gruba göre
+    // sıralanır; yoksa seed'li rastgele sıralama kullanılır.
+    const tasteRanker = await loadRoomTasteRanker(spaceId);
     await sourceAndPersistRoundCandidates(
       (plan) => startNextRoomRound(spaceId, plan),
-      { providerKeys: room.sharedSubscriptions },
+      {
+        providerKeys: room.sharedSubscriptions,
+        genreFilter,
+        ...(tasteRanker ? { ranker: tasteRanker, minPages: TASTE_POOL_PAGES } : {}),
+      },
     );
     return Response.json(await getRoomRoundState(spaceId), { status: 201 });
   } catch (error) {
