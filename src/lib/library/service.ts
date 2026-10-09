@@ -156,14 +156,15 @@ export async function updateLibraryItem(input: UpdateInput): Promise<void> {
 
   const patch: Record<string, unknown> = {};
 
+  if (input.rating !== undefined) patch.rating = input.rating;
+
   if (input.status !== undefined) {
     patch.status = input.status;
     patch.watched_at =
       input.status === "watched" ? new Date().toISOString() : null;
+    // İzleneceklere dönen filmin puanı, formdan puan gelse bile silinir.
     if (input.status === "watchlist") patch.rating = null;
   }
-
-  if (input.rating !== undefined) patch.rating = input.rating;
   if (input.note !== undefined) patch.note = input.note;
 
   if (Object.keys(patch).length === 0) return;

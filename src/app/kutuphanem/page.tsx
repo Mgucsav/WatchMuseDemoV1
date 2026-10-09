@@ -1,17 +1,21 @@
 import Link from "next/link";
 
-import { LibraryItemCard } from "@/components/library/LibraryItemCard";
+import { LibraryList } from "@/components/library/LibraryList";
 import { StatusMessage } from "@/components/StatusMessage";
 import { getCurrentActor } from "@/lib/auth/dal";
 import { shouldPromptToSaveAccount } from "@/lib/auth/progressive";
 import { getLibrary } from "@/lib/library/service";
-import type { LibraryItem } from "@/lib/library/types";
+import type { LibraryStatus } from "@/lib/library/types";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 export const metadata = { title: "WatchMuse — Kütüphanem" };
 export const dynamic = "force-dynamic";
 
-export default async function LibraryPage() {
+/** `?liste=izlendi` İzlediklerim sekmesini açar; varsayılan İzlenecekler. */
+export default async function LibraryPage({ searchParams }: PageProps<"/kutuphanem">) {
+  const status: LibraryStatus =
+    (await searchParams).liste === "izlendi" ? "watched" : "watchlist";
+
   // Yapılandırma yoksa uygulama çökmez; açıklayıcı bir mesaj gösterilir.
   if (!isSupabaseConfigured()) {
     return (
@@ -47,6 +51,7 @@ export default async function LibraryPage() {
   }
 
   const library = await getLibrary();
+  const items = library[status];
   const itemCount = library.watchlist.length + library.watched.length;
   const showSavePrompt =
     actor.isAnonymous && shouldPromptToSaveAccount(itemCount);
@@ -73,20 +78,54 @@ export default async function LibraryPage() {
         </StatusMessage>
       ) : null}
 
-      <Section
-        title="İzlenecekler"
-        emptyText="Henüz izlenecek film eklemediniz. Arama ekranından film seçip “İzleneceklere ekle” diyebilirsiniz."
-        items={library.watchlist}
-      />
+      <nav aria-label="Kütüphane listeleri" className="flex border-b border-line-10">
+        {TABS.map((tab) => {
+          const selected = tab.status === status;
+          return (
+            <Link
+              key={tab.status}
+              href={tab.href}
+              aria-current={selected ? "page" : undefined}
+              className={`-mb-px flex min-h-11 flex-1 items-center justify-center gap-2 border-b-2 px-3 text-sm no-underline transition-colors hover:bg-fill-hover ${
+                selected
+                  ? "border-brand-green font-semibold text-wm-foreground"
+                  : "border-transparent text-ink-60"
+              }`}
+            >
+              {tab.label}
+              <span className="rounded-full bg-fill-badge px-2 py-0.5 text-xs text-ink-70">
+                {library[tab.status].length}
+              </span>
+            </Link>
+          );
+        })}
+      </nav>
 
-      <Section
-        title="İzlediklerim"
-        emptyText="Henüz izlediğiniz bir film işaretlemediniz."
-        items={library.watched}
-      />
+      {items.length === 0 ? (
+        <StatusMessage>{TABS.find((tab) => tab.status === status)!.emptyText}</StatusMessage>
+      ) : (
+        // key: sekme değişince arama ve sıralama sıfırlanır.
+        <LibraryList key={status} items={items} status={status} />
+      )}
     </Shell>
   );
 }
+
+const TABS: { status: LibraryStatus; label: string; href: string; emptyText: string }[] = [
+  {
+    status: "watchlist",
+    label: "İzlenecekler",
+    href: "/kutuphanem",
+    emptyText:
+      "Henüz izlenecek film eklemediniz. Arama ekranından film seçip “İzleneceklere ekle” diyebilirsiniz.",
+  },
+  {
+    status: "watched",
+    label: "İzlediklerim",
+    href: "/kutuphanem?liste=izlendi",
+    emptyText: "Henüz izlediğiniz bir film işaretlemediniz.",
+  },
+];
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
@@ -102,33 +141,5 @@ function Shell({ children }: { children: React.ReactNode }) {
         {children}
       </div>
     </main>
-  );
-}
-
-function Section({
-  title,
-  emptyText,
-  items,
-}: {
-  title: string;
-  emptyText: string;
-  items: LibraryItem[];
-}) {
-  return (
-    <section className="flex flex-col gap-3">
-      <h2 className="text-sm font-semibold tracking-wide text-ink-50 uppercase">
-        {title} ({items.length})
-      </h2>
-
-      {items.length === 0 ? (
-        <StatusMessage>{emptyText}</StatusMessage>
-      ) : (
-        <ul className="flex flex-col gap-3">
-          {items.map((item) => (
-            <LibraryItemCard key={item.id} item={item} />
-          ))}
-        </ul>
-      )}
-    </section>
   );
 }

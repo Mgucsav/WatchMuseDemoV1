@@ -83,8 +83,13 @@ export async function updateLibraryItemAction(
     return { error: "Kayıt bulunamadı.", notice: null };
   }
 
+  // Durum yalnız gerçekten değiştiyse gönderilir; aksi halde not veya puan
+  // düzenlemek izlenme tarihini sıfırlardı.
   const rawStatus = formData.get("status");
-  const status = isLibraryStatus(rawStatus) ? rawStatus : undefined;
+  const status =
+    isLibraryStatus(rawStatus) && rawStatus !== formData.get("currentStatus")
+      ? rawStatus
+      : undefined;
 
   const rating = parseRating(formData.get("rating"));
   if (rating === undefined) {

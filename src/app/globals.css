@@ -212,6 +212,13 @@ body.watchmuse-retro {
     text-decoration: underline;
     text-underline-offset: 3px;
   }
+
+  /* Açılan seçenek listesi tarayıcının kendi penceresinde çizilir; saydam
+     zeminde açık renk yazı beyaz zemine düşüp okunmaz hale geliyordu. */
+  select option {
+    background-color: var(--wm-background);
+    color: var(--wm-foreground);
+  }
 }
 
 /* Pages sit next to the sidebar in a flex row; let them shrink. */

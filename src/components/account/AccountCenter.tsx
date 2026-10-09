@@ -269,7 +269,7 @@ function ProfileEditor({ profile, onChange }: { profile: SocialProfile; onChange
       </label>
       <label className="text-sm font-medium">Kimler DM atabilir?
         <select value={privacy} onChange={(event) => setPrivacy(event.target.value as DmPrivacy)} className="mt-1 min-h-11 w-full rounded-lg border border-line-20 bg-transparent px-3">
-          <option value="everyone" className="text-black">Herkes</option><option value="friends" className="text-black">Yalnızca arkadaşlarım</option><option value="nobody" className="text-black">Hiç kimse</option>
+          <option value="everyone">Herkes</option><option value="friends">Yalnızca arkadaşlarım</option><option value="nobody">Hiç kimse</option>
         </select>
       </label>
       <button disabled={busy} className="min-h-11 rounded-lg bg-fill-inverse px-5 font-semibold text-on-inverse disabled:opacity-50">{busy ? "Kaydediliyor…" : "Profili kaydet"}</button>

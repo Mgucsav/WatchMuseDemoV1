@@ -167,7 +167,7 @@ export function RoomCreator({ canCreatePublic }: { canCreatePublic: boolean }) {
                 className="mt-1 min-h-11 w-full rounded-lg border border-line-20 bg-transparent px-3 py-2 text-base"
               >
                 {Array.from({ length: 19 }, (_, index) => index + 2).map((value) => (
-                  <option key={value} value={value} className="text-black">
+                  <option key={value} value={value}>
                     {value} kişi
                   </option>
                 ))}
