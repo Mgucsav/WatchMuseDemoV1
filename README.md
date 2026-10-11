@@ -1,195 +1,374 @@
 # WatchMuse
 
-WatchMuse; filmler hakkında paylaşım yapmayı, birlikte film seçmeyi ve kişisel
-bir film kütüphanesi tutmayı aynı uygulamada birleştiren Next.js tabanlı bir
-film topluluğudur.
+**English** · [Türkçe](README.tr.md)
 
-## Çalışan demo
+WatchMuse is a Turkish film community built with Next.js and Supabase. It brings
+four things together in one app: a social feed about films, film search with
+Turkish streaming availability, a personal film library, and rooms where a group
+of friends picks a film together through secret votes, a shared wheel and a
+personal taste model.
 
-**[WatchMuse canlı demosunu aç](https://watch-muse-demo-v1.vercel.app/)**
+**[Open the live demo → watch-muse-demo-v1.vercel.app](https://watch-muse-demo-v1.vercel.app/)**
 
-| Bölüm | Adres |
+The interface is in Turkish; this document is in English.
+
+![WatchMuse landing page](docs/screenshots/landing.png)
+
+---
+
+## Contents
+
+- [Screenshots](#screenshots)
+- [Features](#features)
+  - [Landing page and layout](#landing-page-and-layout)
+  - [Social feed](#social-feed)
+  - [Follows and profiles](#follows-and-profiles)
+  - [Film search and availability](#film-search-and-availability)
+  - [Personal library](#personal-library)
+  - [Film decision rooms](#film-decision-rooms)
+  - [How a round picks films](#how-a-round-picks-films)
+  - [Teleparty bridge](#teleparty-bridge)
+- [Design system](#design-system)
+- [Tech stack](#tech-stack)
+- [Architecture](#architecture)
+- [Security model](#security-model)
+- [Project structure](#project-structure)
+- [Local setup](#local-setup)
+- [Supabase setup](#supabase-setup)
+- [Scripts and tests](#scripts-and-tests)
+- [Known limitations](#known-limitations)
+- [Attribution](#attribution)
+
+---
+
+## Screenshots
+
+| | |
 | --- | --- |
-| Tanıtım | [watch-muse-demo-v1.vercel.app](https://watch-muse-demo-v1.vercel.app/) |
-| Sosyal akış | [/akis](https://watch-muse-demo-v1.vercel.app/akis) |
-| Film arama | [/ara](https://watch-muse-demo-v1.vercel.app/ara) |
-| Kişisel kütüphane | [/kutuphanem](https://watch-muse-demo-v1.vercel.app/kutuphanem) |
-| Film karar odaları | [/rooms](https://watch-muse-demo-v1.vercel.app/rooms) |
-| Hesap ve mesajlar | [/hesabim](https://watch-muse-demo-v1.vercel.app/hesabim) |
+| ![Social feed with Genel / Takip ettiklerin tabs and Hot / Popüler / Yeni sorting](docs/screenshots/feed.png) | ![Film search with genre labels on every result](docs/screenshots/search.png) |
+| **Feed** — general and following tabs, Hot / Popular / New sorting | **Search** — TMDb results with Turkish genre labels |
+| ![Film detail dialog with backdrop, genres, director and library actions](docs/screenshots/movie-detail.png) | ![Room list with private rooms and the wheel mode badge](docs/screenshots/rooms.png) |
+| **Film detail** — backdrop, runtime, genres, director, streaming availability | **Rooms** — public and password-protected rooms |
+| ![Film selection dialog over a blurred room page with the room chat beside it](docs/screenshots/film-selection-dialog.png) | ![Rating colour scale from dark red to green, and the genre picker](docs/screenshots/ratings-and-genres.png) |
+| **Film selection dialog** — result, actions and room chat *(sample content)* | **Rating colours and genre picker** *(sample content)* |
+| ![Sign-in page with the brand panel and form](docs/screenshots/sign-in.png) | |
+| **Sign in** — brand panel and form, no sidebar | |
 
-## Güncel özellikler
+<p>
+  <img src="docs/screenshots/landing-mobile.png" alt="Landing page on a phone" width="260">
+  &nbsp;
+  <img src="docs/screenshots/feed-mobile.png" alt="Feed on a phone with the sidebar turned into a top bar" width="260">
+</p>
 
-### Sosyal film akışı
+*On phones the sidebar becomes a top bar with a single scrollable row of sections.*
 
-- Kayıtlı üyeler film odaklı veya serbest gönderi paylaşabilir.
-- Gönderiye TMDb aramasıyla film ve afiş eklenebilir.
-- Gönderilere tek seviyeli cevap yazılabilir.
-- Gönderiler ve cevaplar beğenilebilir veya repost edilebilir.
-- Akış iki sekmedir: **Genel** ve **Takip ettiklerin** (takip edilenlerin
-  gönderileri, onların repostları ve kendi gönderilerin).
-- Her sekme üç şekilde sıralanır:
-  - **Hot:** Reddit'in sıralaması. `log10(etkileşim) + paylaşım zamanı / 45000 sn`;
-    etkileşim = beğeni + 2 × repost + cevap. Yeni ve ilgi gören gönderiler üstte.
-  - **Popüler:** Son 30 günün en çok etkileşim alan gönderileri.
-  - **Yeni:** Kronolojik; repost edilen gönderi yeniden üste çıkar.
-- Seçili sekme adres çubuğunda tutulur (`/akis?kapsam=takip&sirala=top`).
+Screenshots were taken from the live site, except the two marked *sample
+content*: those components only appear inside an active room round or a
+logged-in library and were rendered with example data.
 
-### Takip ve profil sayfaları
+---
 
-- Kayıtlı üyeler birbirini tek yönlü takip edebilir; takip, arkadaşlıktan
-  bağımsızdır.
-- Her kullanıcı adının herkese açık bir profili vardır: `/u/<kullanıcı adı>`.
-  Kapak fotoğrafı, profil fotoğrafı, görünen ad, bio, katılma tarihi, takip /
-  takipçi / paylaşım sayıları ve "Seni takip ediyor" etiketi gösterilir.
-- Profil sekmeleri: Paylaşımlar, Takipçiler, Takip edilenler. **Beğeniler**
-  sekmesi yalnız profilin sahibine görünür; başkalarının beğenileri gizlidir.
-- Akıştaki yazar adları ve arkadaş listesindeki isimler profile bağlanır.
-- **Hesabım** (`/hesabim`) sekmeleri: Profilim (kendi profil görünümün),
-  Profili düzenle, Arkadaşlar, Mesajlar. `?sekme=duzenle|arkadaslar|mesajlar`
-  ile doğrudan açılabilir.
+## Features
 
-### Sosyal hesaplar
+### Landing page and layout
 
-- Her kayıtlı üye benzersiz bir kullanıcı adı, görünen ad ve 300 karakterlik
-  profil açıklaması belirleyebilir.
-- JPG, PNG veya WebP profil ve kapak fotoğrafları en fazla 5 MB olacak şekilde
-  Supabase Storage'a yüklenir (`profile-avatars`, `profile-banners`). Kapak
-  3:1 oranında gösterilir; en iyi sonuç için 1500×500.
-- Üyeler kullanıcı adı veya görünen adla birbirini arayabilir; arkadaşlık isteği
-  gönderebilir, kabul/reddedebilir ve bağlantıyı kaldırabilir.
-- Özel mesajlar sohbet geçmişi ve okunmamış mesaj sayısıyla birlikte gösterilir.
-- DM gizliliği `Herkes`, `Yalnızca arkadaşlarım` veya `Hiç kimse` olarak
-  kişiselleştirilebilir.
-- Repost edilen içerik yeniden ana akışın üstüne çıkar.
-- Kayıtlı kullanıcı kendi gönderisini veya cevabını silebilir. Ana gönderi
-  silindiğinde ona bağlı cevaplar, beğeniler ve repostlar da temizlenir.
-- Anonim ziyaretçiler akışı ve cevapları okuyabilir.
-- Paylaşma, cevaplama, beğenme ve repost yalnızca kalıcı hesaplara açıktır.
-- Üyelik kontrolü arayüzün yanında PostgreSQL fonksiyonlarında da uygulanır.
+- Visitors land on a short introduction (`/`) that explains WatchMuse and
+  summarises its four sections before sending them on to the feed (`/akis`).
+- Every other page uses a **left sidebar**: the logo, the sections (Feed,
+  Search, Library, Rooms, My account) with the open one marked in green, and the
+  account area with avatar, name and a "edit profile" shortcut.
+- The landing and sign-in pages hide the sidebar and use their own full-screen
+  layout.
+- Signing in lands on `/akis` by default.
 
-### Film arama ve platform kontrolü
+### Social feed
 
-- TMDb üzerinden Türkçe film araması yapılır.
-- Türkçe ve orijinal başlık, afiş, yıl, özet ve puan gösterilir.
-- Arama sonuçlarında ve oda adaylarında film türleri etiket olarak görünür
-  (Korku, Aksiyon, Animasyon, Romantik…). TMDb'de ayrı tür olmayan iki etiket
-  türetilir: Japon yapımı animasyon **Anime**, romantik + komedi **Romantik
-  komedi** ([src/lib/tmdb/genres.ts](src/lib/tmdb/genres.ts)).
-- Türkiye için Netflix, Prime Video, Apple TV+, Disney+, BluTV ve MUBI
-  uygunluğu kontrol edilir.
-- Platform bilgileri TMDb aracılığıyla JustWatch verisinden gelir.
+- Registered members post about films or anything else; a post can carry a
+  film and poster picked through TMDb search.
+- One level of replies, likes and reposts. Reposting brings a post back to the
+  top of the chronological feed. Authors can delete their own posts; deleting a
+  root post removes its replies, likes and reposts.
+- Two tabs: **Genel** (everyone) and **Takip ettiklerin** (people you follow,
+  their reposts and your own posts).
+- Three orderings for each tab:
+  - **Hot** — Reddit's ranking: `log10(engagement) + post time / 45000 s`,
+    where engagement = likes + 2 × reposts + replies. New posts that get
+    attention rise; ten times the engagement is worth about 12.5 hours of
+    freshness.
+  - **Popüler** — the most engaged posts of the last 30 days.
+  - **Yeni** — chronological.
+- The chosen tab lives in the URL (`/akis?kapsam=takip&sirala=top`).
+- Anonymous visitors can read the feed and replies; posting, replying, liking,
+  reposting and following need a saved account. Membership is enforced in
+  PostgreSQL, not only in the UI.
 
-### Kişisel kütüphane
+### Follows and profiles
 
-- Anonim kullanıcılar hesap açmadan film kaydetmeye başlayabilir.
-- Filmler `İzlenecek` veya `İzlendi` olarak işaretlenebilir.
-- İzlenen filmlere 1–10 puan ve kişisel not eklenebilir. Puan renkle de
-  okunur: 1–4 kırmızı (1 en koyu), 5–7 sarı (5 kahveye yakın, 7 sarıya yakın),
-  8–10 yeşil ([src/lib/library/rating-colors.ts](src/lib/library/rating-colors.ts)).
-- İzlenecekler ve İzlediklerim ayrı sekmelerdir (`/kutuphanem?liste=izlendi`).
-  Her film tek satırlık bir karttır; düzenleme "Düzenle" ile açılır. Arama,
-  sıralama (son eklenen/izlenen, puan, ad) ve 20'şer film gösterimi uzun
-  listeleri yönetilebilir tutar.
-- Anonim kimlik daha sonra e-posta/şifre hesabına bağlanır; mevcut veriler
-  taşınmadan aynı kullanıcı kimliğinde kalır.
+- One-way follows, independent of the friendship system.
+- Every username has a public profile at `/u/<username>`: cover image, avatar,
+  display name, bio, join date, following / follower / post counts, a
+  "follows you" badge and a follow button.
+- Profile tabs: posts, followers, following, and **likes — visible only to the
+  profile owner**.
+- **My account** (`/hesabim`) has four tabs: my profile, edit profile (cover,
+  avatar, name, username, bio, DM privacy), friends and messages.
+  `?sekme=duzenle|arkadaslar|mesajlar` opens a tab directly.
+- Friend requests, private messages with unread counts, and DM privacy
+  (everyone / friends only / nobody).
+- Avatars and covers are JPG, PNG or WebP up to 5 MB, checked by MIME type and
+  file signature, stored in Supabase Storage (`profile-avatars`,
+  `profile-banners`).
 
-### Public ve private film odaları
+### Film search and availability
 
-- Odalar 2–20 kişilik kapasiteyle kurulabilir.
-- Public odaları yalnız üyeler oluşturabilir ve public odalara yalnız üyeler
-  doğrudan katılabilir.
-- Private odalar listede görünür; üyeler veya anonim kullanıcılar oda sahibinin
-  belirlediği şifreyle katılır.
-- Private oda şifreleri açık metin olarak değil, salt'lı `scrypt` özeti olarak
-  saklanır.
-- Oda sahibi katılımcı çıkarabilir, kullanıcıyı yeniden girişten menedebilir ve
-  odayı kapatabilir.
-- Misafir odadan çıkabilir; oda sayfasını kapattığında veya sayfadan ayrıldığında
-  otomatik olarak odadan çıkar. Film/Teleparty için başka sekmeye geçmek üyeliği
-  sonlandırmaz.
-- **30 dakika hiçbir işlem yapılmayan oda otomatik kapanır.** Katılım, mesaj,
-  tur, oy, seçim, kabul ve Teleparty bağlantısı işlem sayılır; sayfayı açık
-  tutmak sayılmaz. Veritabanı her odanın son işlem zamanını tetikleyicilerle
-  tutar; `pg_cron` her 5 dakikada `close_inactive_spaces()` çalıştırır. Ayrıca
-  oda veya oda listesi açıldığında da kontrol edilir, böylece zamanlayıcı
-  gecikse bile kapanmış oda açık görünmez.
+- Turkish TMDb search with Turkish and original titles, poster, year, overview
+  and rating.
+- **Genre labels** on search results and room candidates (Horror, Action,
+  Animation, Romance…). Two labels that TMDb does not have are derived:
+  Japanese animation becomes **Anime**, romance + comedy becomes
+  **Romantik komedi**.
+- Availability in Turkey on Netflix, Prime Video, Apple TV+, Disney+, BluTV and
+  MUBI, via TMDb's JustWatch data.
 
-### Oda sohbeti ve ortak film seçimi
+### Personal library
 
-- Oda katılımcıları kendi aralarında mesajlaşabilir.
-- Sohbet beş mesajlık sabit görünüm ve dahili kaydırma kullanır.
-- `Enter` mesajı gönderir, `Shift + Enter` yeni satır açar.
-- Oda oluştururken `Rastgele seçim (çark)` veya `Belirlenmiş film oturumu`
-  yöntemi seçilir ve bu tercih oda boyunca korunur.
-- Film adayları bütün katılımcıların ortak aboneliklerinden üretilir.
-- Oda sahibi ilk turu, isterse en fazla 5 tür seçerek (Komedi, Anime,
-  Romantik komedi…) "10 film getir" ile başlatır; sonraki turlarda da "Yeni
-  10 film" öncesinde tür seçilebilir. Seçilen türler turla birlikte saklanır
-  ve oylama kartında herkese görünür.
-- **Kişisel zevk modeli** ([src/lib/rooms/taste.ts](src/lib/rooms/taste.ts)):
-  her katılımcı için kütüphane puanlarından (1–4 olumsuz, 8–10 olumlu),
-  izleneceklerden ve geçmiş oda oylarından (İsterim olumlu, İstemiyorum
-  olumsuz) tür yakınlığı çıkarılır; az sinyalli türler sıfıra çekilir. Aday
-  havuzu (~80 film) grubun ortak puanına göre sıralanır: ortalama ile "en az
-  mutsuzluk" karışımı, yani birinin sevmeyeceği film geriye düşer. Listenin
-  başında aynı ana türden en fazla 3 film olur ve ilk 10'un 2 yeri rastgele
-  keşfe ayrılır. Profil yoksa seed'li rastgele sıralama kullanılır. Oylar ve
-  puanlar yalnız sunucuda işlenir, hiçbir katılımcıya gösterilmez. Turun
-  hangi sıralayıcıyla üretildiği `ranker_version` olarak saklanır
-  (`taste-v1` / `seeded-random-v1`).
-- Son 30 günde bütün katılımcıların "İstemiyorum" dediği filmler ve daha
-  önce kabul edilmiş filmler yeniden önerilmez.
-- Her katılımcının `Geç`, `Belki` ve `İsterim` oyu gizlidir.
-- Herkes tamamladığında ortak adaylar açılır.
-- Çark kazananı sunucuda bir kez belirlenir ve bütün ekranlarda aynı sonuç
-  gösterilir.
-- Belirlenmiş film odasında host TMDb kataloğundan filmi arayıp doğrudan oturum
-  başlatır. Film, bütün katılımcıların ortak aboneliklerinden en az birinde
-  bulunmalıdır.
-- Doğrudan seçilen film de mevcut hazır olma, kişisel kütüphane ve Teleparty
-  akışını kullanır.
-- Film seçim oturumu (açık tur ya da belirlenmiş film) arka planı bulanık, tam
-  ekran bir pencerede açılır. Sonuçta "Bu filmi seç · Şimdi izlemek istiyorum"
-  ve "Yeni 10 film" seçenekleri, yanda açılıp kapanabilen oda sohbeti vardır.
-  "Odaya dön" pencereyi küçültür; yeni tur başlayınca pencere yeniden açılır.
+- Anonymous visitors can start saving films without an account; the anonymous
+  identity is later linked to an email account without moving data.
+- **İzlenecekler** (watchlist) and **İzlediklerim** (watched) are separate tabs
+  with counts (`/kutuphanem?liste=izlendi`).
+- Each film is a one-line row: poster, title, date, note excerpt and rating.
+  The editor opens with "Düzenle": status buttons, a 1–10 rating row and a note.
+- Search, sorting (recent, rating, title) and 20-at-a-time paging keep long
+  lists manageable.
+- **Ratings are colour-coded** so likes and dislikes read at a glance: 1–4 red
+  (1 darkest), 5 brown, 6 amber, 7 yellow, 8–10 green.
 
-### Teleparty köprüsü
+### Film decision rooms
 
-- Herkes seçilen filmi kabul ettiğinde Teleparty hazırlık aşaması açılır.
-- Oda sahibi filmi desteklenen platformda açıp Teleparty URL'sini kopyalar.
-- WatchMuse bağlantıyı panodan alır ve diğer katılımcılara `Teleparty'ye katıl`
-  düğmesini gösterir.
-- Teleparty eklentisinin kendi güvenlik sınırları nedeniyle oturum tamamen
-  otomatik oluşturulmaz.
+- Rooms hold 2–20 people. Public rooms are created and joined by members;
+  private rooms are listed and joined with the host's password (stored as a
+  salted `scrypt` hash).
+- The host can remove participants, ban them from rejoining and close the room.
+  Guests can leave; closing or leaving the page leaves the room.
+- **Rooms close automatically after 30 minutes without activity.** Joining,
+  messages, rounds, votes, selections, acceptances and Teleparty links count as
+  activity; keeping the page open does not. A database trigger tracks the last
+  activity, `pg_cron` runs `close_inactive_spaces()` every 5 minutes, and the
+  room page and room list also check, so a late job never shows a stale room.
+- Room chat with Enter to send and Shift + Enter for a new line.
+- Two modes, chosen when the room is created:
+  - **Wheel** — a round of 10 candidate films, secret votes, a shared wheel.
+  - **Direct** — the host searches TMDb and starts a session with one film.
+- When a round or a chosen film is active, the **film selection session opens
+  in a full-screen dialog over a blurred page** for everyone. The result offers
+  "Bu filmi seç · Şimdi izlemek istiyorum" and "Yeni 10 film", with the room
+  chat beside it (collapsed by default on phones). "Odaya dön" minimises it;
+  a new round reopens it.
 
-## Teknoloji
+### How a round picks films
 
-- Next.js 16.3 App Router
-- React 19
-- TypeScript
-- Tailwind CSS 4 (renk token'larıyla)
-- Supabase Auth ve PostgreSQL
-- Vercel
-- TMDb API
-- Vitest ve ESLint
+1. **Genres (optional).** The host starts the first round with "10 film getir"
+   and may first pick up to five genres; "Yeni 10 film" offers the same picker.
+   The choice is stored with the round and shown on the voting card.
+2. **Platforms.** Candidates come only from platforms the room can watch:
+   - first, platforms **everyone** has;
+   - if that does not yield enough films, platforms all but one person have,
+     then all but two… down to platforms a **majority** has. Earlier steps try
+     at most three TMDb pages so starting a round stays fast; the last step
+     searches fully. Two-person rooms keep the strict intersection.
+   - When platforms were relaxed, the round says which participant lacks which
+     platform.
+3. **Ranking — personal taste model (`taste-v1`).**
+   - Each participant gets a genre affinity from −1 to +1, learned from library
+     ratings (1–4 negative, 8–10 positive), the watchlist (slightly positive)
+     and past room votes ("İsterim" positive, "İstemiyorum" negative). Genres
+     with little evidence are pulled towards zero, so a single rating cannot
+     push a genre to an extreme.
+   - About 80 candidates are scored for the group by mixing the **average** and
+     the **least happy member**: a film one person would dislike drops back.
+   - At most three films of the same primary genre near the top, and two of the
+     first ten slots are reserved for random exploration, so the model does not
+     build a bubble.
+   - With no profile data the round uses a seeded random order. Votes and
+     ratings are processed only on the server and never shown to anyone. Each
+     round records which ranker produced it (`ranker_version`).
+4. **Eligibility (database).** Films everyone skipped in the last 30 days and
+   films already accepted are never suggested again; at least one candidate per
+   round is a new discovery. The database takes the first ten eligible films in
+   the server's ranked order.
+5. **Voting.** Each participant swipes or taps İstemiyorum / Belki / İsterim on
+   the ten films. Votes are secret until everyone is done.
+6. **Matching.**
+   - Two people: both said **İsterim**.
+   - Three or more: a **majority** said İsterim and **nobody** said İstemiyorum.
+   - If no film matches, films everyone rated at least **Belki** (nobody
+     skipped) match instead, so maybes are offered rather than ending the round.
+   - Still nothing: "Yeni 10 film".
+7. **Wheel.** The server picks the winner once among the matches; every screen
+   spins to the same timestamp and lands on the same film.
 
-## Yerel kurulum
+### Teleparty bridge
 
-Gereksinimler:
+- When everyone accepts the chosen film, a Teleparty step opens. The host opens
+  the film on a supported platform, starts a party and copies the link;
+  WatchMuse reads it from the clipboard and shows everyone a "join" button.
+- Teleparty's extension cannot be driven from a web page, so this step is
+  semi-automatic by design.
 
-- Güncel Node.js LTS
-- Bir TMDb Read Access Token
-- Kalıcı sosyal akış, hesap, kütüphane ve oda özellikleri için Supabase projesi
+---
+
+## Design system
+
+- A **retro black theme**: black ground, hairlines instead of shadows, a single
+  column of content, and two brand colours — **red** for the brand (the W mark,
+  "MUSE", stripes, headline accents) and **green** for actions and selection
+  (primary buttons, the open section, selected chips). Status colours (error,
+  warning, availability badges) keep their own palette.
+- The site always opens dark: `<html class="dark">` with a class-based `dark:`
+  variant, so it does not follow the OS setting. Light values remain defined.
+- **Logo.** `LogoMark` is a large red W with a white offset shadow, used in the
+  sidebar and as the favicon (`src/app/icon.svg`). `Wordmark` sets "WATCHMUSE"
+  in Bebas Neue — WATCH white, MUSE red — over red and white stripes, used on
+  the landing and sign-in pages ([`src/components/brand/Logo.tsx`](src/components/brand/Logo.tsx)).
+- **Colour tokens.** Every colour is a CSS variable in
+  [`src/app/globals.css`](src/app/globals.css) (light on `:root`, dark on
+  `.dark`) exposed to Tailwind through `@theme inline`, so components use
+  `text-ink-60`, `border-line-10`, `bg-fill-inverse`, `text-brand-red` instead
+  of `black/white` + `dark:` pairs.
+
+| Group | Example class | Tokens |
+| --- | --- | --- |
+| Brand | `text-brand-green`, `bg-brand-red` | `brand-green` (#3ccf6e, 9.7:1 on black), `brand-red` (#e8423f, 4.9:1) |
+| Page | `bg-wm-background` | `wm-background`, `wm-foreground`, `wm-accent`, `wm-muted` |
+| Text | `text-ink-60` | `ink-75` … `ink-40`; hierarchy by opacity, not colour |
+| Lines | `border-line-10` | `line-10`, `line-15`, `line-20`, `line-30`, `line-focus`, `line-selected` |
+| Fills | `hover:bg-fill-hover` | `fill-subtle`, `fill-hover`, `fill-selected`, `fill-placeholder`, `fill-badge` |
+| Primary button | `bg-fill-inverse text-on-inverse` | green with black text in the dark theme |
+| Scrim | `bg-scrim` | modal backdrop and controls over images |
+| Status | `text-error-ink`, `bg-warning-surface` | `error-*`, `warning-*`, `success-badge*`, `unknown-badge*` |
+
+Typography is Geist for UI text and Bebas Neue (`font-display`) for the logo
+and landing headlines. Spacing, radii and type sizes use Tailwind's defaults.
+
+---
+
+## Tech stack
+
+- **Next.js 16** (App Router, Server Components, Route Handlers, Server Actions)
+- **React 19**, **TypeScript**
+- **Tailwind CSS 4** with CSS-variable design tokens
+- **Supabase** — Auth (anonymous + email), PostgreSQL with RLS and
+  `SECURITY DEFINER` RPCs, Storage, `pg_cron`
+- **TMDb API** (with JustWatch provider data)
+- **Vercel** for hosting (production from `main`, a preview for every branch)
+- **Vitest** and **ESLint**
+
+---
+
+## Architecture
+
+```text
+Browser ──► Next.js Route Handler / Server Action ──► server-only service ──► Supabase RPC ──► PostgreSQL
+                 input validation, HTTP mapping          typed parsing           auth + rules + RLS
+```
+
+- Route handlers validate input and map errors to HTTP status codes with
+  Turkish messages. Authorisation and business rules are re-checked in the
+  database, next to the data.
+- Clients never touch tables directly: every social and room write goes through
+  a `SECURITY DEFINER` function that checks `auth.uid()`, membership and
+  anonymity. Reads use RPCs that never return `user_id` or email.
+- Polling instead of Realtime for rooms and chat. A single failed poll is
+  retried a few times before an error is shown, and a lighter Teleparty poll
+  avoids re-downloading a finished round's ten candidates.
+- The server owns everything that must be fair: candidate pools, rankings, the
+  wheel winner and timestamps.
+
+---
+
+## Security model
+
+| Rule | How |
+| --- | --- |
+| TMDb token never reaches the browser | The TMDb client runs in `server-only` modules |
+| Service-role key never reaches the browser | Used only in trusted server operations |
+| Private room passwords are not stored in clear | Random salt + `scrypt` hash in a table closed to clients |
+| Invitation tokens are not stored in clear | Only a SHA-256 hash is stored |
+| Room writes never hit tables directly | Permission, capacity and role checks in `SECURITY DEFINER` RPCs |
+| Social writes require membership | PostgreSQL checks `auth.users.is_anonymous` on every write |
+| The feed and profiles leak no identity | Read RPCs return usernames, never `user_id` or email; anonymous accounts have no profile |
+| Likes are private | `list_profile_posts` returns likes only to the profile owner |
+| Following is members-only | `toggle_follow` checks membership and refuses self-follows |
+| DM privacy cannot be bypassed | The recipient's preference and friendship are rechecked in the RPC |
+| Uploads are restricted | Size, MIME type and file signature are verified; paths are tied to the user |
+| Likes and reposts are unique | `primary key (post_id, user_id)` |
+| The library belongs to its owner | RLS limits rows to `auth.uid()` |
+| Secret votes stay secret | Clients see only their own votes and the shared result |
+| Taste data stays on the server | Ratings and votes are read with the service role only to rank candidates |
+| The wheel result is shared and fixed | Picked once on the server and stored with a timestamp |
+| Internal errors do not leak | Raw SQL and internal messages become fixed domain errors |
+
+`NEXT_PUBLIC_SUPABASE_ANON_KEY` is a publishable key and grants nothing on its
+own; permissions come from RLS and the secure RPCs. `.env.local` is ignored by
+Git.
+
+---
+
+## Project structure
+
+```text
+src/
+├── app/
+│   ├── page.tsx               landing page
+│   ├── akis/                  social feed
+│   ├── ara/                   film search
+│   ├── kutuphanem/            personal library
+│   ├── rooms/                 room list, creation and room page
+│   ├── u/[username]/          public profile
+│   ├── hesabim/               my account
+│   ├── giris/ kayit/ …        auth pages
+│   ├── api/feed/              feed, replies, likes, reposts
+│   ├── api/profiles/          profile, posts/likes, follow, followers
+│   ├── api/movies/            TMDb search, details, providers
+│   ├── api/rooms/             rooms, chat, rounds, selection, Teleparty
+│   ├── api/account/           profile, avatar, cover, people, messages
+│   ├── globals.css            colour tokens and global styles
+│   └── icon.svg               favicon
+├── components/
+│   ├── brand/                 logo
+│   ├── social/                feed, post list, composer
+│   ├── profile/               profile view and follower lists
+│   ├── rooms/                 room page, round, session dialog, chat, genre picker
+│   ├── library/               library list and rows
+│   ├── account/               account centre
+│   └── SiteSidebar.tsx        left sidebar
+└── lib/
+    ├── social/                feed and profile services, validation, types
+    ├── rooms/                 room services, candidate pipeline, taste model, policies
+    ├── library/               library service, rating colours
+    ├── tmdb/                  TMDb client, normalisation, genres
+    ├── account/               account service, image uploads
+    ├── auth/                  verified user access
+    └── supabase/              browser, server and admin clients
+
+supabase/migrations/           ordered PostgreSQL migrations
+supabase/tests/                integration test harness for a real database
+docs/screenshots/              images used in this README
+```
+
+---
+
+## Local setup
+
+Requirements:
+
+- A current Node.js LTS
+- A TMDb Read Access Token
+- A Supabase project for the feed, accounts, library and rooms
 
 ```bash
 npm install
-cp .env.example .env.local
-```
-
-PowerShell:
-
-```powershell
-Copy-Item .env.example .env.local
+cp .env.example .env.local      # PowerShell: Copy-Item .env.example .env.local
 ```
 
 `.env.local`:
@@ -202,244 +381,108 @@ SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ```
 
-Ardından:
-
 ```bash
 npm run dev
 ```
 
-Uygulama [http://localhost:3000](http://localhost:3000) adresinde açılır.
+The app runs at [http://localhost:3000](http://localhost:3000).
 
-### Anahtarsız film demosu
+To try only the search screen without a TMDb key, set
+`TMDB_ACCESS_TOKEN=DEMO`; it serves deterministic sample data. The feed,
+accounts, library and rooms still need Supabase.
 
-Yalnız arama arayüzünü deterministik örnek veriyle çalıştırmak için:
+---
 
-```dotenv
-TMDB_ACCESS_TOKEN=DEMO
-```
+## Supabase setup
 
-Sosyal akış, kalıcı hesap/kütüphane ve eşzamanlı oda özellikleri Supabase
-gerektirir.
-
-## Supabase kurulumu
-
-1. Supabase projesi oluşturun.
-2. **Authentication → Providers → Anonymous sign-ins** seçeneğini açın.
-3. E-posta hesabı için Email provider, Manual Linking ve uygulamanın Redirect
-   URL ayarlarını yapın.
-4. `supabase/migrations/` altındaki migration'ları dosya adına göre sırayla
-   uygulayın:
+1. Create a Supabase project.
+2. Enable **Authentication → Providers → Anonymous sign-ins**.
+3. Configure the Email provider, Manual Linking and the redirect URLs
+   (**Authentication → URL Configuration**: set the Site URL to your
+   deployment and add `<your-site>/**` to Redirect URLs, otherwise email links
+   point to `localhost`).
+4. Apply every file in `supabase/migrations/` in filename order, either with the
+   CLI:
 
    ```bash
    supabase link --project-ref <project-ref>
    supabase db push
    ```
 
-5. Yukarıdaki environment değişkenlerini hem yerel ortamda hem Vercel projesinde
-   tanımlayın.
+   or by pasting each file into the **SQL Editor** and running it.
 
-`SUPABASE_SERVICE_ROLE_KEY` yalnız sunucuda kullanılmalıdır. Değişken adına
-`NEXT_PUBLIC_` eklenmemeli ve anahtar hiçbir zaman Git'e gönderilmemelidir.
+   Recent migrations worth knowing about:
 
-Ayrıntılı hesap kurulumu için
-[AUTH_AND_LIBRARY_SETUP.md](AUTH_AND_LIBRARY_SETUP.md), oda/tur kurulumu için
-[ROOM_SELECTION_AND_WHEEL_SETUP.md](ROOM_SELECTION_AND_WHEEL_SETUP.md)
-belgelerine bakabilirsiniz.
+   | Migration | What it adds |
+   | --- | --- |
+   | `20261008000100_follows_feed_sorting_and_profiles` | follows, Hot / Popular / New feed, profiles, cover images |
+   | `20261009000100_room_inactivity_and_movie_genres` | last-activity triggers, 30-minute auto-close, `pg_cron` job, genre cache |
+   | `20261010000100_taste_ranking_and_round_genres` | genre choice per round; the round RPC follows the server's ranking |
+   | `20261010000200_majority_room_matching` | majority matching for 3+ people and the "Belki" fallback |
 
-## Komutlar
+   The auto-close migration enables `pg_cron`. If the extension cannot be
+   enabled, the migration still succeeds and rooms are closed whenever a room or
+   the room list is opened.
+   The matching migration patches existing functions in place: it reads each
+   current definition and replaces only the matching condition, so earlier
+   patches are kept. It stops with an error if the expected text is missing.
+5. Set the environment variables above locally and in Vercel.
+
+`SUPABASE_SERVICE_ROLE_KEY` must only be used on the server: never prefix it
+with `NEXT_PUBLIC_` and never commit it.
+
+More detail: [AUTH_AND_LIBRARY_SETUP.md](AUTH_AND_LIBRARY_SETUP.md) and
+[ROOM_SELECTION_AND_WHEEL_SETUP.md](ROOM_SELECTION_AND_WHEEL_SETUP.md).
+
+---
+
+## Scripts and tests
 
 ```bash
-npm run dev
-npm run typecheck
-npm run lint
-npm test
-npm run build
+npm run dev         # development server
+npm run lint        # ESLint
+npm run typecheck   # TypeScript
+npm test            # Vitest
+npm run build       # production build
 ```
 
-## Güvenlik modeli
+The Vitest suite covers validation, the candidate pipeline, the taste model,
+platform tiers, genre labels, polling policies and error mapping. Migration
+contract tests read the SQL files and check their security rules — for example
+that list functions never return `user_id`, that tables stay closed to client
+roles, and that SQL patch patterns match the real function bodies exactly once.
 
-| Kural | Uygulama |
-| --- | --- |
-| TMDb token'ı istemciye verilmez | TMDb istemcisi `server-only` modüllerde çalışır |
-| Service-role anahtarı tarayıcıya verilmez | Yalnız güvenilen sunucu işlemlerinde kullanılır |
-| Private oda şifresi açık saklanmaz | Rastgele salt ve `scrypt` özeti ayrı, istemciye kapalı tabloda tutulur |
-| Davet token'ı açık saklanmaz | Veritabanına yalnız SHA-256 özeti yazılır |
-| Oda yazmaları doğrudan tabloya yapılmaz | Yetki, kapasite ve rol kontrolleri `SECURITY DEFINER` RPC'lerde uygulanır |
-| Sosyal yazmalar üyelik gerektirir | PostgreSQL, `auth.users.is_anonymous` değerini her yazmada kontrol eder |
-| Sosyal akış kimlik sızdırmaz | Okuma RPC'si e-posta ve `user_id` döndürmez |
-| Profiller kullanıcı adıyla açılır | Profil, takip ve takipçi RPC'leri `user_id` döndürmez; anonim hesapların profili yoktur |
-| Beğeniler gizlidir | `list_profile_posts` beğenileri yalnız profil sahibine döndürür |
-| Takip yalnız üyelere açıktır | `toggle_follow` kalıcı üyeliği ve kendini takip etmemeyi veritabanında doğrular |
-| DM gizliliği istemcide aşılamaz | Alıcının tercihi ve arkadaşlık durumu mesaj RPC'sinde yeniden doğrulanır |
-| Avatar yüklemeleri sınırlandırılır | Sunucu dosya boyutunu, MIME türünü ve dosya imzasını doğrular |
-| Beğeni ve repost tekildir | `primary key (post_id, user_id)` ile garanti edilir |
-| Kütüphane yalnız sahibine aittir | RLS işlemleri `auth.uid()` ile sınırlar |
-| Gizli oda oyları doğrudan okunamaz | İstemci yalnız kendi oylarını ve tamamlanan ortak sonucu görür |
-| Çark sonucu ortak ve değişmezdir | Kazanan sunucuda bir kez seçilip zaman damgasıyla saklanır |
-| Hata ayrıntıları dışarı sızmaz | Ham SQL ve iç hata mesajları sabit alan hatalarına çevrilir |
+These are static checks. Behaviour that only a database can prove — constraint
+semantics, transactions, lock races, RLS and grants — is covered by the
+integration harness in [`supabase/tests/`](supabase/tests/README.md), which runs
+against a disposable PostgreSQL / Supabase database.
 
-`NEXT_PUBLIC_SUPABASE_ANON_KEY` istemci için tasarlanmış yayınlanabilir
-anahtardır; tek başına yetki sağlamaz. Yetkiyi RLS ve güvenli RPC'ler belirler.
+---
 
-`.env.local` Git tarafından yok sayılır.
+## Known limitations
 
-## Tasarım sistemi
+- Replies are one level deep.
+- The feed and profile lists show the first 30 items, replies and follower lists
+  the first 50; there is no infinite scroll.
+- Hot and Popular are computed at query time; a much larger feed would need a
+  precomputed score column.
+- The taste model learns genres only; more signals (cast, keywords, embeddings)
+  and collaborative filtering are possible next steps once there is more data.
+- No blocking, reporting or moderation panel yet.
+- DMs have no attachments, deletion or end-to-end encryption.
+- Rooms and chat use polling rather than Supabase Realtime.
+- Teleparty setup is semi-automatic because of the browser extension.
+- TMDb search returns the first result page only.
+- The provider row's brand-coloured left border is hidden in the dark theme by
+  a later border colour; it was kept as is to avoid a visual change.
+- The local room store (`USE_LOCAL_ROOMS`) is for development only and is lost
+  when the process restarts.
 
-Arayüz **retro siyah** bir temadır: siyah zemin, ince çizgiler, gölgesiz
-yüzeyler ve iki marka rengi, **kırmızı** ve **yeşil**. Kırmızı markayı (logodaki
-"W", "MUSE" ve şeritler) ve başlıklardaki vurgu kelimelerini, yeşil ana
-eylemleri ve seçili durumu (ana düğme, sol paneldeki açık bölüm) taşır. Hata, uyarı ve platform
-uygunluğu kendi durum renklerini kullanmaya devam eder.
+---
 
-Site her zaman koyu temada açılır: `<html class="dark">` ve globals.css'teki
-`@custom-variant dark` sayesinde `dark:` sınıfları işletim sistemi tercihinden
-bağımsız uygulanır. Sınıf kaldırılırsa açık tema değerleri hâlâ tanımlıdır.
+## Attribution
 
-### Düzen
+This product uses the TMDb API but is not endorsed or certified by TMDb.
+Streaming availability comes from JustWatch via TMDb and may not be perfectly in
+sync with the platforms' catalogues.
 
-- **Tanıtım sayfası (`/`):** Siteye girenler önce WatchMuse'un ne olduğunu ve
-  dört bölümü özetleyen kısa bir ekran görür; "Akışa gir" ile `/akis`'e geçer.
-- **Sol panel:** Logo, bölümler (Akış, Ara, Kütüphanem, Odalar, Hesabım) ve
-  hesap alanı. Açık bölüm yeşil çizgiyle işaretlenir. Hesap alanından profil
-  fotoğrafı, görünen ad, kullanıcı adı ve açıklama `/hesabim` sayfasında
-  düzenlenir. Telefonda panel üstte yatay bir çubuğa dönüşür.
-- Tanıtım ve giriş sayfaları kendi tam ekran düzenlerini kullanır; sol panel
-  orada gösterilmez ([SidebarVisibility.tsx](src/components/SidebarVisibility.tsx)).
-- Girişten sonra varsayılan hedef `/akis`'tir.
-
-### Logo
-
-Marka yalnız kırmızı ve beyaz kullanır; yeşil logoda yer almaz.
-[src/components/brand/Logo.tsx](src/components/brand/Logo.tsx) iki bileşen
-sunar:
-
-- `LogoMark`: logo, beyaz gölgeli büyük kırmızı bir "W". Sol panelin
-  üstünde durur; tarayıcı sekmesi simgesi aynı çizimin siyah zemin üzerindeki
-  kopyasıdır: [src/app/icon.svg](src/app/icon.svg).
-- `Wordmark`: sinema afişi yazı tipiyle (Bebas Neue) "WATCHMUSE"; WATCH beyaz,
-  MUSE kırmızı, altında kırmızı-beyaz retro şeritler
-  (`size="sm" | "md" | "lg"`). Tanıtım ve giriş sayfalarının sol üstünde
-  durur; bu sayfalarda "W" gösterilmez.
-
-### Renk token'ları
-
-Bütün renkler [src/app/globals.css](src/app/globals.css) içinde CSS değişkeni
-olarak tanımlıdır: açık tema değerleri `:root` içinde, koyu tema değerleri
-`.dark` içindedir. `@theme inline` bloğu her token'ı Tailwind'e
-`--color-<isim>` olarak tanıtır; böylece token'lar normal renk sınıfı gibi
-kullanılır. Retro başlıklar için `font-display` (Bebas Neue) sınıfı vardır.
-
-```tsx
-// Önce
-<p className="text-black/60 dark:text-white/60">…</p>
-<button className="bg-black text-white dark:bg-white dark:text-black">Paylaş</button>
-
-// Sonra
-<p className="text-ink-60">…</p>
-<button className="bg-fill-inverse text-on-inverse">Paylaş</button>
-```
-
-| Grup | Sınıf örneği | Token'lar ve kullanım |
-| --- | --- | --- |
-| Marka | `text-brand-green`, `bg-brand-red` | `brand-green` (#3ccf6e, siyah zeminde 9.7:1), `brand-red` (#e8423f, 4.9:1). İki temada aynı |
-| Sayfa | `bg-wm-background`, `text-wm-foreground` | `wm-background`, `wm-foreground`, `wm-accent` (bağlantılar), `wm-muted` |
-| Metin | `text-ink-60` | `ink-75` … `ink-40`. Hiyerarşi renkle değil saydamlıkla kurulur: `ink-60` açıklama ve meta, `ink-55` zaman damgası, `ink-50` etiket ve ipucu |
-| Çizgi | `border-line-10` | `line-10` kart ve bölüm, `line-15` tür etiketi, `line-20` kontrol kenarı, `line-30` güçlü çerçeve, `line-focus` odaklı input (`focus:border-line-focus`), `line-selected` seçili satır |
-| Dolgu | `hover:bg-fill-hover` | `fill-subtle`, `fill-hover`, `fill-selected`, `fill-placeholder` (afiş yer tutucu), `fill-badge` |
-| Ana düğme | `bg-fill-inverse text-on-inverse` | Koyu temada marka yeşili üzerine siyah yazı (açık temada siyah). Her görünümde tek dolgulu düğme bulunur |
-| Örtü | `bg-scrim` | `scrim` modal arkası, `scrim-control` görsel üstündeki kapatma düğmesi (iki temada aynı) |
-| Hata | `text-error-ink` | `error-ink` satır içi hata ve silme düğmesi, `error-line`, StatusMessage için `error-surface`, `error-border`, `error-text` |
-| Uyarı | `bg-warning-surface` | `warning-surface`, `warning-border`, `warning-text` |
-| Platform rozetleri | `bg-success-badge text-success-badge-text` | `success-badge` “Aboneliğe dahil”, `unknown-badge` “Bilgi mevcut değil”, `fill-badge` + `ink-70` “Bulunamadı”. Rozetler her zaman kelimeyle birlikte gösterilir; anlam yalnız renge bırakılmaz |
-
-Kurallar:
-
-- Yeni kodda `black`/`white` + `dark:` çifti yazmayın; karşılık gelen token
-  sınıfını kullanın.
-- Gereken renk listede yoksa token'ı üç yere ekleyin: `:root` (açık değer),
-  `.dark` (koyu değer, iki temada aynıysa gerekmez) ve `@theme inline`
-  (`--color-<isim>: var(--<isim>);`).
-- Bağlantılar için global `a` kuralı Tailwind'in `base` katmanındadır; bir
-  bağlantıda `no-underline` veya `text-*` sınıfları bu kuralı ezer.
-- Boşluk, köşe yarıçapı ve yazı boyutları Tailwind'in varsayılan ölçeğini
-  kullanır; bunlar için ayrı token yoktur.
-- Tek seferlik değerler bilinçli olarak sınıf olarak kalır: oda çarkının
-  halkaları, afiş üstündeki gradyan, avatar yer tutucusu, seçili oda seçeneği
-  ve abonelik seçicisindeki vurgu.
-
-## Proje yapısı
-
-```text
-src/
-├── app/
-│   ├── api/feed/             sosyal akış, cevap, beğeni ve repost uçları
-│   ├── api/movies/           TMDb arama, detay ve platform uçları
-│   ├── api/rooms/            oda, sohbet, tur, seçim ve Teleparty uçları
-│   ├── ara/                  film arama ekranı
-│   ├── kutuphanem/           kişisel kütüphane
-│   ├── rooms/                oda listesi, oluşturma ve oda ekranı
-│   ├── akis/                 ana sosyal akış
-│   ├── api/profiles/         profil, paylaşım/beğeni, takip ve takipçi uçları
-│   ├── giris/                giriş sayfası
-│   ├── u/[username]/         herkese açık profil sayfası
-│   ├── globals.css           renk token'ları ve global stiller
-│   └── page.tsx              tanıtım sayfası
-├── components/
-│   ├── social/               sosyal akış, gönderi listesi ve gönderi oluşturucu
-│   ├── profile/              profil görünümü ve takipçi listeleri
-│   ├── rooms/                oda, sohbet, tur ve Teleparty arayüzleri
-│   ├── library/              kütüphane bileşenleri
-│   ├── auth/                 oturum ve hesap bileşenleri
-│   ├── brand/                logo
-│   └── SiteSidebar.tsx       sol panel
-├── lib/
-│   ├── social/               sosyal servis, doğrulama ve tipler
-│   ├── rooms/                oda alan mantığı ve güvenli servisler
-│   ├── library/              kütüphane servisi
-│   ├── tmdb/                 TMDb istemcisi ve normalizasyon
-│   ├── auth/                 doğrulanmış kullanıcı DAL'i
-│   └── supabase/             tarayıcı, kullanıcı ve admin istemcileri
-└── proxy.ts                  Supabase oturum tazeleme
-
-supabase/migrations/          sıralı PostgreSQL migration'ları
-```
-
-İstek akışı:
-
-```text
-Tarayıcı → Next.js Route Handler → server-only servis → Supabase RPC → PostgreSQL
-```
-
-Route handler'lar girdi doğrulaması ve HTTP hata eşlemesi yapar. Yetki ve temel
-iş kuralları veri kaynağına en yakın katmanda tekrar doğrulanır.
-
-## Bilinen sınırlamalar
-
-- Sosyal cevaplar şu anda tek seviyelidir.
-- Sosyal akış ve profil listeleri ilk 30, cevaplar ve takipçi listeleri ilk 50
-  kayıtla sınırlıdır; sonsuz kaydırma yoktur.
-- Hot ve Popüler sıralaması sorgu anında hesaplanır; gönderi sayısı çok
-  büyürse önceden hesaplanmış bir puan sütununa geçmek gerekir.
-- Kullanıcı engelleme, içerik raporlama ve moderasyon paneli henüz yoktur.
-- DM'lerde dosya/görsel gönderimi, mesaj silme ve uçtan uca şifreleme henüz yoktur.
-- Oda ve sohbet güncellemeleri Supabase Realtime yerine kontrollü polling
-  kullanır.
-- Teleparty oturumunun oluşturulması tarayıcı eklentisi nedeniyle yarı
-  otomatiktir.
-- TMDb araması yalnız ilk sonuç sayfasını getirir.
-- Yerel oda deposu geliştirme içindir ve süreç yeniden başlayınca silinir.
-- Film platformu satırlarındaki marka renkli sol çizgi koyu temada görünmez:
-  `dark:border-white/15` bu çizginin rengini ezer. Görünümü değiştirmemek için
-  bu satır henüz token sınıfına çevrilmedi.
-
-## Test durumu
-
-Güncel kod tabanında TypeScript, ESLint, production build ve Vitest kontrolleri
-çalıştırılır. SQL migration sözleşmeleri de test paketinin parçasıdır.
-
-## Atıf
-
-Bu ürün TMDb API'sini kullanır ancak TMDb tarafından onaylanmamış veya
-sertifikalandırılmamıştır. Yayın platformu bilgileri TMDb aracılığıyla
-JustWatch kaynağından gelir ve platformların kataloglarıyla tamamen eşzamanlı
-olmayabilir.
