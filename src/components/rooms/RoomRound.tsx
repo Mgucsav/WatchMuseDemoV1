@@ -16,6 +16,7 @@ import {
 } from "@/lib/constants";
 import type {
   RoomCandidate,
+  RoomParticipant,
   RoomRound,
   RoomRoundState,
   RoomSelectionMode,
@@ -30,6 +31,7 @@ import {
   telepartyProviderLaunches,
   type TelepartyProviderLaunch,
 } from "@/lib/rooms/teleparty";
+import { subscriptionLabel } from "@/lib/rooms/subscriptions";
 import {
   classifyPollFailure,
   isSelectionExpired,
@@ -67,6 +69,7 @@ export function RoomRound({
   canStartRound,
   sharedSubscriptions,
   selectionMode,
+  participants,
   onSessionOpenChange,
 }: {
   spaceId: string;
@@ -82,6 +85,8 @@ export function RoomRound({
   canStartRound: boolean;
   sharedSubscriptions: RoomSubscriptions;
   selectionMode: RoomSelectionMode;
+  /** Esnetilmiş platformun kimde olmadığını göstermek ve kalabalık oda metinleri için. */
+  participants: RoomParticipant[];
 }) {
   const [view, setView] = useState<ViewState>({ kind: "loading" });
   // Aksiyon hataları (kabul, yeni tur) bütün oda görünümünü DEĞİŞTİRMEZ;
@@ -370,7 +375,10 @@ export function RoomRound({
       <PendingSelectionArea
         spaceId={spaceId}
         isHost={isHost}
-        sharedSubscriptions={sharedSubscriptions}
+        sharedSubscriptions={
+          // Esnetilmiş turda film o turun platformlarında aranır.
+          round && round.providerKeys.length > 0 ? round.providerKeys : sharedSubscriptions
+        }
         selections={pendingSelections}
         telepartyStates={telepartyStates}
         acceptingSelectionId={acceptingSelectionId}
@@ -414,6 +422,7 @@ export function RoomRound({
       return <div className="space-y-4">{pendingArea}
         <VotingCard
           genreFilter={round.genreFilter}
+          platformNote={<RelaxedPlatformsNote providerKeys={round.providerKeys} participants={participants} />}
           candidate={nextCandidate}
           completed={round.myVoteCount}
           total={round.candidateCount}
@@ -434,7 +443,11 @@ export function RoomRound({
   if (round.status === "no_match") {
     return <div className="space-y-4">{pendingArea}
       <section className="rounded-xl border border-line-10 p-4">
-        <h2 className="font-semibold">Bu turda ortak “izlemek isterim” çıkmadı</h2>
+        <h2 className="font-semibold">
+          {participants.length > 2
+            ? "Bu turda çoğunluğun isteyip kimsenin reddetmediği film çıkmadı"
+            : "Bu turda ortak “İsterim” ya da ikinizin de “Belki” dediği film çıkmadı"}
+        </h2>
         <p className="mt-1 text-sm text-ink-70">
           Yeni ve farklı 10 filmle tekrar deneyebilirsiniz. Eski oylar yeni tura taşınmaz.
         </p>
@@ -473,7 +486,8 @@ export function RoomRound({
     const selection = winnerSelection(round, pendingSelections, selectionNow);
     return (
       <div className="space-y-4">
-        <WheelStage round={round} />
+        <WheelStage round={round} participantCount={participants.length} />
+        <RelaxedPlatformsNote providerKeys={round.providerKeys} participants={participants} />
         <NextRoundGenres value={nextGenres} onChange={setNextGenres} disabled={resetting} />
         <section className="grid gap-2 sm:grid-cols-2">
           {selection && !selection.myAccepted ? (
@@ -509,7 +523,7 @@ export function RoomRound({
     );
   }
 
-  return <div className="space-y-4">{pendingArea}<WheelStage round={round} /></div>;
+  return <div className="space-y-4">{pendingArea}<WheelStage round={round} participantCount={participants.length} /></div>;
   })();
 
   if (!overlayOpen) {
@@ -537,6 +551,36 @@ export function RoomRound({
     >
       {body}
     </RoomSessionOverlay>
+  );
+}
+
+/**
+ * Kalabalık odada platformlar esnetildiyse hangi platformun kimde olmadığını
+ * söyler; herkes her platforma sahipse hiçbir şey göstermez.
+ */
+function RelaxedPlatformsNote({
+  providerKeys,
+  participants,
+}: {
+  providerKeys: RoomSubscriptions;
+  participants: RoomParticipant[];
+}) {
+  const gaps = providerKeys
+    .map((key) => ({
+      key,
+      missing: participants
+        .filter((participant) => !participant.subscriptions.includes(key))
+        .map((participant) => (participant.isMe ? "sen" : participant.displayName)),
+    }))
+    .filter((gap) => gap.missing.length > 0);
+  if (gaps.length === 0) return null;
+  return (
+    <p className="mt-2 rounded-lg border border-warning-border bg-warning-surface px-3 py-2 text-xs text-warning-text">
+      Herkeste ortak platform yetmediği için bu tur çoğunluğun platformlarından geldi.{" "}
+      {gaps
+        .map((gap) => `${subscriptionLabel(gap.key)} aboneliği olmayan: ${gap.missing.join(", ")}`)
+        .join(" · ")}
+    </p>
   );
 }
 
@@ -1079,6 +1123,7 @@ function TelepartyBridge({
 
 function VotingCard({
   genreFilter,
+  platformNote,
   candidate,
   completed,
   total,
@@ -1087,6 +1132,8 @@ function VotingCard({
 }: {
   /** Turu başlatanın seçtiği türler; boşsa gösterilmez. */
   genreFilter: string[];
+  /** Esnetilmiş platform bilgisi (varsa). */
+  platformNote: React.ReactNode;
   candidate: RoomCandidate;
   completed: number;
   total: number;
@@ -1117,6 +1164,7 @@ function VotingCard({
       {genreFilter.length > 0 ? (
         <p className="mt-1 text-xs text-ink-60">Bu tur: {genreFilter.join(" · ")}</p>
       ) : null}
+      {platformNote}
 
       <article
         className="mt-4 touch-pan-y rounded-xl border border-dashed border-black/25 p-4 select-none dark:border-white/30"
@@ -1218,7 +1266,7 @@ function MatchStage({
   );
 }
 
-function WheelStage({ round }: { round: RoomRound }) {
+function WheelStage({ round, participantCount }: { round: RoomRound; participantCount: number }) {
   const candidates = round.matchedCandidates;
   const winningIndex = Math.max(0, candidates.findIndex((candidate) => candidate.id === round.winnerCandidate?.id));
   const [now, setNow] = useState(0);
@@ -1261,7 +1309,12 @@ function WheelStage({ round }: { round: RoomRound }) {
           <h2 className="text-2xl font-bold">{result.title}</h2>
           {result.originalTitle ? <p className="mt-1 text-sm text-ink-60">{result.originalTitle}</p> : null}
           <GenreChips genres={result.genres} max={4} className="mt-2 justify-center" />
-          <p className="mt-3 text-sm text-ink-70">Bütün katılımcıların “izlemek isterim” dediği filmler arasından seçildi.</p>
+          <p className="mt-3 text-sm text-ink-70">
+            {participantCount > 2
+              ? "Çoğunluğun “İsterim” dediği, kimsenin reddetmediği filmler arasından seçildi."
+              : "İkinizin de “İsterim” dediği filmler arasından seçildi."}{" "}
+            Hiç “İsterim” eşleşmesi çıkmadıysa herkesin en az “Belki” dediği filmler kullanılır.
+          </p>
         </div>
       ) : (
         <p className="mt-4 text-sm text-ink-70">Bütün ekranlar aynı sunucu zaman damgasına göre dönüyor…</p>

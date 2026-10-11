@@ -130,6 +130,11 @@ export async function sourceAndPersistRoundCandidates(
     ranker?: CandidateRanker;
     /** Kaydetmeden önce en az kaç sayfa toplanacağı (zevk sıralaması geniş havuz ister). */
     minPages?: number;
+    /**
+     * En fazla kaç sayfa deneneceği. Platform kademelerinin ara basamakları
+     * bunu düşük tutar ki tur başlatma yavaşlamasın; son basamak tam arar.
+     */
+    maxPages?: number;
   },
 ): Promise<RoundCandidatePlan> {
   const providerKeys = [...options.providerKeys];
@@ -140,9 +145,13 @@ export async function sourceAndPersistRoundCandidates(
   const seed = options.seed ?? createSelectionSeed();
   const genreFilter = [...(options.genreFilter ?? [])];
   const ranker = options.ranker ?? SEEDED_RANDOM_RANKER;
+  const pageOrder = discoverPageOrder(seed).slice(
+    0,
+    Math.min(Math.max(options.maxPages ?? MAX_DISCOVER_PAGE_ATTEMPTS, 1), MAX_DISCOVER_PAGE_ATTEMPTS),
+  );
   const minPages = Math.min(
     Math.max(options.minPages ?? MIN_PAGES_BEFORE_PERSIST, 1),
-    MAX_DISCOVER_PAGE_ATTEMPTS,
+    pageOrder.length,
   );
   const providerIds = tmdbProviderIdsFor(providerKeys);
   const genreQuery = discoverGenreQuery(genreFilter);
@@ -151,7 +160,7 @@ export async function sourceAndPersistRoundCandidates(
     ((page: number) => discoverRoomCandidatePage(page, providerIds, genreQuery));
   const unique = new Map<number, MovieSummary>();
 
-  for (const [index, page] of discoverPageOrder(seed).entries()) {
+  for (const [index, page] of pageOrder.entries()) {
     let movies: MovieSummary[];
     try {
       movies = await fetchPage(page);
@@ -180,7 +189,7 @@ export async function sourceAndPersistRoundCandidates(
       candidates: ranked,
       selectionPolicyVersion: SELECTION_POLICY_VERSION,
       rankerVersion: ranker.version,
-      allowEligibleRepeats: index + 1 === MAX_DISCOVER_PAGE_ATTEMPTS,
+      allowEligibleRepeats: index + 1 === pageOrder.length,
       providerKeys,
       genreFilter,
     };

@@ -5,6 +5,7 @@ import {
   SUBSCRIPTION_OPTIONS,
   normalizeSubscriptionSelection,
   parseStoredSubscriptions,
+  relaxedSubscriptionTiers,
   sharedSubscriptions,
   sharedSubscriptionsForAll,
   subscriptionLabel,
@@ -75,5 +76,50 @@ describe("oda abonelikleri", () => {
     for (const option of SUBSCRIPTION_OPTIONS) {
       expect(subscriptionLabel(option.key)).toBe(option.label);
     }
+  });
+});
+
+describe("kademeli platform esnetme", () => {
+  it("iki kişilik odada yalnız ortak platformları döndürür", () => {
+    expect(
+      relaxedSubscriptionTiers([
+        ["netflix", "mubi"],
+        ["netflix", "prime_video"],
+      ]),
+    ).toEqual([["netflix"]]);
+    expect(relaxedSubscriptionTiers([["netflix"], ["mubi"]])).toEqual([]);
+  });
+
+  it("kalabalık odada herkesten çoğunluğa doğru genişler ve tekrarı atlar", () => {
+    const tiers = relaxedSubscriptionTiers([
+      ["netflix", "prime_video", "mubi"],
+      ["netflix", "prime_video"],
+      ["netflix", "prime_video"],
+      ["netflix", "disney_plus"],
+      ["prime_video", "disney_plus"],
+    ]);
+    // 5 kişi: herkes (5) → 4 → 3 (çoğunluk). MUBI (1) ve Disney+ (2) hiç girmez.
+    expect(tiers).toEqual([["netflix", "prime_video"]]);
+  });
+
+  it("herkeste ortak platform yoksa çoğunluğun platformlarına iner", () => {
+    const tiers = relaxedSubscriptionTiers([
+      ["netflix"],
+      ["netflix", "prime_video"],
+      ["prime_video", "mubi"],
+    ]);
+    // 3 kişi: herkes (3) boş → çoğunluk (2): Netflix ve Prime Video.
+    expect(tiers).toEqual([["netflix", "prime_video"]]);
+  });
+
+  it("basamakları dar kümeden geniş kümeye sıralar", () => {
+    const tiers = relaxedSubscriptionTiers([
+      ["netflix", "prime_video", "mubi"],
+      ["netflix", "prime_video", "mubi"],
+      ["netflix", "prime_video"],
+      ["netflix"],
+    ]);
+    // 4 kişi: herkes (4) Netflix → 3 kişi Netflix+Prime (çoğunluk 3).
+    expect(tiers).toEqual([["netflix"], ["netflix", "prime_video"]]);
   });
 });

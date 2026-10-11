@@ -6,6 +6,7 @@ import {
 } from "@/lib/rooms/round-service";
 import { sourceAndPersistRoundCandidates } from "@/lib/rooms/candidate-pipeline";
 import { RoomServiceError, getRoomState } from "@/lib/rooms/service";
+import { relaxedSubscriptionTiers } from "@/lib/rooms/subscriptions";
 import { loadRoomTasteRanker } from "@/lib/rooms/taste-data";
 import { isRoomUuid } from "@/lib/rooms/validation";
 import { isRoomGenre, MAX_ROOM_GENRES, type RoomGenre } from "@/lib/tmdb/genres";
@@ -14,6 +15,8 @@ type RouteContext = { params: Promise<{ spaceId: string }> };
 
 /** Zevk sıralamasında toplanan sayfa sayısı (sayfa başına ~20 film). */
 const TASTE_POOL_PAGES = 4;
+/** Platform esnetmenin ara basamaklarında denenen en fazla sayfa. */
+const RELAXATION_STEP_PAGES = 3;
 
 /** GET /api/rooms/<spaceId>/round — gizli seçim turunun güvenli özeti. */
 export async function GET(_request: Request, context: RouteContext): Promise<Response> {
@@ -72,21 +75,37 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
     if (room.selectionMode !== "wheel") {
       throw new RoomServiceError(roomError("selection_mode_mismatch"));
     }
-    if (room.sharedSubscriptions.length === 0) {
+    // Önce herkesin ortak platformları; film yetmezse "bir kişi eksik"…
+    // çoğunluğun platformlarına kadar esnetilir (iki kişilik odada esneme yok).
+    const tiers = relaxedSubscriptionTiers(
+      room.participants.map((participant) => participant.subscriptions),
+    );
+    if (tiers.length === 0) {
       throw new RoomServiceError(roomError("no_shared_subscriptions"));
     }
 
     // Katılımcıların zevk profili varsa geniş bir havuz toplanıp gruba göre
     // sıralanır; yoksa seed'li rastgele sıralama kullanılır.
     const tasteRanker = await loadRoomTasteRanker(spaceId);
-    await sourceAndPersistRoundCandidates(
-      (plan) => startNextRoomRound(spaceId, plan),
-      {
-        providerKeys: room.sharedSubscriptions,
-        genreFilter,
-        ...(tasteRanker ? { ranker: tasteRanker, minPages: TASTE_POOL_PAGES } : {}),
-      },
-    );
+    for (const [index, providerKeys] of tiers.entries()) {
+      const lastTier = index === tiers.length - 1;
+      try {
+        await sourceAndPersistRoundCandidates(
+          (plan) => startNextRoomRound(spaceId, plan),
+          {
+            providerKeys,
+            genreFilter,
+            ...(tasteRanker ? { ranker: tasteRanker, minPages: TASTE_POOL_PAGES } : {}),
+            // Ara basamaklar hızlı denenir; son basamak tam arar.
+            ...(lastTier ? {} : { maxPages: RELAXATION_STEP_PAGES }),
+          },
+        );
+        break;
+      } catch (error) {
+        const code = error instanceof RoomServiceError ? error.roomError.code : null;
+        if (lastTier || code !== "candidate_pool_incomplete") throw error;
+      }
+    }
     return Response.json(await getRoomRoundState(spaceId), { status: 201 });
   } catch (error) {
     return roomErrorResponse(error);

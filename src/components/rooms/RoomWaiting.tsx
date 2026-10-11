@@ -7,7 +7,7 @@ import { StatusMessage } from "@/components/StatusMessage";
 import { SubscriptionPicker } from "@/components/rooms/SubscriptionPicker";
 import { ApiError, fetchJson } from "@/lib/api/fetch-json";
 import { ROOM_INACTIVITY_MINUTES } from "@/lib/constants";
-import { subscriptionLabel } from "@/lib/rooms/subscriptions";
+import { relaxedSubscriptionTiers, subscriptionLabel } from "@/lib/rooms/subscriptions";
 import type { RoomState } from "@/lib/rooms/types";
 import { ensureAnonymousSession } from "@/lib/supabase/browser";
 import type { TargetProviderKey } from "@/lib/tmdb/types";
@@ -147,6 +147,8 @@ export function RoomWaiting({ spaceId }: { spaceId: string }) {
   }
 
   const { room } = state;
+  // Kalabalık odada ortak platform yoksa bile çoğunluğun platformlarıyla tur açılabilir.
+  const roundTiers = relaxedSubscriptionTiers(room.participants.map((p) => p.subscriptions));
   // Açık bir tur, ortak abonelik sonradan kaybolsa bile oynanmaya devam eder:
   // adayları zaten toplanmıştır. Kısıtlanan şey YENİ tur açmaktır.
   const inRoom = room.enoughParticipants && room.status === "active";
@@ -262,8 +264,9 @@ export function RoomWaiting({ spaceId }: { spaceId: string }) {
           roomName={room.name}
           onSessionOpenChange={setSessionOpen}
           isHost={room.myRole === "host"}
-          canStartRound={room.sharedSubscriptions.length > 0}
+          canStartRound={roundTiers.length > 0}
           sharedSubscriptions={room.sharedSubscriptions}
+          participants={room.participants}
           selectionMode={room.selectionMode}
         />
       ) : null}
@@ -437,10 +440,17 @@ function SubscriptionSummary({
       ) : null}
 
       {room.enoughParticipants && room.sharedSubscriptions.length === 0 ? (
-        <StatusMessage tone="warning" title="Ortak abonelik yok">
-          Film önerileri yalnızca bütün katılımcılarda olan platformlardan gelir.
-          Şu anda ortak bir platform yok; listelerin güncellenmesi gerekiyor.
-        </StatusMessage>
+        relaxedSubscriptionTiers(room.participants.map((p) => p.subscriptions)).length > 0 ? (
+          <StatusMessage title="Herkeste ortak platform yok">
+            Turlar, katılımcıların çoğunluğunda olan platformlardan film getirir.
+            Hangi platformun kimde olmadığı turda yazar.
+          </StatusMessage>
+        ) : (
+          <StatusMessage tone="warning" title="Ortak abonelik yok">
+            Film önerileri katılımcıların çoğunluğunda olan platformlardan gelir.
+            Şu anda böyle bir platform yok; listelerin güncellenmesi gerekiyor.
+          </StatusMessage>
+        )
       ) : null}
 
       {editing ? (

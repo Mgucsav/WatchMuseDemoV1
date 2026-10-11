@@ -14,6 +14,7 @@ import { isLocalRoomsBackend } from "./backend";
 import type { RoundCandidatePlan } from "./candidate-pipeline";
 import { normalizeRoomError, roomError } from "./errors";
 import { RoomServiceError } from "./service";
+import { parseStoredSubscriptions } from "./subscriptions";
 import { parseTelepartyJoinUrl } from "./teleparty";
 import { isRecord } from "./validation";
 import type {
@@ -152,8 +153,9 @@ export async function startNextRoomRound(
 }
 
 /**
- * Turu başlatanın seçtiği türleri ekler. Oda üyeliği `get_space_round_state`
- * ile zaten doğrulandığı için yalnız bu turun satırı service role ile okunur.
+ * Turu başlatanın seçtiği türleri ve turun platform kümesini ekler. Oda
+ * üyeliği `get_space_round_state` ile zaten doğrulandığı için yalnız bu turun
+ * satırı service role ile okunur.
  */
 async function withGenreFilter(state: RoomRoundState): Promise<RoomRoundState> {
   if (!state.round) return state;
@@ -161,13 +163,14 @@ async function withGenreFilter(state: RoomRoundState): Promise<RoomRoundState> {
     const admin = createSupabaseAdminClient();
     const { data } = await admin
       .from("space_rounds")
-      .select("genre_filter")
+      .select("genre_filter, provider_keys")
       .eq("id", state.round.id)
       .maybeSingle();
     const genreFilter = Array.isArray(data?.genre_filter)
       ? data.genre_filter.filter((genre: unknown): genre is string => typeof genre === "string")
       : [];
-    return { ...state, round: { ...state.round, genreFilter } };
+    const providerKeys = parseStoredSubscriptions(data?.provider_keys);
+    return { ...state, round: { ...state.round, genreFilter, providerKeys } };
   } catch {
     return state;
   }
@@ -375,8 +378,9 @@ export function parseRoomRoundState(value: unknown): RoomRoundState {
       winnerCandidate,
       spinStartedAt,
       spinDurationMs,
-      // Tur türleri ayrı okunur (withGenreFilter).
+      // Tur türleri ve platformları ayrı okunur (withGenreFilter).
       genreFilter: [],
+      providerKeys: [],
     },
     pendingSelections,
     telepartyStates: [],

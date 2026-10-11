@@ -142,6 +142,11 @@ export interface RoomRound {
   spinDurationMs: number;
   /** Turu başlatanın seçtiği türler ("Komedi", "Anime"…); boşsa tür kısıtı yok. */
   genreFilter: string[];
+  /**
+   * Adayların toplandığı platformlar. Kalabalık odada kesişim yetmezse
+   * çoğunluğun platformlarına esnetilmiş olabilir; boşsa bilinmiyor.
+   */
+  providerKeys: RoomSubscriptions;
 }
 
 /** Çarkın seçtiği, yedi günlük kişisel izleme-listesi penceresindeki film. */

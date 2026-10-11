@@ -96,6 +96,35 @@ export function sharedSubscriptionsForAll(
 }
 
 /**
+ * Kademeli platform kümeleri: önce herkesin ortak platformları, sonra "bir
+ * kişi eksik", "iki kişi eksik"… en geniş olarak katılımcıların yarısından
+ * fazlasının sahip olduğu platformlar. Boş ve bir öncekiyle aynı kümeler
+ * atlanır. İki kişilik odada çoğunluk iki kişidir: yalnız kesişim döner.
+ */
+export function relaxedSubscriptionTiers(
+  selections: readonly (readonly TargetProviderKey[])[],
+): TargetProviderKey[][] {
+  const participants = selections.length;
+  if (participants < 2) return [];
+
+  const owners = new Map<TargetProviderKey, number>();
+  for (const selection of selections) {
+    for (const key of new Set(selection)) owners.set(key, (owners.get(key) ?? 0) + 1);
+  }
+
+  const majority = Math.floor(participants / 2) + 1;
+  const tiers: TargetProviderKey[][] = [];
+  for (let required = participants; required >= majority; required -= 1) {
+    const tier = sortByCatalog(
+      [...owners].filter(([, count]) => count >= required).map(([key]) => key),
+    );
+    const previous = tiers.at(-1);
+    if (tier.length > 0 && (!previous || previous.length !== tier.length)) tiers.push(tier);
+  }
+  return tiers;
+}
+
+/**
  * Ortak platformların TMDb (JustWatch) sağlayıcı ID'leri.
  *
  * Reklamlı paket varyantları da aynı aboneliğe dahil sayıldığı için katalogdaki
